@@ -338,7 +338,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
       fields = formField("车辆编号","fCode",row.code || "","text",true) + formField("车牌/识别号","fPlate",row.plate || "","text",true) + formField("车型","fModel",row.model || "","text",true) + formField("所属班组","fTeam",row.team || "","text",true) + formField("状态","fStatus",row.status || "待命","text",true,["作业中","待命","维修中","停用"]);
     }
     $("modalFields").innerHTML = fields;
-    $("archiveForm").querySelector('button[type="submit"]').textContent = isPerson ? (id ? "保存人员资料" : "提交人员登记") : "保存档案";
+    $("archiveForm").querySelector('button[type="submit"]').textContent = person ? (id ? "保存人员资料" : "提交人员登记") : "保存档案";
     $("modalBackdrop").classList.add("open");
     $("modalFields").querySelector("input")?.focus();
   }
