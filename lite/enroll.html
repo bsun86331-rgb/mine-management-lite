@@ -21,7 +21,7 @@ form{display:grid;gap:12px}.section{padding:17px;border:1px solid var(--line);bo
 <header><div class="head"><span class="brand">M</span><span>矿山管理系统简版 · 入职登记</span></div></header>
 <main>
   <div class="intro"><h1>入职信息登记表</h1><p>请选择岗位并填写信息，提交后由管理员审核；审核通过后可进入对应工作端口。</p></div>
-  <div class="warning">演示数据只保存在当前浏览器，不会同步到其他手机或管理员设备。每个附件不超过 1 MB；附件累计仍受浏览器本地存储容量限制。请勿填写真实身份证、银行卡信息或上传真实证件。</div>
+  <div class="warning" id="storageWarning">演示数据只保存在当前浏览器，不会同步到其他手机或管理员设备。单个附件不超过 10 MB；附件保存在浏览器 IndexedDB，仍受浏览器配额和设备空间限制。请勿填写真实身份证、银行卡信息或上传真实证件。</div>
   <form id="enrollForm">
     <section class="section"><h2>基本资料</h2><div class="grid">
       <div class="field"><label for="name">姓名 <span class="required">*</span></label><input id="name" required maxlength="60" autocomplete="name"></div>
@@ -35,11 +35,11 @@ form{display:grid;gap:12px}.section{padding:17px;border:1px solid var(--line);bo
     <section class="section"><h2>身份凭证</h2><div class="grid">
       <div class="field"><label for="idNumber">身份证号</label><input id="idNumber" maxlength="60"></div>
       <div class="field"><label for="passport">护照号</label><input id="passport" maxlength="60"></div>
-      <div class="field"><label for="selfie">本人近期照片 <span class="required">*</span></label><input id="selfie" type="file" accept="image/*" required><span class="help">演示附件不超过 1 MB</span></div>
+      <div class="field"><label for="selfie">本人近期照片 <span class="required">*</span></label><input id="selfie" type="file" accept="image/*" required><span class="help">单个附件不超过 10 MB，保存在当前浏览器</span></div>
       <div class="field"><label for="idPhoto">身份证照片</label><input id="idPhoto" type="file" accept="image/*,.pdf"><span class="help">演示附件不超过 1 MB</span></div>
       <div class="field"><label for="passportPhoto">护照照片</label><input id="passportPhoto" type="file" accept="image/*,.pdf"><span class="help">演示附件不超过 1 MB</span></div>
     </div></section>
-    <section class="section"><h2>驾驶证 / 操作证</h2><div class="field"><label for="license">驾驶证 / 操作证照片</label><input id="license" type="file" accept="image/*,.pdf"><span class="help">如岗位需要请提供；演示附件不超过 1 MB</span></div></section>
+    <section class="section"><h2>驾驶证 / 操作证</h2><div class="field"><label for="license">驾驶证 / 操作证照片</label><input id="license" type="file" accept="image/*,.pdf"><span class="help">如岗位需要请提供；单个附件不超过 10 MB，保存在当前浏览器</span></div></section>
     <section class="section"><h2>银行信息</h2><div class="grid">
       <div class="field"><label for="bankNumber">银行卡号</label><input id="bankNumber" inputmode="numeric" maxlength="60"></div>
       <div class="field"><label for="bankName">开户银行</label><input id="bankName" maxlength="80"></div>
@@ -57,8 +57,9 @@ form{display:grid;gap:12px}.section{padding:17px;border:1px solid var(--line);bo
     <p id="resultText"></p><div class="actions"><a class="btn btn-secondary" href="index.html">返回首页</a><a id="workLink" class="btn" href="index.html">查看审核状态</a></div>
   </section>
 </main>
+<script src="attachment-storage.js"></script>
 <script>
-(() => {
+(async () => {
   const KEY="mine-management-lite-records-v1", CURRENT="mine-management-lite-current-application";
   const roles={driver:["司机端","driver"],excavator:["挖机端","excavator"],assistant:["辅助司机端","assistant"],dispatch:["调度端","dispatch"],manager:["管理端","manager"],middle:["中层管理端","middle"]};
   const ethnicities=["汉族","蒙古族","回族","藏族","维吾尔族","苗族","彝族","壮族","布依族","朝鲜族","满族","侗族","瑶族","白族","土家族","哈尼族","哈萨克族","傣族","黎族","傈僳族","佤族","畲族","高山族","拉祜族","水族","东乡族","纳西族","景颇族","柯尔克孜族","土族","达斡尔族","仫佬族","羌族","布朗族","撒拉族","毛南族","仡佬族","锡伯族","阿昌族","普米族","塔吉克族","怒族","乌孜别克族","俄罗斯族","鄂温克族","德昂族","保安族","裕固族","京族","塔塔尔族","独龙族","鄂伦春族","赫哲族","门巴族","珞巴族","基诺族","其他"];
@@ -70,6 +71,7 @@ form{display:grid;gap:12px}.section{padding:17px;border:1px solid var(--line);bo
   $("joinDate").value=new Date().toISOString().slice(0,10);
   $("backHome").addEventListener("click",()=>location.href="index.html");
   const readDB=()=>{try{const db=JSON.parse(localStorage.getItem(KEY)||"{}");return {people:Array.isArray(db.people)?db.people:[],vehicles:Array.isArray(db.vehicles)?db.vehicles:[],supplies:Array.isArray(db.supplies)?db.supplies:[]}}catch{return {people:[],vehicles:[],supplies:[]}}};
+  try { await MineAttachmentStore.migrateRecords(KEY); } catch { $("storageWarning").textContent += " 已有附件迁移未完成，原登记数据仍保留；请确认浏览器存储空间后重试。"; }
   const workUrl=role=>role==="manager"?"manager-work.html":"portal.html?role="+encodeURIComponent(role);
   const getPerson=id=>readDB().people.find(p=>p.id===id);
   const setResult=(person)=>{
@@ -94,15 +96,16 @@ form{display:grid;gap:12px}.section{padding:17px;border:1px solid var(--line);bo
   $("result").addEventListener("click",event=>{if(event.target.id==="workLink"&&event.target.getAttribute("href")==="#")event.preventDefault()});
   let autoRedirected=false;setInterval(()=>{if(!currentId)return;const p=getPerson(currentId);if(p&&p.status!=="待审核"&&p.status!=="未通过"){setResult(p);if(!autoRedirected){autoRedirected=true;setTimeout(()=>location.replace(workUrl(p.applicationRole)),1200)}}},2500);
   function nextId(people){let max=0;people.forEach(p=>{const m=String(p.id||"").match(/^P(\d+)$/);if(m)max=Math.max(max,Number(m[1]))});return "P"+String(max+1).padStart(3,"0")}
-  function fileData(input){const file=$(input).files?.[0];if(!file)return Promise.resolve(null);if(file.size>1024*1024)return Promise.reject(new Error("附件“"+file.name+"”超过 1 MB，请压缩后再提交"));return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve({name:file.name,type:file.type,data:reader.result});reader.onerror=()=>reject(new Error("读取附件失败"));reader.readAsDataURL(file)})}
+  async function fileData(input,savedIds){const file=$(input).files?.[0];if(!file)return null;const attachment=await MineAttachmentStore.save(file);if(attachment?.id)savedIds.push(attachment.id);return attachment}
   $("enrollForm").addEventListener("submit",async event=>{
     event.preventDefault();const role=roleSelect.value;if(!roles[role]){roleSelect.focus();return}
     const button=$("enrollForm").querySelector('button[type="submit"]');button.disabled=true;button.textContent="正在保存…";
+    const savedAttachmentIds=[];let recordSaved=false;
     try{
-      const db=readDB(),id=nextId(db.people),attachments={selfie:await fileData("selfie"),idPhoto:await fileData("idPhoto"),passportPhoto:await fileData("passportPhoto"),license:await fileData("license"),bankCard:await fileData("bankCard")};
+      const db=readDB(),id=nextId(db.people),attachments={selfie:await fileData("selfie",savedAttachmentIds),idPhoto:await fileData("idPhoto",savedAttachmentIds),passportPhoto:await fileData("passportPhoto",savedAttachmentIds),license:await fileData("license",savedAttachmentIds),bankCard:await fileData("bankCard",savedAttachmentIds)};
       const person={id,name:$("name").value.trim(),phone:$("phone").value.trim(),role:roles[role][0],applicationRole:role,team:$("team").value.trim(),joinDate:$("joinDate").value,nationality:$("nationality").value.trim(),ethnicity:$("ethnicity").value,idNumber:$("idNumber").value.trim(),passport:$("passport").value.trim(),bankNumber:$("bankNumber").value.trim(),bankName:$("bankName").value.trim(),emergencyName:$("emergencyName").value.trim(),emergencyPhone:$("emergencyPhone").value.trim(),note:$("note").value.trim(),attachments,status:"待审核"};
-      db.people.unshift(person);localStorage.setItem(KEY,JSON.stringify(db));localStorage.setItem(CURRENT,id);currentId=id;setResult(person);
-    }catch(error){alert(error.message||"保存失败，请稍后重试")}
+      db.people.unshift(person);localStorage.setItem(KEY,JSON.stringify(db));recordSaved=true;localStorage.setItem(CURRENT,id);currentId=id;setResult(person);
+    }catch(error){if(!recordSaved)await Promise.allSettled(savedAttachmentIds.map(id=>MineAttachmentStore.remove(id)));alert(error.message||"保存失败，请稍后重试。浏览器存储空间可能不足。")}
     finally{button.disabled=false;button.textContent="提交管理员审核"}
   });
 })();
