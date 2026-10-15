@@ -3,43 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#173d31">
-<title>管理端工作台 · 矿山简版</title>
-<style>
-*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:20px;background:#f3f6f2;color:#17251e;font:15px/1.55 Inter,"PingFang SC","Microsoft YaHei",sans-serif}
-.card{width:min(620px,100%);padding:30px;border:1px solid #e2e9e3;border-radius:22px;background:#fff;box-shadow:0 18px 50px #173d3112}.brand{display:flex;align-items:center;gap:10px;color:#176b4a;font-weight:800}.mark{display:grid;place-items:center;width:37px;height:37px;border-radius:11px;background:#173d31;color:#d8f178}.tag{display:inline-block;margin-top:25px;padding:6px 10px;border-radius:99px;background:#e7f5eb;color:#176b4a;font-size:11px;font-weight:800}.card h1{margin:10px 0 5px;font-size:28px;letter-spacing:-.04em}.card p{color:#738078;font-size:13px}.note{margin:22px 0;padding:14px;border-radius:12px;background:#f5f8f4;color:#526057;font-size:12px}.actions{display:flex;gap:9px}.btn{display:inline-flex;align-items:center;justify-content:center;min-height:43px;padding:10px 15px;border:1px solid #e2e9e3;border-radius:11px;background:#fff;color:#17251e;text-decoration:none;font-weight:750}.primary{border-color:#176b4a;background:#176b4a;color:#fff}
-</style>
+<meta http-equiv="refresh" content="0; url=index.html">
+<title>返回首页 · 矿山管理系统</title>
+<script>location.replace("index.html");</script>
 </head>
 <body>
-<main class="card">
-  <div class="brand"><span class="mark">M</span><span>矿山简版 · 管理端员工</span></div>
-  <span class="tag">入职审批已通过</span>
-  <h1>管理端工作台</h1>
-  <p id="welcome">欢迎进入管理端工作端口。</p>
-  <div class="note">这是管理端员工的工作页面，与管理员审核后台分开。人员审核和系统管理仅能通过独立的管理员密码入口访问；此工作端口的业务功能将按步骤建设。</div>
-  <div class="actions"><a class="btn primary" href="index.html">返回首页</a></div>
-</main>
-<script>
-(() => {
-  function checkWorkAccess(){
-    const current=localStorage.getItem("mine-management-lite-current-application");
-    let db={people:[]};
-    try{const saved=JSON.parse(localStorage.getItem("mine-management-lite-records-v1")||"{}");db.people=Array.isArray(saved.people)?saved.people:[]}catch{}
-    const person=db.people.find(row=>row.id===current);
-    if(!person||person.applicationRole!=="manager"||!["在岗","已通过"].includes(person.status)){
-      document.querySelector(".card").hidden=true;
-      location.replace("enroll.html?role=manager");
-    }else{
-      document.querySelector(".card").hidden=false;
-      document.getElementById("welcome").textContent="欢迎，"+person.name+"。你的管理端工作端口已开放。";
-    }
-  }
-  checkWorkAccess();
-  window.addEventListener("storage",checkWorkAccess);
-  window.addEventListener("focus",checkWorkAccess);
-  window.addEventListener("pageshow",checkWorkAccess);
-  setInterval(checkWorkAccess,2500);
-})();
-</script>
+<p>管理端员工入口已取消，正在返回首页。</p>
+<p><a href="index.html">返回首页</a>，管理员请使用首页的“管理员审核入口”。</p>
 </body>
 </html>
