@@ -120,6 +120,7 @@
     try{link.click();}finally{link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);}
     return filename;
   }
+  window.MineTableExport={download:(columns,records,title)=>{if(!records.length)throw new Error("暂无记录可导出");return downloadFile(createWorkbook([[title.slice(0,31),worksheet(columns,records,title)]]),title);}};
   window.MinePersonnelExport={buildWorkbook,download};
   window.MineVehicleExport={buildWorkbook:buildVehicleWorkbook,download:downloadVehicles};
 })();
