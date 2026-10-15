@@ -397,10 +397,9 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     $("reviewFiles").innerHTML = '<div class="empty">正在读取附件…</div>';
     $("reviewBackdrop").classList.add("open");
     $("reviewCheck").checked = person.reviewed === true;
-    $("reviewMark").disabled = true;
+    $("reviewCheck").disabled = true;
     $("reviewApprove").disabled = person.reviewed !== true;
     $("reviewProgress").textContent = person.reviewed === true ? "资料已核对；可以审核通过。如编辑资料，需重新核对。" : "";
-    $("reviewCheck").onchange = () => { $("reviewMark").disabled = !$("reviewCheck").checked || $("reviewCheck").disabled; };
     const labels = [["selfie","本人近期照片"],["idPhoto","身份证照片"],["passportPhoto","护照照片"],["license","驾驶证 / 操作证"],["bankCard","银行卡照片"]];
     const files = [];
     for (const [key,label] of labels) files.push(await reviewAttachment(label,person.attachments?.[key]));
@@ -408,22 +407,20 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     $("reviewCheck").disabled = person.reviewed === true || !attachmentsReadable;
     if (!attachmentsReadable && person.reviewed !== true) $("reviewProgress").textContent = "必填照片缺失或有附件无法读取；请确认资料后再处理，当前不能通过。";
     if (reviewPersonId === id) $("reviewFiles").innerHTML = files.map(file => file.html).join("");
-    $("reviewCheck").onchange();
+    $("reviewCheck").onchange = () => {
+      const current = db.people.find(item => item.id === reviewPersonId);
+      if (!$("reviewCheck").checked || !current || current.status !== "待审核" || !attachmentsReadable) return;
+      current.reviewed = true;
+      render();
+      $("reviewCheck").disabled = true;
+      $("reviewApprove").disabled = false;
+      $("reviewProgress").textContent = "资料已核对，现在可以审核通过。编辑资料后需要重新核对。";
+      $("reviewSubtitle").textContent = "资料已核对，可在下方审核通过或驳回。";
+      toast("资料已标记为核对完成");
+    };
   }
   $("reviewClose").addEventListener("click",closeReview);
   $("reviewBackdrop").addEventListener("click",event => { if (event.target === $("reviewBackdrop")) closeReview(); });
-  $("reviewMark").addEventListener("click",() => {
-    const person = db.people.find(item => item.id === reviewPersonId);
-    if (!person || person.status !== "待审核" || !$("reviewCheck").checked) return;
-    person.reviewed = true;
-    render();
-    $("reviewCheck").disabled = true;
-    $("reviewMark").disabled = true;
-    $("reviewApprove").disabled = false;
-    $("reviewProgress").textContent = "资料已核对，现在可以审核通过。编辑资料后需要重新核对。";
-    $("reviewSubtitle").textContent = "资料已核对，可在下方审核通过或驳回。";
-    toast("资料已标记为核对完成");
-  });
   $("reviewApprove").addEventListener("click",() => {
     const person = db.people.find(item => item.id === reviewPersonId);
     if (!person || person.status !== "待审核" || person.reviewed !== true) { toast("请先确认已核对资料"); return; }
