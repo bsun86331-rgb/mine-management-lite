@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const roles = {driver:"司机端",excavator:"挖机端",assistant:"辅助司机端",dispatch:"调度端",manager:"管理端",middle:"中层管理端",boss:"Boss端"};
+  const roles = {driver:"司机端",excavator:"挖机端",assistant:"辅助司机端",assistant_loader:"辅助司机端",assistant_fuel:"辅助司机端",assistant_water:"辅助司机端",assistant_grader:"辅助司机端",assistant_dump:"辅助司机端",dispatch:"调度端",manager:"管理端",middle:"中层管理端",boss:"Boss端"};
   const actions = {deactivate:"停用",restore:"恢复启用",depart:"办理离职",rehire:"发起返聘审核"};
   const encode = text => new TextEncoder().encode(text);
   const xml = value => String(value ?? "").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g,"").replace(/[&<>"']/g,char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&apos;"}[char]));
