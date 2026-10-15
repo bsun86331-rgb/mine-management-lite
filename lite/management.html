@@ -411,7 +411,6 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     $("reviewCheck").onchange();
   }
   $("reviewClose").addEventListener("click",closeReview);
-  $("reviewCancel").addEventListener("click",closeReview);
   $("reviewBackdrop").addEventListener("click",event => { if (event.target === $("reviewBackdrop")) closeReview(); });
   $("reviewMark").addEventListener("click",() => {
     const person = db.people.find(item => item.id === reviewPersonId);
@@ -437,6 +436,58 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     person.status = "未通过";
     render(); closeReview(); toast("已驳回登记");
   });
+  const printFields = person => [
+    ["申请编号",person.id],["姓名",person.name],["手机号码",person.phone],
+    ["申请端口 / 岗位",person.role],["所属班组",person.team],["入职日期",person.joinDate],
+    ["国籍",person.nationality],["民族",person.ethnicity],["身份证号",person.idNumber],
+    ["护照号",person.passport],["银行卡号",person.bankNumber],["开户银行",person.bankName],
+    ["紧急联系人",person.emergencyName],["紧急联系人电话",person.emergencyPhone],
+    ["当前审核状态",person.status],["备注",person.note]
+  ];
+  const attachmentLabels = [["selfie","本人近期照片"],["idPhoto","身份证照片"],["passportPhoto","护照照片"],["license","驾驶证 / 操作证"],["bankCard","银行卡照片"]];
+  let printObjectUrls = [];
+  function finishPrint() {
+    document.body.classList.remove("printing");
+    printObjectUrls.forEach(url => URL.revokeObjectURL(url));
+    printObjectUrls = [];
+    $("printout").innerHTML = "";
+  }
+  async function printReview(mode) {
+    const person = db.people.find(item => item.id === reviewPersonId);
+    if (!person) return;
+    const timestamp = new Date().toLocaleString("zh-CN");
+    if (mode === "data") {
+      const fields = printFields(person).map(([label,value]) => reviewField(label,value)).join("");
+      const attachments = attachmentLabels.map(([key,label]) => {
+        const file = person.attachments?.[key];
+        return reviewField(label,file?.name || (file ? "已提交" : "未提交"));
+      }).join("");
+      $("printout").innerHTML = '<h1>人员资料 · ' + esc(person.name || person.id) + '</h1><div class="print-meta">打印时间：' + esc(timestamp) + '</div><div class="review-grid">' + fields + attachments + '</div>';
+    } else {
+      const photos = [];
+      for (const [key,label] of attachmentLabels) {
+        const attachment = person.attachments?.[key];
+        if (!attachment) continue;
+        let blob = null;
+        try {
+          if (attachment.id) blob = (await MineAttachmentStore.get(attachment.id))?.blob || null;
+          else if (attachment.data) blob = await (await fetch(attachment.data)).blob();
+        } catch {}
+        if (!blob || !String(attachment.type || blob.type).startsWith("image/")) continue;
+        const url = URL.createObjectURL(blob);
+        printObjectUrls.push(url);
+        photos.push('<section class="print-photo"><h2>' + esc(label) + '</h2><div>' + esc(attachment.name || "图片附件") + '</div><img src="' + url + '" alt="' + esc(label) + '"></section>');
+      }
+      if (!photos.length) { toast("没有可打印的图片附件"); return; }
+      $("printout").innerHTML = '<h1>人员照片 · ' + esc(person.name || person.id) + '</h1><div class="print-meta">打印时间：' + esc(timestamp) + '</div>' + photos.join("");
+    }
+    document.body.classList.add("printing");
+    let fallback;
+    const cleanup = () => { clearTimeout(fallback); window.removeEventListener("afterprint",cleanup); finishPrint(); };
+    window.addEventListener("afterprint",cleanup);
+    fallback = setTimeout(cleanup,180000);
+    window.print();
+  }
   $("printReviewData").addEventListener("click",() => printReview("data"));
   $("printReviewPhotos").addEventListener("click",() => printReview("photos"));
   $("addPerson").addEventListener("click", () => openArchive("person"));
