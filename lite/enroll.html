@@ -108,11 +108,19 @@ form{display:grid;gap:12px}.section{padding:17px;border:1px solid var(--line);bo
   if(existing&&existing.applicationRole===selectedRole&&existing.status==="未通过"){ $("enrollForm").hidden=false;$("result").classList.remove("show"); $("role").value=selectedRole; }
   $("result").addEventListener("click",event=>{if(event.target.id==="workLink"&&event.target.getAttribute("href")==="#")event.preventDefault()});
   let redirectTimer=null;
+  let observedApplication=existing ? String(existing.id)+":"+existing.status : "";
   function refreshApplicationStatus(){
     if(!currentId)return;
     const person=getPerson(currentId);
     if(!person || (roleSelect.value && person.applicationRole!==roleSelect.value))return;
-    setResult(person);
+    const snapshot=String(person.id)+":"+person.status;
+    if(snapshot!==observedApplication){
+      observedApplication=snapshot;
+      setResult(person);
+      if(person.status==="未通过"){
+        $("enrollForm").hidden=false;$("result").classList.remove("show");
+      }
+    }
     if(["在岗","已通过"].includes(person.status)){
       if(redirectTimer===null)redirectTimer=setTimeout(()=>{
         redirectTimer=null;
