@@ -14,10 +14,10 @@
   <div class="brand">矿山管理系统简版 · BOSS</div>
   <section class="gate" id="bossGate">
     <h1 id="gateTitle">Boss 端密码入口</h1>
-    <p class="lead" id="gateDesc">首次由 Boss 本人在当前浏览器设置演示密码，之后使用该密码进入。</p>
+    <p class="lead" id="gateDesc">首次由 Boss 本人在当前浏览器设置密码，之后使用该密码进入。</p>
     <div class="warning">Boss 密码独立于管理员后台密码。此密码只保存在当前浏览器，不是正式账号认证；请勿用于保护真实业务数据。</div>
     <form id="bossAuthForm">
-      <div class="field"><label for="bossPassword">Boss 演示密码</label><input id="bossPassword" type="password" minlength="6" autocomplete="new-password" required></div>
+      <div class="field"><label for="bossPassword">Boss 密码</label><input id="bossPassword" type="password" minlength="6" autocomplete="new-password" required></div>
       <div class="field" id="confirmWrap"><label for="confirmPassword">再次输入密码</label><input id="confirmPassword" type="password" minlength="6" autocomplete="new-password"></div>
       <div class="error" id="gateError" role="alert" aria-live="polite"></div>
       <button class="btn" id="gateSubmit" type="submit">设置密码并进入</button>
@@ -25,7 +25,7 @@
   </section>
   <section class="work" id="bossWork" hidden>
     <h1>Boss 工作台</h1>
-    <p class="lead">Boss 身份已通过本地演示密码验证。</p>
+    <p class="lead">Boss 入口密码验证已通过。</p>
     <div class="work-panel"><h2>经营管理功能待建设</h2><p>后续将在此逐步建设经营概况和关键指标。</p></div>
     <button class="btn" id="lockButton" type="button">退出 Boss 端</button>
   </section>
@@ -47,7 +47,7 @@
   function setMode(){
     const setup=!authRecord();
     $("gateTitle").textContent=setup?"首次使用 · 设置 Boss 密码":"Boss 端登录";
-    $("gateDesc").textContent=setup?"请由 Boss 本人在当前浏览器设置演示密码。":"输入当前浏览器设置的 Boss 演示密码进入工作台。";
+    $("gateDesc").textContent=setup?"请由 Boss 本人在当前浏览器设置密码。":"输入当前浏览器设置的 Boss 密码进入工作台。";
     $("confirmWrap").hidden=!setup;
     $("confirmPassword").required=setup;
     $("confirmPassword").autocomplete=setup?"new-password":"off";
