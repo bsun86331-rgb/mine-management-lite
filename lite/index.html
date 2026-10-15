@@ -14,6 +14,12 @@
 .top-tag{padding:7px 11px;border:1px solid #dce7de;border-radius:999px;background:#fff;color:#53675a;font-size:11px;font-weight:750}
 .hero{position:relative;overflow:hidden;padding:clamp(28px,6vw,60px);border-radius:25px;background:var(--deep);color:#fff}
 .hero:after{content:"";position:absolute;right:-80px;top:-170px;width:390px;height:390px;border:1px solid #ffffff16;border-radius:50%;box-shadow:0 0 0 35px #ffffff08,0 0 0 75px #ffffff05}
+.hero{display:grid;grid-template-columns:minmax(0,1fr) 190px;align-items:center;gap:28px}
+.hero-copy,.qr-card{position:relative;z-index:1}
+.qr-card{padding:13px;border-radius:16px;background:#fff;color:var(--ink);text-align:center;box-shadow:0 10px 30px #0002}
+.qr-card img{display:block;width:150px;height:150px;margin:0 auto 8px;image-rendering:pixelated}
+.qr-card strong{display:block;font-size:12px}
+.qr-card span{display:block;margin-top:2px;color:var(--muted);font-size:10px}
 .kicker{color:#c0d295;font-size:11px;font-weight:850;letter-spacing:.14em}
 .hero h1{position:relative;z-index:1;margin:12px 0 10px;font-size:clamp(30px,5vw,48px);line-height:1.12;letter-spacing:-.055em}
 .hero p{position:relative;z-index:1;max-width:590px;margin:0;color:#c7d4cc;font-size:14px}
@@ -36,7 +42,7 @@
 .arrow{font-size:17px;color:var(--green)}
 .footer{display:flex;justify-content:space-between;gap:15px;margin-top:19px;color:#8a958d;font-size:11px}
 @media(max-width:800px){.cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:560px){.wrap{padding:0 14px 30px}.top{padding:13px 0}.brand{font-size:14px}.brand-icon{width:34px;height:34px}.top-tag{font-size:10px}.hero{padding:27px 20px;border-radius:19px}.hero p{font-size:13px}.section-head{align-items:start;flex-direction:column;margin-top:25px}.cards{grid-template-columns:1fr;gap:10px}.portal{min-height:165px;padding:16px}.portal h3{margin-top:13px}.portal-bottom{padding-top:13px}.footer{flex-direction:column}}
+@media(max-width:560px){.wrap{padding:0 14px 30px}.top{padding:13px 0}.brand{font-size:14px}.brand-icon{width:34px;height:34px}.top-tag{font-size:10px}.hero{grid-template-columns:1fr;padding:27px 20px;border-radius:19px}.qr-card{display:grid;grid-template-columns:94px 1fr;align-items:center;gap:12px;text-align:left}.qr-card img{grid-row:span 2;width:94px;height:94px;margin:0}.hero p{font-size:13px}.section-head{align-items:start;flex-direction:column;margin-top:25px}.cards{grid-template-columns:1fr;gap:10px}.portal{min-height:165px;padding:16px}.portal h3{margin-top:13px}.portal-bottom{padding-top:13px}.footer{flex-direction:column}}
 </style>
 </head>
 <body>
@@ -46,10 +52,16 @@
     <span class="top-tag">工作端口</span>
   </header>
   <section class="hero">
-    <div class="kicker">MINE OPERATIONS · LITE</div>
-    <h1>选择你的工作端口</h1>
-    <p>按岗位进入对应工作台。各端口分步建设，当前先开放管理端的车数统计、人员档案、车辆档案和物资领用。</p>
-    <div class="hero-meta"><span>7 个工作端口</span><span>管理端当前开放</span><span>其余端口逐步建设</span></div>
+    <div class="hero-copy">
+      <div class="kicker">MINE OPERATIONS · LITE</div>
+      <h1>选择你的工作端口</h1>
+      <p>按岗位进入对应工作台。新入职人员先选择岗位并填写登记表，管理员通过后即可进入对应端口。</p>
+      <div class="hero-meta"><span>7 个工作端口</span><span>先登记 · 待审核</span><span>通过后进入工作台</span></div>
+    </div>
+    <aside class="qr-card">
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&amp;data=https%3A%2F%2Fbsun86331-rgb.github.io%2Fmine-management-lite%2Flite%2Findex.html" alt="扫码打开矿山管理系统简版首页">
+      <div><strong>扫码进入系统</strong><span>手机扫码后选择工作端口</span></div>
+    </aside>
   </section>
 
   <section aria-labelledby="portalHeading">
@@ -57,31 +69,31 @@
       <div><h2 id="portalHeading">工作端口</h2><p>选择对应岗位进入</p></div>
     </div>
     <div class="cards">
-      <a class="portal" href="portal.html?role=driver">
+      <a class="portal" href="enroll.html?role=driver">
         <div class="portal-top"><span class="portal-icon">🚚</span><span class="status">入口已建立</span></div>
         <h3>司机端</h3><p>司机岗位工作入口</p><div class="portal-bottom"><span>进入司机端</span><span class="arrow">↗</span></div>
       </a>
-      <a class="portal" href="portal.html?role=excavator">
+      <a class="portal" href="enroll.html?role=excavator">
         <div class="portal-top"><span class="portal-icon">🚜</span><span class="status">入口已建立</span></div>
         <h3>挖机端</h3><p>挖机操作岗位工作入口</p><div class="portal-bottom"><span>进入挖机端</span><span class="arrow">↗</span></div>
       </a>
-      <a class="portal" href="portal.html?role=assistant">
+      <a class="portal" href="enroll.html?role=assistant">
         <div class="portal-top"><span class="portal-icon">♙</span><span class="status">入口已建立</span></div>
         <h3>辅助司机端</h3><p>辅助司机岗位工作入口</p><div class="portal-bottom"><span>进入辅助司机端</span><span class="arrow">↗</span></div>
       </a>
-      <a class="portal" href="portal.html?role=dispatch">
+      <a class="portal" href="enroll.html?role=dispatch">
         <div class="portal-top"><span class="portal-icon">⌖</span><span class="status">入口已建立</span></div>
         <h3>调度端</h3><p>调度岗位工作入口</p><div class="portal-bottom"><span>进入调度端</span><span class="arrow">↗</span></div>
       </a>
-      <a class="portal" href="management.html">
+      <a class="portal" href="enroll.html?role=manager">
         <div class="portal-top"><span class="portal-icon">▥</span><span class="status ready">当前开放</span></div>
         <h3>管理端</h3><p>车数统计、人员档案、车辆档案、物资领用</p><div class="portal-bottom"><span>进入管理端</span><span class="arrow">↗</span></div>
       </a>
-      <a class="portal" href="portal.html?role=boss">
+      <a class="portal" href="enroll.html?role=boss">
         <div class="portal-top"><span class="portal-icon">▰</span><span class="status">入口已建立</span></div>
         <h3>Boss 端</h3><p>经营管理岗位工作入口</p><div class="portal-bottom"><span>进入 Boss 端</span><span class="arrow">↗</span></div>
       </a>
-      <a class="portal" href="portal.html?role=middle">
+      <a class="portal" href="enroll.html?role=middle">
         <div class="portal-top"><span class="portal-icon">⚙</span><span class="status">入口已建立</span></div>
         <h3>中层管理端</h3><p>现场中层管理岗位工作入口</p><div class="portal-bottom"><span>进入中层管理端</span><span class="arrow">↗</span></div>
       </a>
