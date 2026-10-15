@@ -37,7 +37,7 @@
   const finance=a=>{if(!active(a.person)||a.person.applicationRole!=="middle_finance")fail("仅在岗财务可复核");};
   const admin=a=>{if(!a.admin)fail("仅管理员可办理离职");};
   const owner=(a,pid)=>{if(a.person?.id!==pid)fail("只能操作本人记录");};
-  function normalizeLines(d,lines,exclude){if(!Array.isArray(lines)||!lines.length||lines.length>30)fail("请选择1至30项物资");const seen=new Set();return lines.map(l=>{const item=d.items.find(i=>i.id===l.itemId);if(!item||!item.enabled)fail("物资不存在或已停用");if(seen.has(item.id))fail("同一种物资请合并数量");seen.add(item.id);const qty=fixed(l.qty);if(available(d,item.id,exclude)<qty)fail(item.name+"库存不足，可用 "+num(available(d,item.id,exclude))+" "+item.unit);return {itemId:item.id,name:item.name,spec:item.spec,unit:item.unit,recoverable:item.recoverable,unitPrice:item.unitPrice,currency:item.currency,qty};});}
+  function normalizeLines(d,lines,exclude){if(!Array.isArray(lines)||!lines.length||lines.length>30)fail("请选择1至30项物资");const seen=new Set();return lines.map(l=>{const item=d.items.find(i=>i.id===l.itemId);if(!item)fail("物资不存在");if(seen.has(item.id))fail("同一种物资请合并数量");seen.add(item.id);const qty=fixed(l.qty);if(available(d,item.id,exclude)<qty)fail(item.name+"库存不足，可用 "+num(available(d,item.id,exclude))+" "+item.unit);return {itemId:item.id,name:item.name,spec:item.spec,unit:item.unit,recoverable:item.recoverable,unitPrice:item.unitPrice,currency:item.currency,qty};});}
   function pendingQty(d,loanId){return d.returns.filter(r=>r.loanId===loanId&&r.status==="pending").reduce((s,r)=>s+r.qty,0)+d.claims.filter(c=>c.loanId===loanId&&c.status==="employee_confirmed").reduce((s,c)=>s+c.qty,0);}
   function dispatch(d,m,a,type,x){
     if(a.person?.status==="离职"&&type!=="read")fail("正式离职后仅可查看历史");
@@ -52,7 +52,7 @@
       if(item&&d.requests.some(r=>["submitted","ready","recall"].includes(r.status)&&r.lines.some(l=>l.itemId===item.id))&&(item.name!==name||item.spec!==spec||item.unit!==unit||item.unitPrice!==unitPrice||item.currency!==currency))fail("物资存在预留申请，请处理完毕后再修改档案");
       if(item&&item.unit!==unit&&(item.stock||d.loans.some(l=>l.itemId===item.id)))fail("已有库存/台账不能改变单位，请另建物资");
       if(!item){item={id:id(),stock:0,damaged:0,createdAt:now()};d.items.push(item);}
-      Object.assign(item,{name,spec,unit,recoverable,unitPrice,currency,enabled:x.enabled!==false});log(d,a,"物资档案",name+" · "+spec);return item.id;
+      Object.assign(item,{name,spec,unit,recoverable,unitPrice,currency});log(d,a,"物资档案",name+" · "+spec);return item.id;
     }
     if(type==="stock"){
       keeper(a);const item=find("items",x.itemId),qty=fixed(x.qty),reason=note();if(!["in","subtract"].includes(x.mode))fail("未知库存操作");const delta=x.mode==="in"?qty:-qty;if(item.stock+delta<reserved(d,item.id))fail("调整后库存不能低于已预留数量");item.stock+=delta;log(d,a,delta>0?"入库":"盘点减少",item.name+"："+num(delta)+item.unit+"；"+reason,{itemId:item.id,delta});return;
