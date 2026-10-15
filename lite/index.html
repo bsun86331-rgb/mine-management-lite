@@ -40,7 +40,8 @@
 .portal p{margin:0;color:var(--muted);font-size:12px}
 .portal-bottom{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:auto;padding-top:19px;color:#53675a;font-size:11px;font-weight:800}
 .arrow{font-size:17px;color:var(--green)}
-.footer{display:flex;justify-content:space-between;gap:15px;margin-top:19px;color:#8a958d;font-size:11px}
+.footer{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:15px;margin-top:19px;color:#8a958d;font-size:11px}
+.footer .admin-entry{display:inline-flex;align-items:center;min-height:36px;color:var(--green);font-size:16px;font-weight:700;text-underline-offset:3px}
 @media(max-width:800px){.cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.wrap{padding:0 14px 30px}.top{padding:13px 0}.brand{font-size:14px}.brand-icon{width:34px;height:34px}.top-tag{font-size:10px}.hero{grid-template-columns:1fr;padding:27px 20px;border-radius:19px}.qr-card{display:grid;grid-template-columns:94px 1fr;align-items:center;gap:12px;text-align:left}.qr-card img{grid-row:span 2;width:94px;height:94px;margin:0}.hero p{font-size:13px}.section-head{align-items:start;flex-direction:column;margin-top:25px}.cards{grid-template-columns:1fr;gap:10px}.portal{min-height:165px;padding:16px}.portal h3{margin-top:13px}.portal-bottom{padding-top:13px}.footer{flex-direction:column}}
 </style>
@@ -99,7 +100,7 @@
       </a>
     </div>
   </section>
-  <footer class="footer"><span>矿山管理系统简版</span><a href="management.html" style="color:inherit">管理员审核入口（本地演示）</a></footer>
+  <footer class="footer"><span>矿山管理系统简版</span><a class="admin-entry" href="management.html">管理员审核入口</a></footer>
 </div>
 </body>
 </html>
