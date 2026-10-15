@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#173d31">
+<title>端口建设中 · 矿山简版</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:20px;background:#f3f6f2;color:#17251e;font:15px/1.55 Inter,"PingFang SC","Microsoft YaHei",sans-serif}.card{width:min(520px,100%);padding:34px;border:1px solid #e2e9e3;border-radius:22px;background:#fff;box-shadow:0 18px 50px #173d3112}.brand{color:#176b4a;font-size:12px;font-weight:800;letter-spacing:.1em}.icon{display:grid;place-items:center;width:58px;height:58px;margin-top:25px;border-radius:17px;background:#edf5ef;color:#176b4a;font-size:28px}.tag{display:inline-block;margin-top:24px;padding:6px 10px;border-radius:99px;background:#f4f6ee;color:#64723e;font-size:11px;font-weight:800}.card h1{margin:10px 0 5px;font-size:28px;letter-spacing:-.04em}.card p{color:#738078;font-size:13px}.note{margin:22px 0;padding:14px;border-radius:12px;background:#f5f8f4;color:#526057;font-size:12px}.actions{display:flex;gap:9px}.btn{display:inline-flex;align-items:center;justify-content:center;min-height:43px;padding:10px 15px;border:1px solid #e2e9e3;border-radius:11px;background:#fff;color:#17251e;text-decoration:none;font-weight:750}.primary{border-color:#176b4a;background:#176b4a;color:#fff}
+</style>
+</head>
+<body>
+<main class="card">
+  <div class="brand">矿山简版 · 端口导航</div>
+  <div class="icon" id="roleIcon">◇</div>
+  <span class="tag">入口已建立 · 页面待建设</span>
+  <h1 id="roleTitle">业务端口</h1>
+  <p id="roleDesc">该端口将在后续步骤中逐个完成。</p>
+  <div class="note">当前先搭建首页和端口入口。此端口的业务页面尚未实现，后续按顺序逐端制作。</div>
+  <div class="actions"><a class="btn primary" href="index.html">返回首页</a></div>
+</main>
+<script>
+const roles={
+ driver:["司机端","🚚","司机查看当班任务并记录运输作业。"],
+ excavator:["挖机端","🚜","挖机操作人员查看作业安排并记录装载情况。"],
+ assistant:["辅助司机端","🦺","辅助司机查看协作事项并记录现场作业。"],
+ dispatch:["调度端","🗺","调度人员查看车辆、人员和作业安排。"],
+ boss:["Boss端","▥","管理层查看经营概况和关键指标。"],
+ middle:["中层管理端","⚙","中层管理人员跟进现场班组和日常管理。"]
+};
+const key=new URLSearchParams(location.search).get("role");
+const item=roles[key]||["业务端口","◇","该端口将在后续步骤中逐个完成。"];
+document.title=item[0]+" · 矿山简版";
+document.getElementById("roleTitle").textContent=item[0];
+document.getElementById("roleIcon").textContent=item[1];
+document.getElementById("roleDesc").textContent=item[2];
+</script>
+</body>
+</html>
