@@ -133,7 +133,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     clearTimeout(toast.timer); toast.timer = setTimeout(() => $("toast").classList.remove("show"), 2100);
   };
   const pill = status => {
-    const cls = status === "作业中" || status === "在岗" ? "pill-green" : status === "维修中" || status === "休假" ? "pill-amber" : status === "停用" ? "pill-red" : "";
+    const cls = status === "作业中" || status === "在岗" || status === "已通过" ? "pill-green" : status === "维修中" || status === "休假" ? "pill-amber" : status === "停用" || status === "未通过" ? "pill-red" : "";
     return '<span class="pill ' + cls + '">' + esc(status) + '</span>';
   };
   const showEmpty = colspan => '<tr><td colspan="' + colspan + '"><div class="empty">暂无记录</div></td></tr>';
@@ -157,7 +157,10 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
   function renderPeople() {
     const q = $("peopleSearch").value.trim().toLowerCase();
     const rows = db.people.filter(p => [p.name,p.id,p.team,p.role,p.phone,p.nationality,p.ethnicity].some(v => String(v ?? "").toLowerCase().includes(q)));
-    $("peopleRows").innerHTML = rows.length ? rows.map(p => '<tr><td class="primary-cell">' + esc(p.name) + '</td><td>' + esc(p.nationality || "—") + '</td><td>' + esc(p.ethnicity || "—") + '</td><td>' + esc(p.role) + '</td><td>' + esc(p.team) + '</td><td>' + esc(p.phone) + '</td><td>' + pill(p.status) + '</td><td><div class="actions"><button class="action-edit" data-action="edit" data-kind="person" data-id="' + esc(p.id) + '">查看/编辑</button><button class="btn-delete" data-action="delete" data-kind="person" data-id="' + esc(p.id) + '">删除</button></div></td></tr>').join("") : showEmpty(8);
+    $("peopleRows").innerHTML = rows.length ? rows.map(p => {
+      const review = p.status === "待审核" ? '<button class="action-edit" data-action="approve" data-id="' + esc(p.id) + '">通过</button><button class="btn-delete" data-action="reject" data-id="' + esc(p.id) + '">驳回</button>' : '';
+      return '<tr><td class="primary-cell">' + esc(p.name) + '</td><td>' + esc(p.nationality || "—") + '</td><td>' + esc(p.ethnicity || "—") + '</td><td>' + esc(p.role) + '</td><td>' + esc(p.team) + '</td><td>' + esc(p.phone) + '</td><td>' + pill(p.status) + '</td><td><div class="actions"><button class="action-edit" data-action="edit" data-kind="person" data-id="' + esc(p.id) + '">查看/编辑</button>' + review + '<button class="btn-delete" data-action="delete" data-kind="person" data-id="' + esc(p.id) + '">删除</button></div></td></tr>';
+    }).join("") : showEmpty(8);
   }
   function renderVehicles() {
     const q = $("vehicleSearch").value.trim().toLowerCase();
@@ -224,7 +227,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
           formField("申请岗位","fRole",row.role || "","text",true) +
           formField("所属班组","fTeam",row.team || "","text",true) +
           formField("入职日期","fJoinDate",row.joinDate || new Date().toISOString().slice(0,10),"date") +
-          formField("人员状态","fStatus",row.status || (id ? "在岗" : "待审核"),"text",true,["待审核","在岗","休假","停用"]) +
+          formField("人员状态","fStatus",row.status || (id ? "在岗" : "待审核"),"text",true,["待审核","已通过","在岗","休假","停用","未通过"]) +
           formField("国籍","fNationality",row.nationality || "中国","text",true) +
           formField("民族","fEthnicity",row.ethnicity || "汉族","text",true,ethnicities) +
         '</div>') +
@@ -321,6 +324,12 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     const button = event.target.closest("[data-action]"); if (!button) return;
     const id = button.dataset.id;
     if (button.dataset.action === "edit") { openArchive(button.dataset.kind,id); return; }
+    if (button.dataset.action === "approve" || button.dataset.action === "reject") {
+      const person = db.people.find(item => item.id === id);
+      if (!person || person.status !== "待审核") return;
+      person.status = button.dataset.action === "approve" ? "在岗" : "未通过";
+      render(); toast(button.dataset.action === "approve" ? "已通过，人员可进入对应端口" : "已驳回登记"); return;
+    }
     if (button.dataset.action === "delete") {
       const arr = button.dataset.kind === "person" ? db.people : db.vehicles;
       const row = arr.find(item => item.id === id);
