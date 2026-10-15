@@ -58,7 +58,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
       <button class="btn" id="gateSubmit" type="submit">验证并进入</button>
     </form>
     <div class="gate-links"><a href="index.html">返回首页</a><span>首次使用需设置管理员密码</span></div>
-    <small class="gate-note">本地演示密码只在当前浏览器有效。此公开静态页面不提供真实账号安全保护；完成演示后再接入数据库和正式认证。</small>
+    <small class="gate-note">管理员密码仅在当前浏览器有效。当前页面尚未接入共享数据库及服务端账号认证。</small>
   </section>
 </div>
 <div class="layout" style="display:none">
@@ -76,7 +76,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
   <main>
     <header class="topbar">
       <div><h1 id="pageTitle">车数统计</h1><p id="pageDesc">快速查看车辆总量和当前状态</p></div>
-      <span class="demo">管理员后台 · 本地演示数据</span>
+      <span class="demo">管理员后台</span>
     </header>
 
     <section class="view" id="statsView">
@@ -145,7 +145,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
   function setMode(){
     const setup=!authRecord();
     $("gateTitle").textContent=setup?"首次使用 · 设置管理员密码":"管理员登录";
-    $("gateDesc").textContent=setup?"首位管理员先在这台审核设备设置演示密码，之后由管理员输入密码进入后台。":"输入当前浏览器设置的管理员密码，进入人员审核和管理功能。";
+    $("gateDesc").textContent=setup?"首位管理员先在这台审核设备设置管理员密码，之后由管理员输入密码进入后台。":"输入当前浏览器设置的管理员密码，进入人员审核和管理功能。";
     $("confirmPasswordWrap").hidden=!setup;
     $("gateSubmit").textContent=setup?"设置密码并进入":"验证并进入";
   }
@@ -424,7 +424,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     $("modalDesc").textContent = person ? "请填写真实、准确的人员资料。带 * 为必填项。" : "按设备登记车辆资料，车辆编号和设备类别为必填项；照片选填。";
     let fields;
     if (person) {
-      fields = '<div class="privacy-note">隐私提醒：这是公开网页中的本地演示原型，请勿录入真实身份证号、银行卡号或上传真实证件照片。信息仅保存在当前浏览器，不会同步到服务器。</div>' +
+      fields = '<div class="privacy-note">隐私提醒：当前页面尚未接入共享数据库与服务端账号认证，请勿录入真实身份证号、银行卡号或上传真实证件照片。信息仅保存在当前浏览器，不会同步到服务器。</div>' +
         section("基本资料",'<div class="field-grid">' +
           formField("姓名","fName",row.name || "","text",true) +
           formField("手机号码","fPhone",row.phone || "","tel",true) +
