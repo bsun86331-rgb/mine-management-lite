@@ -349,6 +349,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     event.preventDefault(); if (!editState) return;
     const {kind,id} = editState, isPerson = kind === "person", sourceRows = isPerson ? db.people : db.vehicles;
     const savedAttachmentIds = [];
+    const previousDB = JSON.stringify(db);
     try {
       let value;
       if (isPerson) {
@@ -389,6 +390,8 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
       else sourceRows.unshift(value);
       closeModal(); render(); toast(id ? "人员资料已更新" : (isPerson ? "人员登记已保存" : "档案已新增"));
     } catch (error) {
+      try { db = JSON.parse(previousDB); } catch {}
+      renderStats(); renderPeople(); renderVehicles(); renderSupplies();
       await Promise.allSettled(savedAttachmentIds.map(id => MineAttachmentStore.remove(id)));
       toast(error.message || "保存失败，请检查附件大小或浏览器存储空间");
     }
