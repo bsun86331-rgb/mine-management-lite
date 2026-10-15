@@ -42,6 +42,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
 @media(max-width:600px){.layout{display:block}.sidebar{position:sticky;z-index:10;top:0;height:auto;padding:11px 12px}.brand{padding:0 4px 10px;font-size:14px}.brand-icon{width:31px;height:31px}.nav-label,.side-note{display:none}.nav{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}.nav button{justify-content:center;flex-direction:column;gap:2px;padding:7px 3px;font-size:10px}.nav .icon{font-size:16px}main{padding:18px 13px 30px}.topbar{margin-bottom:21px}.topbar h1{font-size:20px}.demo{padding:6px 8px;font-size:10px}.stats{gap:9px}.stat{padding:14px}.stat-value{font-size:27px}.view-head{align-items:start;flex-direction:column}.toolbar{width:100%}.search{width:auto;flex:1}.panel-head{padding:14px}.field-grid{grid-template-columns:1fr 1fr}}
 .actions{flex-wrap:wrap}.action-depart{min-height:32px;padding:6px 9px;border-radius:8px;font-size:12px}.actions button:disabled{opacity:.45;cursor:not-allowed}.departure-backdrop{position:fixed;z-index:35;inset:0;display:none;place-items:center;padding:16px;background:#1020199c}.departure-backdrop.open{display:grid}.departure-dialog{width:min(500px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:22px;border-radius:16px;background:#fff}.departure-dialog h2{margin:0;font-size:20px}.departure-dialog p{color:var(--muted);font-size:12px}.departure-dialog textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:9px;font:inherit;resize:vertical}.employment-history-item{padding:8px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}.employment-history-item:last-child{border-bottom:0}.employment-history-item small{color:var(--muted)}
 .people-title-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.people-title-row .btn{min-height:33px;padding:6px 12px;font-size:12px}.people-title-row .btn:disabled{opacity:.6;cursor:wait}
+.archive-modal-heading{display:flex;justify-content:space-between;align-items:center;gap:12px}.modal-close{display:grid;place-items:center;width:34px;height:34px;border:0;border-radius:50%;background:#f1f5f3;color:#516359;font-size:23px}.modal-close[hidden]{display:none}.vehicle-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 14px}.vehicle-form-grid .field{margin:10px 0}.vehicle-full-row{grid-column:1/-1}.vehicle-file-preview:empty{display:none}.vehicle-file-preview{margin-bottom:10px;font-size:11px;color:var(--muted)}.vehicle-file-preview img{display:block;max-width:100%;max-height:130px;margin-bottom:5px;object-fit:contain;border-radius:8px}.vehicle-file-preview a{color:var(--green)}#archiveSave:disabled{opacity:.6;cursor:wait}@media(max-width:600px){.vehicle-form-grid{grid-template-columns:1fr}.vehicle-full-row{grid-column:auto}}
 </style>
 </head>
 <body>
@@ -88,7 +89,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
       </div>
       <div class="panel">
         <div class="panel-head"><h3>车辆状态明细</h3><span id="statsHint">—</span></div>
-        <div class="table-wrap"><table><thead><tr><th>车辆编号</th><th>车牌/识别号</th><th>车型</th><th>所属班组</th><th>状态</th></tr></thead><tbody id="statsRows"></tbody></table></div>
+        <div class="table-wrap"><table><thead><tr><th>车辆编号</th><th>车牌号</th><th>设备类别</th><th>所属公司/车队</th><th>状态</th></tr></thead><tbody id="statsRows"></tbody></table></div>
       </div>
     </section>
 
@@ -98,8 +99,8 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     </section>
 
     <section class="view" id="vehiclesView" hidden>
-      <div class="view-head"><div><h2>车辆档案</h2><p>登记车辆信息并维护作业状态</p></div><div class="toolbar"><input class="search" id="vehicleSearch" placeholder="搜索编号、车型或班组"><button class="btn" id="addVehicle">新增车辆</button></div></div>
-      <div class="panel"><div class="table-wrap"><table><thead><tr><th>车辆编号</th><th>车牌/识别号</th><th>车型</th><th>所属班组</th><th>状态</th><th>操作</th></tr></thead><tbody id="vehicleRows"></tbody></table></div></div>
+      <div class="view-head"><div><h2>车辆档案</h2><p>登记车辆信息并维护作业状态</p></div><div class="toolbar"><input class="search" id="vehicleSearch" placeholder="搜索编号、名称、类别或车架号"><button class="btn" id="addVehicle">新增车辆</button></div></div>
+      <div class="panel"><div class="table-wrap"><table><thead><tr><th>车辆编号</th><th>车辆名称</th><th>设备类别</th><th>车牌号</th><th>所属公司/车队</th><th>状态</th><th>操作</th></tr></thead><tbody id="vehicleRows"></tbody></table></div></div>
     </section>
 
     <section class="view" id="suppliesView" hidden>
@@ -124,7 +125,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     </section>
   </main>
 </div>
-<div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true"><div class="modal"><h2 id="modalTitle"></h2><p id="modalDesc"></p><form id="archiveForm"><div id="modalFields"></div></form><div class="modal-fixed-actions" id="archiveFixedActions"><div class="archive-review-actions" id="archiveReviewActions"><button class="btn review-pass" type="button" id="archiveApprove">审核通过</button><button class="btn review-reject" type="button" id="archiveReject">驳回资料</button><button class="btn review-print" type="button" id="archivePrintData">打印资料</button><button class="btn review-print" type="button" id="archivePrintPhotos">打印照片</button><button class="btn btn-soft" type="button" id="archiveClose">关闭</button></div><div class="modal-actions"><button class="btn btn-soft" type="button" id="modalCancel">取消</button><button class="btn" id="archiveSave" type="submit" form="archiveForm">保存档案</button></div></div></div></div>
+<div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true"><div class="modal"><div class="archive-modal-heading"><h2 id="modalTitle"></h2><button class="modal-close" id="vehicleModalClose" type="button" aria-label="关闭车辆档案" hidden>×</button></div><p id="modalDesc"></p><form id="archiveForm"><div id="modalFields"></div></form><div class="modal-fixed-actions" id="archiveFixedActions"><div class="archive-review-actions" id="archiveReviewActions"><button class="btn review-pass" type="button" id="archiveApprove">审核通过</button><button class="btn review-reject" type="button" id="archiveReject">驳回资料</button><button class="btn review-print" type="button" id="archivePrintData">打印资料</button><button class="btn review-print" type="button" id="archivePrintPhotos">打印照片</button><button class="btn btn-soft" type="button" id="archiveClose">关闭</button></div><div class="modal-actions"><button class="btn btn-soft" type="button" id="modalCancel">取消</button><button class="btn" id="archiveSave" type="submit" form="archiveForm">保存档案</button></div></div></div></div>
 <div class="review-backdrop" id="reviewBackdrop"><section class="review-dialog" role="dialog" aria-modal="true" aria-labelledby="reviewTitle"><div class="review-head"><div><h2 id="reviewTitle">入职资料审核</h2><p id="reviewSubtitle">核对提交信息和附件后确认。</p></div></div><div class="review-grid" id="reviewFields"></div><h3>提交的附件</h3><div class="review-files" id="reviewFiles"></div><label class="review-check"><input type="checkbox" id="reviewCheck"><span>我已逐项核对以上登记资料及提交附件</span></label><div class="review-progress" id="reviewProgress" role="status"></div><div class="review-actions"><button class="btn review-pass" type="button" id="reviewApprove" disabled>审核通过</button><button class="btn review-reject" type="button" id="reviewReject">驳回资料</button><button class="btn review-print" type="button" id="printReviewData">打印资料</button><button class="btn review-print" type="button" id="printReviewPhotos">打印照片</button><button class="btn btn-soft" type="button" id="reviewClose">关闭</button></div></section></div>
 <div class="departure-backdrop" id="departureBackdrop"><section class="departure-dialog" role="dialog" aria-modal="true" aria-labelledby="departureTitle"><h2 id="departureTitle">办理离职</h2><p id="departurePerson"></p><p>确认后立即停止工作端口访问和新增领用。人员资料、照片及历史记录全部保留。</p><form id="departureForm"><div class="field"><label for="departureDate">离职日期 *</label><input id="departureDate" type="date" required></div><div class="field"><label for="departureReason">离职原因 *</label><textarea id="departureReason" required maxlength="500" rows="3"></textarea></div><div class="modal-actions"><button class="btn btn-soft" id="departureCancel" type="button">取消</button><button class="btn review-reject" type="submit">确认办理离职</button></div></form></section></div>
 <div class="photo-select-backdrop" id="photoSelectBackdrop"><section class="photo-select-dialog" role="dialog" aria-modal="true" aria-labelledby="photoSelectTitle"><div class="photo-select-head"><div><h2 id="photoSelectTitle">选择要打印的照片</h2><p>默认勾选所有已提交图片，可取消不需要的照片。</p></div></div><div class="photo-select-tools"><button class="btn btn-soft" type="button" id="photoSelectAll">全选</button><button class="btn btn-soft" type="button" id="photoSelectNone">全不选</button></div><div class="photo-select-list" id="photoSelectList"></div><div class="photo-select-actions"><button class="btn btn-soft" type="button" id="photoSelectCancel">取消</button><button class="btn" type="button" id="photoSelectPrint" disabled>打印所选照片</button></div></section></div>
@@ -208,6 +209,8 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
   let editState = null;
   let archiveDirty = false;
   let pendingReviewAfterSave = false;
+  let archiveSaving = false;
+  let vehicleObjectUrls = [];
 
   const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const persist = () => localStorage.setItem(KEY, JSON.stringify(db));
@@ -291,7 +294,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     $("repairCount").textContent = counts.repair;
     $("statsHint").textContent = counts.total + " 辆登记车辆";
     $("statsRows").innerHTML = db.vehicles.length
-      ? db.vehicles.map(v => '<tr><td class="primary-cell">' + esc(v.code) + '</td><td>' + esc(v.plate) + '</td><td>' + esc(v.model) + '</td><td>' + esc(v.team) + '</td><td>' + pill(v.status) + '</td></tr>').join("")
+      ? db.vehicles.map(v => '<tr><td class="primary-cell">' + esc(v.code) + '</td><td>' + esc(v.plate) + '</td><td>' + esc(v.category || v.model || "—") + '</td><td>' + esc(v.team) + '</td><td>' + pill(v.status) + '</td></tr>').join("")
       : showEmpty(5);
   }
   function renderPeople() {
@@ -308,8 +311,8 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
   }
   function renderVehicles() {
     const q = $("vehicleSearch").value.trim().toLowerCase();
-    const rows = db.vehicles.filter(v => [v.code,v.id,v.plate,v.model,v.team,v.status].some(x => String(x).toLowerCase().includes(q)));
-    $("vehicleRows").innerHTML = rows.length ? rows.map(v => '<tr><td class="primary-cell">' + esc(v.code) + '</td><td>' + esc(v.plate) + '</td><td>' + esc(v.model) + '</td><td>' + esc(v.team) + '</td><td>' + pill(v.status) + '</td><td><div class="actions"><button class="action-edit" data-action="edit" data-kind="vehicle" data-id="' + esc(v.id) + '">编辑</button><button class="btn-delete" data-action="delete" data-kind="vehicle" data-id="' + esc(v.id) + '">删除</button></div></td></tr>').join("") : showEmpty(6);
+    const rows = db.vehicles.filter(v => [v.code,v.id,v.name,v.category,v.plate,v.model,v.team,v.vin,v.engineNumber,v.status].some(x => String(x ?? "").toLowerCase().includes(q)));
+    $("vehicleRows").innerHTML = rows.length ? rows.map(v => '<tr><td class="primary-cell">' + esc(v.code) + '</td><td>' + esc(v.name || "—") + '</td><td>' + esc(v.category || v.model || "—") + '</td><td>' + esc(v.plate || "—") + '</td><td>' + esc(v.team || "—") + '</td><td>' + pill(v.status) + '</td><td><div class="actions"><button class="action-edit" data-action="edit" data-kind="vehicle" data-id="' + esc(v.id) + '">查看/编辑</button><button class="btn-delete" data-action="delete" data-kind="vehicle" data-id="' + esc(v.id) + '">删除</button></div></td></tr>').join("") : showEmpty(7);
   }
   function renderSupplies() {
     $("supplyCount").textContent = db.supplies.length + " 条";
@@ -359,7 +362,76 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     }, 0);
     return "P" + String(max + 1).padStart(3,"0");
   }
+  const vehicleCategories = ["矿用自卸车","挖掘机","装载机","推土机","洒水车","加油车","平地机","压路机","维修服务车","其他"];
+  const vehicleFuels = ["未填写","柴油","汽油","电动","混合动力","其他"];
+  const vehicleStatuses = ["作业中","待命","维修中","停用"];
+  const withCurrentOption = (options,value) => value && !options.includes(value) ? [value,...options] : options;
+  const vehicleToday = () => {
+    const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Ulaanbaatar",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date()).filter(p=>p.type!=="literal").map(p=>[p.type,p.value]));
+    return parts.year+"-"+parts.month+"-"+parts.day;
+  };
+  function buildVehicleRecord(values,previous={},id=null) {
+    const clean = key => String(values[key] ?? "").trim();
+    const code=clean("code"),category=clean("category"),status=clean("status");
+    if (!code || !category) throw new Error("请填写车辆编号并选择设备类别");
+    if (!vehicleStatuses.includes(status)) throw new Error("请选择有效的车辆状态");
+    return {id:id || "vehicle-"+crypto.randomUUID(),code,name:clean("name"),category,model:category,
+      vin:clean("vin"),engineNumber:clean("engineNumber"),plate:clean("plate"),team:clean("team"),
+      capacity:clean("capacity"),fuelType:clean("fuelType") || "未填写",entryDate:clean("entryDate"),
+      status,note:clean("note"),attachments:previous.attachments || {}};
+  }
+  function vehicleCodeExists(rows,code,id=null) {
+    const normal = value => String(value ?? "").trim().toLocaleLowerCase();
+    return rows.some(row => String(row.id)!==String(id) && normal(row.code)===normal(code));
+  }
+  function vehicleFileField(label,id,attachment,previewId) {
+    return registrationFile(label+"（选填）",id,attachment).replace('accept="image/*,.pdf"','accept="image/*"') + '<div class="vehicle-file-preview" id="'+previewId+'"></div>';
+  }
+  function vehicleFormFields(row,id=null) {
+    const category=row.category || row.model || "";
+    return '<div class="vehicle-form-grid">' +
+      formField("车辆编号","fCode",row.code || "","text",true) +
+      formField("车辆名称","fVehicleName",row.name || "").replace('maxlength="100"','maxlength="100" placeholder="车辆品牌 + 型号"') +
+      formField("设备类别","fCategory",category,"text",true,["",...withCurrentOption(vehicleCategories,category)]).replace('<option value="" selected></option>','<option value="" selected>请选择设备类别</option>').replace('<option value=""></option>','<option value="">请选择设备类别</option>') +
+      formField("大架号 / 车架号","fVin",row.vin || "") +
+      formField("发动机号","fEngineNumber",row.engineNumber || "") +
+      formField("车牌号","fPlate",row.plate || "") +
+      formField("所属公司 / 车队","fTeam",row.team || "") +
+      formField("载重 / 斗容","fCapacity",row.capacity || "").replace('maxlength="100"','maxlength="100" placeholder="例如 70t / 5m³"') +
+      formField("燃油类型","fFuelType",row.fuelType || "未填写","text",false,withCurrentOption(vehicleFuels,row.fuelType)) +
+      formField("入场日期","fEntryDate",row.entryDate || (id ? "" : vehicleToday()),"date") +
+      '<div>'+formField("设备状态","fStatus",row.status || "待命","text",true,vehicleStatuses)+'<div class="file-help">当前为手动维护：作业中、待命、维修中、停用。</div></div>' +
+      '<div>'+vehicleFileField("合格证照片","fCertificatePhoto",row.attachments?.certificatePhoto,"vehicleCertificatePreview")+'</div>' +
+      '<div>'+vehicleFileField("车辆进场照片","fEntryPhoto",row.attachments?.entryPhoto,"vehicleEntryPreview")+'</div>' +
+      '<div class="field vehicle-full-row"><label for="fVehicleNote">备注</label><textarea id="fVehicleNote" maxlength="1000">'+esc(row.note || "")+'</textarea></div></div>';
+  }
+  async function loadVehiclePhotos(row,session) {
+    for (const [key,targetId] of [["certificatePhoto","vehicleCertificatePreview"],["entryPhoto","vehicleEntryPreview"]]) {
+      const attachment=row.attachments?.[key];
+      if (!attachment) continue;
+      const target=$(targetId);
+      if (!target) continue;
+      target.textContent="正在读取已保存照片…";
+      let blob=null;
+      try {
+        if (attachment.id) blob=(await MineAttachmentStore.get(attachment.id))?.blob || null;
+        else if (attachment.data) blob=await (await fetch(attachment.data)).blob();
+      } catch {}
+      if (editState!==session) return;
+      if (!blob) { target.textContent="已保存照片无法读取，请重新选择图片"; continue; }
+      const url=URL.createObjectURL(blob);
+      vehicleObjectUrls.push(url);
+      target.innerHTML='<a href="'+url+'" target="_blank" rel="noopener"><img src="'+url+'" alt="已保存车辆照片"><span>打开查看原图</span></a>';
+    }
+  }
+  async function readVehiclePhoto(input,previous,savedIds) {
+    const file=input?.files?.[0];
+    if (file && !String(file.type).startsWith("image/")) throw new Error("合格证和车辆进场照片仅支持图片文件");
+    return readAttachment(input,previous,savedIds);
+  }
   function openArchive(kind,id=null) {
+    vehicleObjectUrls.forEach(url => URL.revokeObjectURL(url));
+    vehicleObjectUrls = [];
     editState = {kind,id};
     archiveDirty = false;
     pendingReviewAfterSave = false;
@@ -368,7 +440,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     const row = id ? sourceRows.find(item => String(item.id) === String(id)) : {};
     if (id && !row) { toast("档案未找到，请刷新后重试"); return; }
     $("modalTitle").textContent = person ? (id ? "人员信息登记表 · 查看/编辑" : "人员信息登记表") : (id ? "编辑车辆档案" : "新增车辆档案");
-    $("modalDesc").textContent = person ? "请填写真实、准确的人员资料。带 * 为必填项。" : "填写车辆基本信息和当前状态。";
+    $("modalDesc").textContent = person ? "请填写真实、准确的人员资料。带 * 为必填项。" : "按设备登记车辆资料，车辆编号和设备类别为必填项；照片选填。";
     let fields;
     if (person) {
       fields = '<div class="privacy-note">隐私提醒：这是公开网页中的本地演示原型，请勿录入真实身份证号、银行卡号或上传真实证件照片。信息仅保存在当前浏览器，不会同步到服务器。</div>' +
@@ -401,16 +473,18 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
         '</div>') +
         section("其他信息",'<div class="field"><label for="fNote">备注</label><textarea id="fNote" maxlength="500">' + esc(row.note || "") + '</textarea></div>') + employmentDetails(row);
     } else {
-      fields = formField("车辆编号","fCode",row.code || "","text",true) + formField("车牌/识别号","fPlate",row.plate || "","text",true) + formField("车型","fModel",row.model || "","text",true) + formField("所属班组","fTeam",row.team || "","text",true) + formField("状态","fStatus",row.status || "待命","text",true,["作业中","待命","维修中","停用"]);
+      fields = vehicleFormFields(row,id);
     }
     $("modalFields").innerHTML = fields;
-    $("archiveSave").textContent = person ? (id ? "保存人员资料" : "提交人员登记") : "保存档案";
+    $("archiveSave").textContent = person ? (id ? "保存人员资料" : "提交人员登记") : "保存车辆档案";
     $("archiveReviewActions").hidden = !(person && id);
+    $("vehicleModalClose").hidden = person;
     const canReview = person && id && row.status === "待审核";
     $("archiveApprove").disabled = !canReview;
     $("archiveReject").disabled = !canReview;
     $("modalBackdrop").classList.add("open");
     $("modalFields").querySelector("input")?.focus();
+    if (!person) loadVehiclePhotos(row,editState);
   }
   async function readAttachment(input,previous,savedIds) {
     const file = input?.files?.[0];
@@ -420,12 +494,15 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     return attachment;
   }
   function closeModal() {
+    vehicleObjectUrls.forEach(url => URL.revokeObjectURL(url));
+    vehicleObjectUrls = [];
     $("modalBackdrop").classList.remove("open");
     editState = null;
     archiveDirty = false;
     pendingReviewAfterSave = false;
   }
   function requestCloseModal() {
+    if (archiveSaving) { toast("正在保存，请稍候"); return; }
     if (archiveDirty && !confirm("有未保存的修改，确定关闭并丢弃吗？")) return;
     closeModal();
   }
@@ -641,6 +718,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
   $("addPerson").addEventListener("click", () => openArchive("person"));
   $("addVehicle").addEventListener("click", () => openArchive("vehicle"));
   $("modalCancel").addEventListener("click", requestCloseModal);
+  $("vehicleModalClose").addEventListener("click", requestCloseModal);
   $("archiveClose").addEventListener("click", requestCloseModal);
   $("modalBackdrop").addEventListener("click", event => { if (event.target === $("modalBackdrop")) requestCloseModal(); });
   $("archiveForm").addEventListener("input",() => { if (editState) archiveDirty = true; });
@@ -682,7 +760,10 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     openPhotoSelector(editState.id);
   });
   $("archiveForm").addEventListener("submit", async event => {
-    event.preventDefault(); if (!editState) return;
+    event.preventDefault(); if (!editState || archiveSaving) return;
+    if (!$("archiveForm").reportValidity()) return;
+    archiveSaving = true;
+    $("archiveSave").disabled = true;
     const {kind,id} = editState, isPerson = kind === "person", sourceRows = isPerson ? db.people : db.vehicles;
     const savedAttachmentIds = [];
     const previousDB = JSON.stringify(db);
@@ -718,11 +799,23 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
           status:$("fStatus").value
         };
       } else {
-        value = {id:$("fCode").value.trim(),code:$("fCode").value.trim(),plate:$("fPlate").value.trim(),model:$("fModel").value.trim(),team:$("fTeam").value.trim(),status:$("fStatus").value};
+        const previous = id ? sourceRows.find(row => String(row.id) === String(id)) : {};
+        if (id && !previous) throw new Error("车辆档案未找到，请刷新后重试");
+        value = buildVehicleRecord({
+          code:$("fCode").value,name:$("fVehicleName").value,category:$("fCategory").value,
+          vin:$("fVin").value,engineNumber:$("fEngineNumber").value,plate:$("fPlate").value,team:$("fTeam").value,
+          capacity:$("fCapacity").value,fuelType:$("fFuelType").value,entryDate:$("fEntryDate").value,
+          status:$("fStatus").value,note:$("fVehicleNote").value
+        },previous,id);
+        if (vehicleCodeExists(sourceRows,value.code,id)) throw new Error("车辆编号已存在，请使用其他编号");
+        value.attachments = {
+          ...(previous.attachments || {}),
+          certificatePhoto:await readVehiclePhoto($("fCertificatePhoto"),previous.attachments?.certificatePhoto,savedAttachmentIds),
+          entryPhoto:await readVehiclePhoto($("fEntryPhoto"),previous.attachments?.entryPhoto,savedAttachmentIds)
+        };
       }
-      if (!isPerson) value.id = $("fCode").value.trim();
       const duplicate = sourceRows.some(item => item.id === value.id && item.id !== id);
-      if (duplicate) { toast(isPerson ? "人员编号冲突，请联系管理员" : "车辆编号已存在"); return; }
+      if (duplicate) throw new Error(isPerson ? "人员编号冲突，请联系管理员" : "车辆档案编号冲突");
       if (id) {
         const current = sourceRows.find(item => String(item.id) === String(id));
         if (!current) throw new Error("档案已不存在，请刷新后重试");
@@ -731,13 +824,17 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
       } else sourceRows.unshift(value);
       const shouldOpenReview = pendingReviewAfterSave && isPerson && value.status === "待审核";
       pendingReviewAfterSave = false;
-      closeModal(); render(); toast(id ? "人员资料已更新" : (isPerson ? "人员登记已保存" : "档案已新增"));
+      persist();
+      closeModal(); render(); toast(isPerson ? (id ? "人员资料已更新" : "人员登记已保存") : (id ? "车辆档案已更新" : "车辆档案已新增"));
       if (shouldOpenReview) openReview(value.id);
     } catch (error) {
       try { db = JSON.parse(previousDB); } catch {}
       renderStats(); renderPeople(); renderVehicles(); renderSupplies();
       await Promise.allSettled(savedAttachmentIds.map(id => MineAttachmentStore.remove(id)));
       toast(error.message || "保存失败，请检查附件大小或浏览器存储空间");
+    } finally {
+      archiveSaving = false;
+      $("archiveSave").disabled = false;
     }
   });
   let departurePersonId = null;
