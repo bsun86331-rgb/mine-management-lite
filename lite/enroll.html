@@ -27,9 +27,9 @@ form{display:grid;gap:12px}.section{padding:17px;border:1px solid var(--line);bo
       <div class="field"><label for="name">姓名 <span class="required">*</span></label><input id="name" required maxlength="60" autocomplete="name"></div>
       <div class="field"><label for="phone">手机号码 <span class="required">*</span></label><input id="phone" required type="tel" maxlength="30" autocomplete="tel"></div>
       <div class="field"><label for="role">申请端口 / 岗位 <span class="required">*</span></label><select id="role" required></select></div>
-      <div class="field"><label for="team">所属班组 <span class="required">*</span></label><input id="team" required maxlength="60"></div>
+      <div class="field"><label for="team">所属班组 <span class="required">*</span></label><select id="team" required><option value="">请选择所属班组</option><option>生产A组</option><option>生产B组</option><option>行政办公组</option><option>修理组</option></select></div>
       <div class="field"><label for="joinDate">入职日期</label><input id="joinDate" type="date"></div>
-      <div class="field"><label for="nationality">国籍 <span class="required">*</span></label><input id="nationality" value="中国" required maxlength="60"></div>
+      <div class="field"><label for="nationality">国籍（选填）</label><input id="nationality" maxlength="60" placeholder="例如：中国"></div>
       <div class="field"><label for="ethnicity">民族 <span class="required">*</span></label><select id="ethnicity" required></select></div>
     </div></section>
     <section class="section"><h2>身份凭证</h2><div class="grid">
