@@ -832,7 +832,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     $("cancelClearance").hidden=!c.exit;
   }
   $("cancelClearance").addEventListener("click",async()=>{
-    const reason=prompt("请填写取消离职清算的原因");if(!reason?.trim())return;
+    const reason=prompt("取消清算会恢复原在岗人员的申请资格；已有归还、报损和赔偿记录不会自动撤销，赔偿复核继续处理。请填写取消原因：");if(!reason?.trim())return;
     try{await MineLogistics.act("cancelExit",{personId:departurePersonId,reason},{admin:true});renderDepartureClearance();toast("已取消清算");}catch(error){toast(error.message);}
   });
   $("departureForm").addEventListener("submit",async event => {
