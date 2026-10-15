@@ -123,6 +123,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
 </div>
 <div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true"><div class="modal"><h2 id="modalTitle"></h2><p id="modalDesc"></p><form id="archiveForm"><div id="modalFields"></div><div class="modal-actions"><button class="btn btn-soft" type="button" id="modalCancel">取消</button><button class="btn" type="submit">保存档案</button></div></form></div></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="attachment-storage.js"></script>
 <script>
 (() => {
   const AUTH_KEY="mine-management-lite-admin-auth-v1";
@@ -169,7 +170,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
 })();
 </script>
 <script>
-(() => {
+(async () => {
   const KEY = "mine-management-lite-records-v1";
   const seed = {
     people: [
@@ -188,8 +189,11 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
   let db;
   try {
     const saved = localStorage.getItem(KEY);
-    db = saved ? JSON.parse(saved) : structuredClone(seed);
-  } catch { db = structuredClone(seed); }
+    db = saved ? await MineAttachmentStore.migrateRecords(KEY) : structuredClone(seed);
+  } catch {
+    try { db = JSON.parse(localStorage.getItem(KEY) || "null") || structuredClone(seed); }
+    catch { db = structuredClone(seed); }
+  }
   db.people = Array.isArray(db.people) ? db.people : [];
   db.vehicles = Array.isArray(db.vehicles) ? db.vehicles : [];
   db.supplies = Array.isArray(db.supplies) ? db.supplies : [];
@@ -272,7 +276,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
   function registrationFile(label,id,attachment,required=false) {
     const savedName = attachment && attachment.name ? '<div class="file-help">已保存：' + esc(attachment.name) + '</div>' : '';
     const isRequired = required && !attachment && !(editState && editState.id);
-    return '<div class="field"><label for="' + id + '">' + label + (isRequired ? ' <span style="color:var(--red)">*</span>' : '') + '</label><input id="' + id + '" type="file" accept="image/*,.pdf" ' + (isRequired ? 'required' : '') + '>' + savedName + '<div class="file-help">单个文件不超过 1 MB，保存在当前浏览器</div></div>';
+    return '<div class="field"><label for="' + id + '">' + label + (isRequired ? ' <span style="color:var(--red)">*</span>' : '') + '</label><input id="' + id + '" type="file" accept="image/*,.pdf" ' + (isRequired ? 'required' : '') + '>' + savedName + '<div class="file-help">单个文件不超过 10 MB，附件保存在当前浏览器 IndexedDB</div></div>';
   }
   const ethnicities = ["汉族","蒙古族","回族","藏族","维吾尔族","苗族","彝族","壮族","布依族","朝鲜族","满族","侗族","瑶族","白族","土家族","哈尼族","哈萨克族","傣族","黎族","傈僳族","佤族","畲族","高山族","拉祜族","水族","东乡族","纳西族","景颇族","柯尔克孜族","土族","达斡尔族","仫佬族","羌族","布朗族","撒拉族","毛南族","仡佬族","锡伯族","阿昌族","普米族","塔吉克族","怒族","乌孜别克族","俄罗斯族","鄂温克族","德昂族","保安族","裕固族","京族","塔塔尔族","独龙族","鄂伦春族","赫哲族","门巴族","珞巴族","基诺族","其他"];
   const teams = ["生产A组","生产B组","行政办公组","修理组"];
@@ -329,17 +333,12 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     $("modalBackdrop").classList.add("open");
     $("modalFields").querySelector("input")?.focus();
   }
-  async function readAttachment(input,previous) {
+  async function readAttachment(input,previous,savedIds) {
     const file = input?.files?.[0];
     if (!file) return previous || null;
-    if (file.size > 1024 * 1024) throw new Error("文件“" + file.name + "”超过 1 MB，请压缩后重新选择");
-    const data = await new Promise((resolve,reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = () => reject(new Error("读取附件失败"));
-      reader.readAsDataURL(file);
-    });
-    return {name:file.name,type:file.type,data};
+    const attachment = await MineAttachmentStore.save(file);
+    if (attachment?.id) savedIds.push(attachment.id);
+    return attachment;
   }
   function closeModal() { $("modalBackdrop").classList.remove("open"); editState = null; }
   $("addPerson").addEventListener("click", () => openArchive("person"));
@@ -349,16 +348,17 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
   $("archiveForm").addEventListener("submit", async event => {
     event.preventDefault(); if (!editState) return;
     const {kind,id} = editState, isPerson = kind === "person", sourceRows = isPerson ? db.people : db.vehicles;
+    const savedAttachmentIds = [];
     try {
       let value;
       if (isPerson) {
         const old = id ? sourceRows.find(item => item.id === id) : {};
         const attachments = {
-          selfie:await readAttachment($("fSelfie"),old.attachments?.selfie),
-          idPhoto:await readAttachment($("fIdPhoto"),old.attachments?.idPhoto),
-          passportPhoto:await readAttachment($("fPassportPhoto"),old.attachments?.passportPhoto),
-          license:await readAttachment($("fLicense"),old.attachments?.license),
-          bankCard:await readAttachment($("fBankCardPhoto"),old.attachments?.bankCard)
+          selfie:await readAttachment($("fSelfie"),old.attachments?.selfie,savedAttachmentIds),
+          idPhoto:await readAttachment($("fIdPhoto"),old.attachments?.idPhoto,savedAttachmentIds),
+          passportPhoto:await readAttachment($("fPassportPhoto"),old.attachments?.passportPhoto,savedAttachmentIds),
+          license:await readAttachment($("fLicense"),old.attachments?.license,savedAttachmentIds),
+          bankCard:await readAttachment($("fBankCardPhoto"),old.attachments?.bankCard,savedAttachmentIds)
         };
         value = {
           id:id || nextPersonId(),
@@ -389,7 +389,8 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
       else sourceRows.unshift(value);
       closeModal(); render(); toast(id ? "人员资料已更新" : (isPerson ? "人员登记已保存" : "档案已新增"));
     } catch (error) {
-      toast(error.message || "保存失败，请检查附件大小");
+      await Promise.allSettled(savedAttachmentIds.map(id => MineAttachmentStore.remove(id)));
+      toast(error.message || "保存失败，请检查附件大小或浏览器存储空间");
     }
   });
   document.addEventListener("click", event => {
