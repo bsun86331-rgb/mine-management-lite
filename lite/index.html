@@ -4,256 +4,90 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#173d31">
-<title>矿山简版管理台</title>
+<title>矿山管理系统简版</title>
 <style>
-:root{--green:#176b4a;--deep:#173d31;--lime:#d8f178;--ink:#17251e;--muted:#738078;--line:#e5ebe6;--bg:#f3f6f2;--white:#fff;--red:#b93832;--amber:#a15d09;--shadow:0 8px 24px #173d310d}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 Inter,"PingFang SC","Microsoft YaHei",sans-serif}button,input,select{font:inherit}button{cursor:pointer}
-.layout{min-height:100vh;display:grid;grid-template-columns:238px minmax(0,1fr)}
-.sidebar{position:sticky;top:0;height:100vh;padding:24px 16px;background:var(--deep);color:#fff}
-.brand{display:flex;align-items:center;gap:11px;padding:0 8px 25px;font-size:16px;font-weight:800}.brand-icon{display:grid;place-items:center;width:36px;height:36px;border-radius:11px;background:var(--lime);color:var(--deep);font-weight:900}
-.nav-label{padding:12px 10px 8px;color:#99b2a6;font-size:10px;font-weight:800;letter-spacing:.1em}
-.nav{display:grid;gap:5px}.nav button{width:100%;display:flex;align-items:center;gap:11px;padding:12px;border:0;border-radius:11px;background:transparent;color:#d8e3dc;text-align:left;font-weight:700}.nav button:hover,.nav button.active{background:#ffffff17;color:#fff}.nav .icon{width:22px;text-align:center;font-size:17px}
-.side-note{position:absolute;right:16px;bottom:20px;left:16px;padding:12px;border:1px solid #ffffff20;border-radius:12px;color:#c3d0c8;font-size:11px}
-main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
-.topbar{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:27px}
-.topbar h1{margin:0;font-size:24px;letter-spacing:-.04em}.topbar p{margin:4px 0 0;color:var(--muted);font-size:12px}
-.demo{padding:7px 11px;border:1px solid #dce9d5;border-radius:999px;background:#f5fbe9;color:#53692a;font-size:11px;font-weight:700;white-space:nowrap}
-.view[hidden]{display:none}.view-head{display:flex;justify-content:space-between;align-items:end;gap:12px;margin:0 0 17px}.view-head h2{margin:0;font-size:20px;letter-spacing:-.03em}.view-head p{margin:4px 0 0;color:var(--muted);font-size:12px}
-.btn{min-height:40px;padding:9px 14px;border:0;border-radius:10px;background:var(--green);color:#fff;font-weight:750}.btn:hover{filter:brightness(.96)}.btn:focus-visible,.nav button:focus-visible{outline:3px solid #8cbea5;outline-offset:2px}.btn-soft{border:1px solid var(--line);background:#fff;color:var(--ink)}.btn-delete{min-height:32px;padding:6px 9px;border:1px solid #f0d4d2;border-radius:8px;background:#fff7f6;color:var(--red);font-size:12px;font-weight:700}
-.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.stat{padding:19px;border:1px solid var(--line);border-radius:15px;background:#fff;box-shadow:var(--shadow)}.stat-label{color:var(--muted);font-size:12px;font-weight:700}.stat-value{margin-top:7px;font-size:32px;font-weight:850;letter-spacing:-.05em}.stat-sub{margin-top:3px;color:#88938c;font-size:11px}
-.panel{margin-top:17px;border:1px solid var(--line);border-radius:15px;background:#fff;box-shadow:var(--shadow);overflow:hidden}.panel-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 18px;border-bottom:1px solid var(--line)}.panel-head h3{margin:0;font-size:15px}.panel-head span{color:var(--muted);font-size:11px}
-.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:650px}th,td{padding:12px 18px;border-bottom:1px solid #edf0ed;text-align:left;white-space:nowrap}th{background:#fafcf9;color:#7b867f;font-size:11px;font-weight:700}td{font-size:12px}tbody tr:last-child td{border-bottom:0}.primary-cell{font-weight:750}.actions{display:flex;gap:7px}.action-edit{border:0;background:none;color:var(--green);font-size:12px;font-weight:750}.empty{padding:32px 18px;color:var(--muted);text-align:center}
-.pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#eef2ef;color:#57645c;font-size:10px;font-weight:750}.pill-green{background:#e7f5eb;color:#176b4a}.pill-amber{background:#fff3df;color:#9a5b0a}.pill-red{background:#fdebea;color:#ad3731}
-.toolbar{display:flex;gap:9px;align-items:center}.search{width:min(250px,40vw);height:40px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:white;outline:none}.search:focus,.field input:focus,.field select:focus{border-color:#80b49a;box-shadow:0 0 0 3px #176b4a18}
-.supplies-grid{display:grid;grid-template-columns:minmax(260px,.8fr) minmax(0,1.2fr);gap:16px;align-items:start}.form-card{padding:19px;border:1px solid var(--line);border-radius:15px;background:#fff;box-shadow:var(--shadow)}.form-card h3{margin:0 0 4px;font-size:16px}.form-card>p{margin:0 0 16px;color:var(--muted);font-size:12px}.field{display:grid;gap:6px;margin:12px 0}.field label{color:#59665e;font-size:11px;font-weight:750}.field input,.field select{width:100%;height:41px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:#fff;outline:none}.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.form-card .btn{width:100%;margin-top:6px}.supply-records{padding:4px 18px}.supply-row{display:flex;justify-content:space-between;gap:14px;padding:13px 0;border-bottom:1px solid #edf0ed}.supply-row:last-child{border-bottom:0}.supply-name{font-weight:750}.supply-meta{margin-top:3px;color:var(--muted);font-size:11px}.supply-right{text-align:right;white-space:nowrap}.supply-qty{font-weight:800}.supply-delete{margin-top:3px;border:0;background:none;color:var(--red);font-size:11px}
-.modal-backdrop{position:fixed;z-index:20;inset:0;display:none;place-items:center;padding:16px;background:#1020199c}.modal-backdrop.open{display:grid}.modal{width:min(460px,100%);padding:22px;border-radius:17px;background:#fff;box-shadow:0 20px 70px #0003}.modal h2{margin:0;font-size:19px}.modal p{margin:5px 0 15px;color:var(--muted);font-size:12px}.modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:16px}
-.toast{position:fixed;z-index:30;bottom:24px;left:50%;padding:10px 15px;border-radius:10px;background:#17251e;color:white;transform:translate(-50%,12px);opacity:0;pointer-events:none;transition:.2s}.toast.show{transform:translate(-50%,0);opacity:1}
-@media(max-width:850px){.layout{grid-template-columns:190px minmax(0,1fr)}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.supplies-grid{grid-template-columns:1fr}}
-@media(max-width:600px){.layout{display:block}.sidebar{position:sticky;z-index:10;top:0;height:auto;padding:11px 12px}.brand{padding:0 4px 10px;font-size:14px}.brand-icon{width:31px;height:31px}.nav-label,.side-note{display:none}.nav{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}.nav button{justify-content:center;flex-direction:column;gap:2px;padding:7px 3px;font-size:10px}.nav .icon{font-size:16px}main{padding:18px 13px 30px}.topbar{margin-bottom:21px}.topbar h1{font-size:20px}.demo{padding:6px 8px;font-size:10px}.stats{gap:9px}.stat{padding:14px}.stat-value{font-size:27px}.view-head{align-items:start;flex-direction:column}.toolbar{width:100%}.search{width:auto;flex:1}.panel-head{padding:14px}.field-grid{grid-template-columns:1fr 1fr}}
+:root{--deep:#173d31;--green:#176b4a;--lime:#d8f178;--ink:#17251e;--muted:#738078;--line:#e4ebe5;--paper:#f4f6f2;--white:#fff}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 Inter,"PingFang SC","Microsoft YaHei",sans-serif}
+.wrap{max-width:1120px;margin:auto;padding:0 26px 54px}
+.top{display:flex;align-items:center;justify-content:space-between;padding:20px 0}
+.brand{display:flex;align-items:center;gap:11px;font-weight:850;letter-spacing:-.02em}.brand-icon{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;background:var(--deep);color:var(--lime);font-size:18px;font-weight:900}
+.top-tag{padding:7px 11px;border:1px solid #dce7de;border-radius:999px;background:#fff;color:#53675a;font-size:11px;font-weight:750}
+.hero{position:relative;overflow:hidden;padding:clamp(28px,6vw,60px);border-radius:25px;background:var(--deep);color:#fff}
+.hero:after{content:"";position:absolute;right:-80px;top:-170px;width:390px;height:390px;border:1px solid #ffffff16;border-radius:50%;box-shadow:0 0 0 35px #ffffff08,0 0 0 75px #ffffff05}
+.kicker{color:#c0d295;font-size:11px;font-weight:850;letter-spacing:.14em}
+.hero h1{position:relative;z-index:1;margin:12px 0 10px;font-size:clamp(30px,5vw,48px);line-height:1.12;letter-spacing:-.055em}
+.hero p{position:relative;z-index:1;max-width:590px;margin:0;color:#c7d4cc;font-size:14px}
+.hero-meta{position:relative;z-index:1;display:flex;flex-wrap:wrap;gap:8px;margin-top:23px}
+.hero-meta span{padding:7px 10px;border:1px solid #ffffff22;border-radius:999px;color:#e1eae4;font-size:11px}
+.section-head{display:flex;align-items:end;justify-content:space-between;gap:16px;margin:32px 0 15px}
+.section-head h2{margin:0;font-size:20px;letter-spacing:-.03em}
+.section-head p{margin:4px 0 0;color:var(--muted);font-size:12px}
+.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.portal{display:flex;min-height:202px;flex-direction:column;padding:18px;border:1px solid var(--line);border-radius:17px;background:var(--white);color:inherit;text-decoration:none;box-shadow:0 8px 24px #173d3108;transition:transform .16s,border-color .16s,box-shadow .16s}
+.portal:hover{transform:translateY(-3px);border-color:#b5cbb9;box-shadow:0 14px 32px #173d3114}
+.portal:focus-visible{outline:3px solid #91b59b;outline-offset:3px}
+.portal-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.portal-icon{display:grid;place-items:center;width:45px;height:45px;border-radius:14px;background:#edf5ef;color:var(--green);font-size:22px}
+.status{padding:5px 8px;border-radius:999px;background:#f1f3f1;color:#758078;font-size:10px;font-weight:800}
+.status.ready{background:#e7f5eb;color:#176b4a}
+.portal h3{margin:17px 0 4px;font-size:17px;letter-spacing:-.02em}
+.portal p{margin:0;color:var(--muted);font-size:12px}
+.portal-bottom{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:auto;padding-top:19px;color:#53675a;font-size:11px;font-weight:800}
+.arrow{font-size:17px;color:var(--green)}
+.footer{display:flex;justify-content:space-between;gap:15px;margin-top:19px;color:#8a958d;font-size:11px}
+@media(max-width:800px){.cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.wrap{padding:0 14px 30px}.top{padding:13px 0}.brand{font-size:14px}.brand-icon{width:34px;height:34px}.top-tag{font-size:10px}.hero{padding:27px 20px;border-radius:19px}.hero p{font-size:13px}.section-head{align-items:start;flex-direction:column;margin-top:25px}.cards{grid-template-columns:1fr;gap:10px}.portal{min-height:165px;padding:16px}.portal h3{margin-top:13px}.portal-bottom{padding-top:13px}.footer{flex-direction:column}}
 </style>
 </head>
 <body>
-<div class="layout">
-  <aside class="sidebar">
-    <div class="brand"><span class="brand-icon">M</span><span>矿山简版</span></div>
-    <div class="nav-label">业务模块</div>
-    <nav class="nav" aria-label="业务模块">
-      <button class="active" data-view="statsView"><span class="icon">▥</span>车数统计</button>
-      <button data-view="peopleView"><span class="icon">♙</span>人员档案</button>
-      <button data-view="vehiclesView"><span class="icon">▰</span>车辆档案</button>
-      <button data-view="suppliesView"><span class="icon">▣</span>物资领用</button>
-    </nav>
-    <div class="side-note">轻量管理台<br>当前数据保存在本浏览器</div>
-  </aside>
-  <main>
-    <header class="topbar">
-      <div><h1 id="pageTitle">车数统计</h1><p id="pageDesc">快速查看车辆总量和当前状态</p></div>
-      <span class="demo">演示版 · 本地浏览器数据</span>
-    </header>
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><span class="brand-icon">M</span><span>矿山管理系统 <span style="color:#748178;font-weight:600">/ 简版</span></span></div>
+    <span class="top-tag">工作端口</span>
+  </header>
+  <section class="hero">
+    <div class="kicker">MINE OPERATIONS · LITE</div>
+    <h1>选择你的工作端口</h1>
+    <p>按岗位进入对应工作台。各端口分步建设，当前先开放管理端的车数统计、人员档案、车辆档案和物资领用。</p>
+    <div class="hero-meta"><span>7 个工作端口</span><span>管理端当前开放</span><span>其余端口逐步建设</span></div>
+  </section>
 
-    <section class="view" id="statsView">
-      <div class="view-head"><div><h2>车辆概况</h2><p>统计根据车辆档案中的状态自动更新</p></div><button class="btn btn-soft" data-goto="vehiclesView">管理车辆档案</button></div>
-      <div class="stats">
-        <article class="stat"><div class="stat-label">车辆总数</div><div class="stat-value" id="totalCount">0</div><div class="stat-sub">已登记车辆</div></article>
-        <article class="stat"><div class="stat-label">作业中</div><div class="stat-value" id="workingCount">0</div><div class="stat-sub">当前投入生产</div></article>
-        <article class="stat"><div class="stat-label">待命</div><div class="stat-value" id="idleCount">0</div><div class="stat-sub">可调度车辆</div></article>
-        <article class="stat"><div class="stat-label">维修中</div><div class="stat-value" id="repairCount">0</div><div class="stat-sub">暂不可用车辆</div></article>
-      </div>
-      <div class="panel">
-        <div class="panel-head"><h3>车辆状态明细</h3><span id="statsHint">—</span></div>
-        <div class="table-wrap"><table><thead><tr><th>车辆编号</th><th>车牌/识别号</th><th>车型</th><th>所属班组</th><th>状态</th></tr></thead><tbody id="statsRows"></tbody></table></div>
-      </div>
-    </section>
-
-    <section class="view" id="peopleView" hidden>
-      <div class="view-head"><div><h2>人员档案</h2><p>维护人员基本信息和在岗状态</p></div><div class="toolbar"><input class="search" id="peopleSearch" placeholder="搜索姓名、工号或班组"><button class="btn" id="addPerson">新增人员</button></div></div>
-      <div class="panel"><div class="table-wrap"><table><thead><tr><th>姓名</th><th>工号</th><th>岗位</th><th>班组</th><th>联系电话</th><th>状态</th><th>操作</th></tr></thead><tbody id="peopleRows"></tbody></table></div></div>
-    </section>
-
-    <section class="view" id="vehiclesView" hidden>
-      <div class="view-head"><div><h2>车辆档案</h2><p>登记车辆信息并维护作业状态</p></div><div class="toolbar"><input class="search" id="vehicleSearch" placeholder="搜索编号、车型或班组"><button class="btn" id="addVehicle">新增车辆</button></div></div>
-      <div class="panel"><div class="table-wrap"><table><thead><tr><th>车辆编号</th><th>车牌/识别号</th><th>车型</th><th>所属班组</th><th>状态</th><th>操作</th></tr></thead><tbody id="vehicleRows"></tbody></table></div></div>
-    </section>
-
-    <section class="view" id="suppliesView" hidden>
-      <div class="view-head"><div><h2>物资领用</h2><p>登记领用人员、物资和数量</p></div></div>
-      <div class="supplies-grid">
-        <form class="form-card" id="supplyForm">
-          <h3>登记领用</h3><p>提交后会添加到领用记录中</p>
-          <div class="field"><label for="supplyPerson">领用人员</label><select id="supplyPerson" required></select></div>
-          <div class="field"><label for="supplyName">物资名称</label><input id="supplyName" required maxlength="40" placeholder="例如：柴油滤芯"></div>
-          <div class="field-grid">
-            <div class="field"><label for="supplyQty">数量</label><input id="supplyQty" required type="number" min="0.01" step="0.01" placeholder="0"></div>
-            <div class="field"><label for="supplyUnit">单位</label><select id="supplyUnit"><option>个</option><option>件</option><option>箱</option><option>升</option><option>套</option><option>袋</option></select></div>
-          </div>
-          <div class="field"><label for="supplyDate">领用日期</label><input id="supplyDate" required type="date"></div>
-          <button class="btn" type="submit">保存领用记录</button>
-        </form>
-        <div class="panel" style="margin-top:0">
-          <div class="panel-head"><h3>最近领用记录</h3><span id="supplyCount">0 条</span></div>
-          <div class="supply-records" id="supplyRows"></div>
-        </div>
-      </div>
-    </section>
-  </main>
+  <section aria-labelledby="portalHeading">
+    <div class="section-head">
+      <div><h2 id="portalHeading">工作端口</h2><p>选择对应岗位进入</p></div>
+    </div>
+    <div class="cards">
+      <a class="portal" href="portal.html?role=driver">
+        <div class="portal-top"><span class="portal-icon">🚚</span><span class="status">入口已建立</span></div>
+        <h3>司机端</h3><p>司机岗位工作入口</p><div class="portal-bottom"><span>进入司机端</span><span class="arrow">↗</span></div>
+      </a>
+      <a class="portal" href="portal.html?role=excavator">
+        <div class="portal-top"><span class="portal-icon">🚜</span><span class="status">入口已建立</span></div>
+        <h3>挖机端</h3><p>挖机操作岗位工作入口</p><div class="portal-bottom"><span>进入挖机端</span><span class="arrow">↗</span></div>
+      </a>
+      <a class="portal" href="portal.html?role=assistant">
+        <div class="portal-top"><span class="portal-icon">♙</span><span class="status">入口已建立</span></div>
+        <h3>辅助司机端</h3><p>辅助司机岗位工作入口</p><div class="portal-bottom"><span>进入辅助司机端</span><span class="arrow">↗</span></div>
+      </a>
+      <a class="portal" href="portal.html?role=dispatch">
+        <div class="portal-top"><span class="portal-icon">⌖</span><span class="status">入口已建立</span></div>
+        <h3>调度端</h3><p>调度岗位工作入口</p><div class="portal-bottom"><span>进入调度端</span><span class="arrow">↗</span></div>
+      </a>
+      <a class="portal" href="management.html">
+        <div class="portal-top"><span class="portal-icon">▥</span><span class="status ready">当前开放</span></div>
+        <h3>管理端</h3><p>车数统计、人员档案、车辆档案、物资领用</p><div class="portal-bottom"><span>进入管理端</span><span class="arrow">↗</span></div>
+      </a>
+      <a class="portal" href="portal.html?role=boss">
+        <div class="portal-top"><span class="portal-icon">▰</span><span class="status">入口已建立</span></div>
+        <h3>Boss 端</h3><p>经营管理岗位工作入口</p><div class="portal-bottom"><span>进入 Boss 端</span><span class="arrow">↗</span></div>
+      </a>
+      <a class="portal" href="portal.html?role=middle">
+        <div class="portal-top"><span class="portal-icon">⚙</span><span class="status">入口已建立</span></div>
+        <h3>中层管理端</h3><p>现场中层管理岗位工作入口</p><div class="portal-bottom"><span>进入中层管理端</span><span class="arrow">↗</span></div>
+      </a>
+    </div>
+  </section>
+  <footer class="footer"><span>矿山管理系统简版</span><span>端口逐步建设中</span></footer>
 </div>
-<div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true"><div class="modal"><h2 id="modalTitle"></h2><p id="modalDesc"></p><form id="archiveForm"><div id="modalFields"></div><div class="modal-actions"><button class="btn btn-soft" type="button" id="modalCancel">取消</button><button class="btn" type="submit">保存档案</button></div></form></div></div>
-<div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script>
-(() => {
-  const KEY = "mine-management-lite-records-v1";
-  const seed = {
-    people: [
-      {id:"P001",name:"张师傅",role:"司机",team:"运输一组",phone:"13800000001",status:"在岗"},
-      {id:"P002",name:"王师傅",role:"挖机司机",team:"采掘一组",phone:"13800000002",status:"在岗"},
-      {id:"P003",name:"李师傅",role:"辅助司机",team:"运输一组",phone:"13800000003",status:"休假"}
-    ],
-    vehicles: [
-      {id:"V001",code:"矿卡 08",plate:"矿 A-008",model:"矿用自卸车",team:"运输一组",status:"作业中"},
-      {id:"V002",code:"矿卡 12",plate:"矿 A-012",model:"矿用自卸车",team:"运输一组",status:"待命"},
-      {id:"V003",code:"洒水车 02",plate:"矿 S-002",model:"洒水车",team:"保障组",status:"维修中"}
-    ],
-    supplies: []
-  };
-  const $ = id => document.getElementById(id);
-  let db;
-  try {
-    const saved = localStorage.getItem(KEY);
-    db = saved ? JSON.parse(saved) : structuredClone(seed);
-  } catch { db = structuredClone(seed); }
-  db.people = Array.isArray(db.people) ? db.people : [];
-  db.vehicles = Array.isArray(db.vehicles) ? db.vehicles : [];
-  db.supplies = Array.isArray(db.supplies) ? db.supplies : [];
-  let editState = null;
-
-  const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-  const persist = () => localStorage.setItem(KEY, JSON.stringify(db));
-  const toast = message => {
-    $("toast").textContent = message; $("toast").classList.add("show");
-    clearTimeout(toast.timer); toast.timer = setTimeout(() => $("toast").classList.remove("show"), 2100);
-  };
-  const pill = status => {
-    const cls = status === "作业中" || status === "在岗" ? "pill-green" : status === "维修中" || status === "休假" ? "pill-amber" : status === "停用" ? "pill-red" : "";
-    return '<span class="pill ' + cls + '">' + esc(status) + '</span>';
-  };
-  const showEmpty = colspan => '<tr><td colspan="' + colspan + '"><div class="empty">暂无记录</div></td></tr>';
-
-  function renderStats() {
-    const counts = {total:db.vehicles.length, working:0, idle:0, repair:0};
-    db.vehicles.forEach(v => {
-      if (v.status === "作业中") counts.working++;
-      else if (v.status === "维修中") counts.repair++;
-      else if (v.status === "待命") counts.idle++;
-    });
-    $("totalCount").textContent = counts.total;
-    $("workingCount").textContent = counts.working;
-    $("idleCount").textContent = counts.idle;
-    $("repairCount").textContent = counts.repair;
-    $("statsHint").textContent = counts.total + " 辆登记车辆";
-    $("statsRows").innerHTML = db.vehicles.length
-      ? db.vehicles.map(v => '<tr><td class="primary-cell">' + esc(v.code) + '</td><td>' + esc(v.plate) + '</td><td>' + esc(v.model) + '</td><td>' + esc(v.team) + '</td><td>' + pill(v.status) + '</td></tr>').join("")
-      : showEmpty(5);
-  }
-  function renderPeople() {
-    const q = $("peopleSearch").value.trim().toLowerCase();
-    const rows = db.people.filter(p => [p.name,p.id,p.team,p.role,p.phone].some(v => String(v).toLowerCase().includes(q)));
-    $("peopleRows").innerHTML = rows.length ? rows.map(p => '<tr><td class="primary-cell">' + esc(p.name) + '</td><td>' + esc(p.id) + '</td><td>' + esc(p.role) + '</td><td>' + esc(p.team) + '</td><td>' + esc(p.phone) + '</td><td>' + pill(p.status) + '</td><td><div class="actions"><button class="action-edit" data-action="edit" data-kind="person" data-id="' + esc(p.id) + '">编辑</button><button class="btn-delete" data-action="delete" data-kind="person" data-id="' + esc(p.id) + '">删除</button></div></td></tr>').join("") : showEmpty(7);
-  }
-  function renderVehicles() {
-    const q = $("vehicleSearch").value.trim().toLowerCase();
-    const rows = db.vehicles.filter(v => [v.code,v.id,v.plate,v.model,v.team,v.status].some(x => String(x).toLowerCase().includes(q)));
-    $("vehicleRows").innerHTML = rows.length ? rows.map(v => '<tr><td class="primary-cell">' + esc(v.code) + '</td><td>' + esc(v.plate) + '</td><td>' + esc(v.model) + '</td><td>' + esc(v.team) + '</td><td>' + pill(v.status) + '</td><td><div class="actions"><button class="action-edit" data-action="edit" data-kind="vehicle" data-id="' + esc(v.id) + '">编辑</button><button class="btn-delete" data-action="delete" data-kind="vehicle" data-id="' + esc(v.id) + '">删除</button></div></td></tr>').join("") : showEmpty(6);
-  }
-  function renderSupplies() {
-    $("supplyCount").textContent = db.supplies.length + " 条";
-    $("supplyRows").innerHTML = db.supplies.length ? db.supplies.map(item => '<div class="supply-row"><div><div class="supply-name">' + esc(item.name) + '</div><div class="supply-meta">' + esc(item.person) + ' · ' + esc(item.date) + '</div></div><div class="supply-right"><div class="supply-qty">' + esc(item.qty) + ' ' + esc(item.unit) + '</div><button class="supply-delete" data-action="delete-supply" data-id="' + esc(item.id) + '">删除记录</button></div></div>').join("") : '<div class="empty">暂无领用记录</div>';
-    const select = $("supplyPerson"), selected = select.value;
-    select.innerHTML = '<option value="">请选择人员</option>' + db.people.map(p => '<option value="' + esc(p.id) + '">' + esc(p.name) + '（' + esc(p.team) + '）</option>').join("");
-    if (db.people.some(p => p.id === selected)) select.value = selected;
-  }
-  function render() { renderStats(); renderPeople(); renderVehicles(); renderSupplies(); persist(); }
-
-  const titles = {
-    statsView:["车数统计","快速查看车辆总量和当前状态"],
-    peopleView:["人员档案管理","维护人员基本信息和在岗状态"],
-    vehiclesView:["车辆档案管理","登记车辆信息并维护作业状态"],
-    suppliesView:["物资领用","登记领用人员、物资和数量"]
-  };
-  function openView(id) {
-    document.querySelectorAll(".view").forEach(view => view.hidden = view.id !== id);
-    document.querySelectorAll("[data-view]").forEach(button => button.classList.toggle("active", button.dataset.view === id));
-    $("pageTitle").textContent = titles[id][0]; $("pageDesc").textContent = titles[id][1];
-    window.scrollTo({top:0,behavior:"smooth"});
-  }
-  document.querySelectorAll("[data-view]").forEach(button => button.addEventListener("click", () => openView(button.dataset.view)));
-  document.querySelectorAll("[data-goto]").forEach(button => button.addEventListener("click", () => openView(button.dataset.goto)));
-
-  function inputField(label,id,value,type="text",placeholder="",options=null) {
-    const control = options
-      ? '<select id="' + id + '" required>' + options.map(x => '<option ' + (x === value ? "selected" : "") + '>' + esc(x) + '</option>').join("") + '</select>'
-      : '<input id="' + id + '" type="' + type + '" value="' + esc(value) + '" placeholder="' + esc(placeholder) + '" required maxlength="60">';
-    return '<div class="field"><label for="' + id + '">' + label + '</label>' + control + '</div>';
-  }
-  function openArchive(kind,id=null) {
-    editState = {kind,id};
-    const person = kind === "person";
-    const row = id ? (person ? db.people : db.vehicles).find(item => item.id === id) : {};
-    $("modalTitle").textContent = (id ? "编辑" : "新增") + (person ? "人员档案" : "车辆档案");
-    $("modalDesc").textContent = person ? "填写人员基本信息。" : "填写车辆基本信息和当前状态。";
-    const fields = person
-      ? inputField("姓名","fName",row.name || "") + inputField("工号","fCode",row.id || "", "text", "例如 P004") + inputField("岗位","fRole",row.role || "") + inputField("班组","fTeam",row.team || "") + inputField("联系电话","fPhone",row.phone || "", "tel") + inputField("状态","fStatus",row.status || "在岗","text","",["在岗","休假","停用"])
-      : inputField("车辆编号","fCode",row.code || "") + inputField("车牌/识别号","fPlate",row.plate || "") + inputField("车型","fModel",row.model || "") + inputField("所属班组","fTeam",row.team || "") + inputField("状态","fStatus",row.status || "待命","text","",["作业中","待命","维修中","停用"]);
-    $("modalFields").innerHTML = fields;
-    $("modalBackdrop").classList.add("open");
-    $("modalFields").querySelector("input")?.focus();
-  }
-  function closeModal() { $("modalBackdrop").classList.remove("open"); editState = null; }
-  $("addPerson").addEventListener("click", () => openArchive("person"));
-  $("addVehicle").addEventListener("click", () => openArchive("vehicle"));
-  $("modalCancel").addEventListener("click", closeModal);
-  $("modalBackdrop").addEventListener("click", event => { if (event.target === $("modalBackdrop")) closeModal(); });
-  $("archiveForm").addEventListener("submit", event => {
-    event.preventDefault(); if (!editState) return;
-    const {kind,id} = editState, isPerson = kind === "person", source = isPerson ? db.people : db.vehicles;
-    const value = isPerson
-      ? {id:$("fCode").value.trim(),name:$("fName").value.trim(),role:$("fRole").value.trim(),team:$("fTeam").value.trim(),phone:$("fPhone").value.trim(),status:$("fStatus").value}
-      : {id:$("fCode").value.trim(),code:$("fCode").value.trim(),plate:$("fPlate").value.trim(),model:$("fModel").value.trim(),team:$("fTeam").value.trim(),status:$("fStatus").value};
-    const duplicate = source.some(item => item.id === value.id && item.id !== id);
-    if (duplicate) { toast("工号或车辆编号已存在"); $("fCode").focus(); return; }
-    if (id) Object.assign(source.find(item => item.id === id), value);
-    else source.unshift(value);
-    closeModal(); render(); toast(id ? "档案已更新" : "档案已新增");
-  });
-  document.addEventListener("click", event => {
-    const button = event.target.closest("[data-action]"); if (!button) return;
-    const id = button.dataset.id;
-    if (button.dataset.action === "edit") { openArchive(button.dataset.kind,id); return; }
-    if (button.dataset.action === "delete") {
-      const arr = button.dataset.kind === "person" ? db.people : db.vehicles;
-      const row = arr.find(item => item.id === id);
-      if (!row || !confirm("确定删除“" + (row.name || row.code) + "”档案吗？")) return;
-      arr.splice(arr.indexOf(row),1); render(); toast("档案已删除"); return;
-    }
-    if (button.dataset.action === "delete-supply") {
-      const row = db.supplies.find(item => item.id === id);
-      if (!row || !confirm("确定删除这条领用记录吗？")) return;
-      db.supplies.splice(db.supplies.indexOf(row),1); render(); toast("记录已删除");
-    }
-  });
-  $("peopleSearch").addEventListener("input",renderPeople);
-  $("vehicleSearch").addEventListener("input",renderVehicles);
-  $("supplyDate").value = new Date().toISOString().slice(0,10);
-  $("supplyForm").addEventListener("submit",event => {
-    event.preventDefault();
-    const person = db.people.find(p => p.id === $("supplyPerson").value);
-    if (!person) { toast("请先选择领用人员"); return; }
-    db.supplies.unshift({id:crypto.randomUUID(),person:person.name,name:$("supplyName").value.trim(),qty:$("supplyQty").value,unit:$("supplyUnit").value,date:$("supplyDate").value});
-    $("supplyForm").reset(); $("supplyDate").value = new Date().toISOString().slice(0,10);
-    render(); toast("领用记录已保存");
-  });
-  document.addEventListener("keydown",event => { if (event.key === "Escape") closeModal(); });
-  render();
-})();
-</script>
 </body>
 </html>
