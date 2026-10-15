@@ -70,7 +70,7 @@ form{display:grid;gap:12px}.section{padding:17px;border:1px solid var(--line);bo
   $("joinDate").value=new Date().toISOString().slice(0,10);
   $("backHome").addEventListener("click",()=>location.href="index.html");
   const readDB=()=>{try{const db=JSON.parse(localStorage.getItem(KEY)||"{}");return {people:Array.isArray(db.people)?db.people:[],vehicles:Array.isArray(db.vehicles)?db.vehicles:[],supplies:Array.isArray(db.supplies)?db.supplies:[]}}catch{return {people:[],vehicles:[],supplies:[]}}};
-  const workUrl=role=>role==="manager"?"management.html":"portal.html?role="+encodeURIComponent(role);
+  const workUrl=role=>role==="manager"?"manager-work.html":"portal.html?role="+encodeURIComponent(role);
   const getPerson=id=>readDB().people.find(p=>p.id===id);
   const setResult=(person)=>{
     $("enrollForm").hidden=true;$("result").classList.add("show");
