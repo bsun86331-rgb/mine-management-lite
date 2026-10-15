@@ -27,7 +27,8 @@
     if(!entries.some(e=>e[0]===view))view="stock";
     const messages=visibleMessages(),unread=messages.filter(msg=>!msg.readBy.includes(person.id)).length;
     $("identity").textContent=person.name+" · "+(role==="middle_store"?"后勤库管":person.role)+" · "+person.status;
-    $("back").href=["在岗","已通过"].includes(person.status)?"portal.html?role="+encodeURIComponent(role):"enroll.html?role="+encodeURIComponent(role);
+    $("back").textContent=role==="middle_store"?"返回系统首页 ↗":"返回工作页 ↗";
+    $("back").href=role==="middle_store"?"index.html":["在岗","已通过"].includes(person.status)?"portal.html?role="+encodeURIComponent(role):"enroll.html?role="+encodeURIComponent(role);
     $("nav").innerHTML=entries.map(([key,label])=>'<button data-view="'+key+'" class="'+(view===key?'selected':'')+'">'+label+(key==="messages"&&unread?' ('+unread+')':'')+'</button>').join("");
     $("title").textContent=entries.find(e=>e[0]===view)[1];
     $("subtitle").textContent=keeper?"后勤库管工作台 · 库存、交付、回收和清算":finance?"财务工作台 · 个人领用与赔偿复核":"先申请，现场领取后核对确认；可回收物资需登记归还。";
