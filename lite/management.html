@@ -134,7 +134,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
   function setMode(){
     const setup=!authRecord();
     $("gateTitle").textContent=setup?"首次使用 · 设置管理员密码":"管理员登录";
-    $("gateDesc").textContent=setup?"设置本浏览器的管理员密码，之后由管理员使用密码进入审核后台。":"输入当前浏览器设置的管理员密码，进入人员审核和管理功能。";
+    $("gateDesc").textContent=setup?"首位管理员先在这台审核设备设置演示密码，之后由管理员输入密码进入后台。":"输入当前浏览器设置的管理员密码，进入人员审核和管理功能。";
     $("confirmPasswordWrap").hidden=!setup;
     $("gateSubmit").textContent=setup?"设置密码并进入":"验证并进入";
   }
