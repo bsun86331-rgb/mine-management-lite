@@ -69,7 +69,6 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
       <button class="active" data-view="statsView"><span class="icon">▥</span>车数统计</button>
       <button data-view="peopleView"><span class="icon">♙</span>人员档案</button>
       <button data-view="vehiclesView"><span class="icon">▰</span>车辆档案</button>
-      <button data-view="suppliesView"><span class="icon">▣</span>物资领用</button>
     </nav>
     <div class="side-note">轻量管理台<br>当前数据保存在本浏览器</div>
   </aside>
@@ -103,37 +102,18 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
       <div class="panel"><div class="table-wrap"><table><thead><tr><th>车辆编号</th><th>车辆名称</th><th>设备类别</th><th>车牌号</th><th>所属公司/车队</th><th>状态</th><th>操作</th></tr></thead><tbody id="vehicleRows"></tbody></table></div></div>
     </section>
 
-    <section class="view" id="suppliesView" hidden>
-      <div class="view-head"><div><h2>物资领用</h2><p>登记领用人员、物资和数量</p></div></div>
-      <div class="supplies-grid">
-        <form class="form-card" id="supplyForm">
-          <h3>登记领用</h3><p>提交后会添加到领用记录中</p>
-          <div class="field"><label for="supplyPerson">领用人员</label><select id="supplyPerson" required></select></div>
-          <div class="field"><label for="supplyName">物资名称</label><input id="supplyName" required maxlength="40" placeholder="例如：柴油滤芯"></div>
-          <div class="field-grid">
-            <div class="field"><label for="supplyQty">数量</label><input id="supplyQty" required type="number" min="0.01" step="0.01" placeholder="0"></div>
-            <div class="field"><label for="supplyUnit">单位</label><select id="supplyUnit"><option>个</option><option>件</option><option>箱</option><option>升</option><option>套</option><option>袋</option></select></div>
-          </div>
-          <div class="field"><label for="supplyDate">领用日期</label><input id="supplyDate" required type="date"></div>
-          <button class="btn" type="submit">保存领用记录</button>
-        </form>
-        <div class="panel" style="margin-top:0">
-          <div class="panel-head"><h3>最近领用记录</h3><span id="supplyCount">0 条</span></div>
-          <div class="supply-records" id="supplyRows"></div>
-        </div>
-      </div>
-    </section>
   </main>
 </div>
 <div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true"><div class="modal"><div class="archive-modal-heading"><h2 id="modalTitle"></h2><button class="modal-close" id="vehicleModalClose" type="button" aria-label="关闭车辆档案" hidden>×</button></div><p id="modalDesc"></p><form id="archiveForm"><div id="modalFields"></div></form><div class="modal-fixed-actions" id="archiveFixedActions"><div class="archive-review-actions" id="archiveReviewActions"><button class="btn review-pass" type="button" id="archiveApprove">审核通过</button><button class="btn review-reject" type="button" id="archiveReject">驳回资料</button><button class="btn review-print" type="button" id="archivePrintData">打印资料</button><button class="btn review-print" type="button" id="archivePrintPhotos">打印照片</button><button class="btn btn-soft" type="button" id="archiveClose">关闭</button></div><div class="modal-actions"><button class="btn btn-soft" type="button" id="modalCancel">取消</button><button class="btn" id="archiveSave" type="submit" form="archiveForm">保存档案</button></div></div></div></div>
 <div class="review-backdrop" id="reviewBackdrop"><section class="review-dialog" role="dialog" aria-modal="true" aria-labelledby="reviewTitle"><div class="review-head"><div><h2 id="reviewTitle">入职资料审核</h2><p id="reviewSubtitle">核对提交信息和附件后确认。</p></div></div><div class="review-grid" id="reviewFields"></div><h3>提交的附件</h3><div class="review-files" id="reviewFiles"></div><label class="review-check"><input type="checkbox" id="reviewCheck"><span>我已逐项核对以上登记资料及提交附件</span></label><div class="review-progress" id="reviewProgress" role="status"></div><div class="review-actions"><button class="btn review-pass" type="button" id="reviewApprove" disabled>审核通过</button><button class="btn review-reject" type="button" id="reviewReject">驳回资料</button><button class="btn review-print" type="button" id="printReviewData">打印资料</button><button class="btn review-print" type="button" id="printReviewPhotos">打印照片</button><button class="btn btn-soft" type="button" id="reviewClose">关闭</button></div></section></div>
-<div class="departure-backdrop" id="departureBackdrop"><section class="departure-dialog" role="dialog" aria-modal="true" aria-labelledby="departureTitle"><h2 id="departureTitle">办理离职</h2><p id="departurePerson"></p><p>确认后立即停止工作端口访问和新增领用。人员资料、照片及历史记录全部保留。</p><form id="departureForm"><div class="field"><label for="departureDate">离职日期 *</label><input id="departureDate" type="date" required></div><div class="field"><label for="departureReason">离职原因 *</label><textarea id="departureReason" required maxlength="500" rows="3"></textarea></div><div class="modal-actions"><button class="btn btn-soft" id="departureCancel" type="button">取消</button><button class="btn review-reject" type="submit">确认办理离职</button></div></form></section></div>
+<div class="departure-backdrop" id="departureBackdrop"><section class="departure-dialog" role="dialog" aria-modal="true" aria-labelledby="departureTitle"><h2 id="departureTitle">办理离职</h2><p id="departurePerson"></p><p>先核对可回收物资、待确认发放及赔偿记录；清算完成后才能正式离职，资料与历史记录保留。</p><form id="departureForm"><div class="field"><label for="departureDate">离职日期 *</label><input id="departureDate" type="date" required></div><div class="field"><label for="departureReason">离职原因 *</label><textarea id="departureReason" required maxlength="500" rows="3"></textarea></div><div id="departureClearance"></div><div class="modal-actions"><button class="btn btn-soft" id="departureCancel" type="button">取消</button><button class="btn btn-soft" id="cancelClearance" type="button" hidden>取消清算</button><button class="btn review-reject" id="departureSubmit" type="submit">发起物资清算</button></div></form></section></div>
 <div class="photo-select-backdrop" id="photoSelectBackdrop"><section class="photo-select-dialog" role="dialog" aria-modal="true" aria-labelledby="photoSelectTitle"><div class="photo-select-head"><div><h2 id="photoSelectTitle">选择要打印的照片</h2><p>默认勾选所有已提交图片，可取消不需要的照片。</p></div></div><div class="photo-select-tools"><button class="btn btn-soft" type="button" id="photoSelectAll">全选</button><button class="btn btn-soft" type="button" id="photoSelectNone">全不选</button></div><div class="photo-select-list" id="photoSelectList"></div><div class="photo-select-actions"><button class="btn btn-soft" type="button" id="photoSelectCancel">取消</button><button class="btn" type="button" id="photoSelectPrint" disabled>打印所选照片</button></div></section></div>
 <div id="printout"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="attachment-storage.js"></script>
 <script src="attachment-preview.js?v=20261015-1"></script>
-<script src="personnel-export.js?v=20261015-5"></script>
+<script src="personnel-export.js?v=20261016-1"></script>
+<script src="logistics-store.js?v=20261016-1"></script>
 <script>
 (() => {
   const AUTH_KEY="mine-management-lite-admin-auth-v1";
@@ -156,7 +136,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     const bits=await crypto.subtle.deriveBits({name:"PBKDF2",salt,iterations:120000,hash:"SHA-256"},key,256);
     return toBase64(new Uint8Array(bits));
   }
-  function unlock(){ $("adminGate").style.display="none";layout.style.display=""; }
+  function unlock(){ window.MineLogisticsAdmin=true; $("adminGate").style.display="none";layout.style.display=""; }
   setMode();
   gateForm.addEventListener("submit",async event=>{
     event.preventDefault();error.textContent="";
@@ -214,7 +194,11 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
   let archivePreview = null;
 
   const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-  const persist = () => localStorage.setItem(KEY, JSON.stringify(db));
+  let dbRevision=localStorage.getItem(KEY);
+  const persist = () => {
+    if(localStorage.getItem(KEY)!==dbRevision)throw new Error("人员或车辆资料已在其他页面更新，请关闭编辑并刷新后重试，避免覆盖新资料");
+    localStorage.setItem(KEY,JSON.stringify(db));dbRevision=localStorage.getItem(KEY);
+  };
   const toast = message => {
     $("toast").textContent = message; $("toast").classList.add("show");
     clearTimeout(toast.timer); toast.timer = setTimeout(() => $("toast").classList.remove("show"), 2100);
@@ -239,12 +223,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
       delete next.statusBeforeDisable;
       if (next.status === "待审核") next.reviewed = false;
     } else if (action === "depart") {
-      if (!canDepart(person)) throw new Error("当前状态不能办理离职");
-      if (!details.departureDate || !String(details.reason || "").trim()) throw new Error("请填写离职日期和原因");
-      next.status = "离职";
-      next.departureDate = details.departureDate;
-      next.departureReason = String(details.reason).trim();
-      next.reviewed = false;
+      throw new Error("请使用物资清算窗口完成离职");
     } else if (action === "rehire") {
       if (person.status !== "离职") throw new Error("仅离职人员可发起返聘审核");
       next.status = "待审核";
@@ -269,7 +248,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
       toast(error.message || "状态保存失败，资料未变更");
       return false;
     }
-    renderPeople(); renderSupplies();
+    renderPeople();
     return true;
   }
   function employmentDetails(person) {
@@ -315,20 +294,12 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     const rows = db.vehicles.filter(v => [v.code,v.id,v.name,v.category,v.plate,v.model,v.team,v.vin,v.engineNumber,v.status].some(x => String(x ?? "").toLowerCase().includes(q)));
     $("vehicleRows").innerHTML = rows.length ? rows.map(v => '<tr><td class="primary-cell">' + esc(v.code) + '</td><td>' + esc(v.name || "—") + '</td><td>' + esc(v.category || v.model || "—") + '</td><td>' + esc(v.plate || "—") + '</td><td>' + esc(v.team || "—") + '</td><td>' + pill(v.status) + '</td><td><div class="actions"><button class="action-edit" data-action="edit" data-kind="vehicle" data-id="' + esc(v.id) + '">查看/编辑</button><button class="btn-delete" data-action="delete" data-kind="vehicle" data-id="' + esc(v.id) + '">删除</button></div></td></tr>').join("") : showEmpty(7);
   }
-  function renderSupplies() {
-    $("supplyCount").textContent = db.supplies.length + " 条";
-    $("supplyRows").innerHTML = db.supplies.length ? db.supplies.map(item => '<div class="supply-row"><div><div class="supply-name">' + esc(item.name) + '</div><div class="supply-meta">' + esc(item.person) + ' · ' + esc(item.date) + '</div></div><div class="supply-right"><div class="supply-qty">' + esc(item.qty) + ' ' + esc(item.unit) + '</div><button class="supply-delete" data-action="delete-supply" data-id="' + esc(item.id) + '">删除记录</button></div></div>').join("") : '<div class="empty">暂无领用记录</div>';
-    const select = $("supplyPerson"), selected = select.value;
-    select.innerHTML = '<option value="">请选择人员</option>' + db.people.filter(p => !isPersonnelBlocked(p)).map(p => '<option value="' + esc(p.id) + '">' + esc(p.name) + '（' + esc(p.team) + '）</option>').join("");
-    if (db.people.some(p => p.id === selected && !isPersonnelBlocked(p))) select.value = selected;
-  }
-  function render() { renderStats(); renderPeople(); renderVehicles(); renderSupplies(); persist(); }
+  function render() { persist(); renderStats(); renderPeople(); renderVehicles(); }
 
   const titles = {
     statsView:["车数统计","快速查看车辆总量和当前状态"],
     peopleView:["人员档案管理","维护人员基本信息和在岗状态"],
-    vehiclesView:["车辆档案管理","登记车辆信息并维护作业状态"],
-    suppliesView:["物资领用","登记领用人员、物资和数量"]
+    vehiclesView:["车辆档案管理","登记车辆信息并维护作业状态"]
   };
   function openView(id) {
     document.querySelectorAll(".view").forEach(view => view.hidden = view.id !== id);
@@ -411,6 +382,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     return readAttachment(input,previous,savedIds);
   }
   function openArchive(kind,id=null) {
+    if(localStorage.getItem(KEY)!==dbRevision){db=MineLogistics.main();dbRevision=localStorage.getItem(KEY);}
     archivePreview?.destroy();
     archivePreview = null;
     editState = {kind,id};
@@ -816,7 +788,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
       if (shouldOpenReview) openReview(value.id);
     } catch (error) {
       try { db = JSON.parse(previousDB); } catch {}
-      renderStats(); renderPeople(); renderVehicles(); renderSupplies();
+      renderStats(); renderPeople(); renderVehicles();
       await Promise.allSettled(savedAttachmentIds.map(id => MineAttachmentStore.remove(id)));
       toast(error.message || "保存失败，请检查附件大小或浏览器存储空间");
     } finally {
@@ -838,18 +810,54 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     $("departureDate").value = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0,10);
     $("departureDate").max = $("departureDate").value;
     $("departureBackdrop").classList.add("open");
+    const existingExit=MineLogistics.openExit(MineLogistics.get(),person.id);
+    if(existingExit){$("departureDate").value=existingExit.date;$("departureReason").value=existingExit.reason;}
+    renderDepartureClearance();
     $("departureDate").focus();
   }
   $("departureCancel").addEventListener("click",closeDeparture);
   $("departureBackdrop").addEventListener("click",event => { if (event.target === $("departureBackdrop")) closeDeparture(); });
-  $("departureForm").addEventListener("submit",event => {
+  function renderDepartureClearance() {
+    if(!departurePersonId)return;
+    const L=MineLogistics, data=L.get(), people=L.main(), c=L.clearance(data,people,departurePersonId);
+    const rows=[
+      ...c.requests.map(r=>"待确认发放："+r.lines.map(l=>l.name+"×"+L.num(l.qty)+" "+l.unit).join("、")),
+      ...c.loans.map(l=>"未归还："+l.name+" × "+L.num(L.outstanding(l))+" "+l.unit),
+      ...c.returns.map(r=>"归还待验收："+(data.loans.find(l=>l.id===r.loanId)?.name||"")+" × "+L.num(r.qty)),
+      ...c.claims.map(v=>"赔偿待核实/财务复核："+v.name+" · "+L.num(v.amount)+" "+v.currency),
+      ...c.legacy.map(v=>"旧领用待核实："+v.name+" × "+v.qty+" "+(v.unit||""))
+    ];
+    $("departureClearance").innerHTML='<div class="privacy-note"><strong>'+(c.exit?(L.cleared(c)?"物资已清算，可正式办理离职":"物资尚未清算，暂不能离职"):"先发起物资清算，再确认离职")+'</strong>'+(rows.length?'<ul>'+rows.map(v=>'<li>'+esc(v)+'</li>').join("")+'</ul>':'<p>未发现未归还物资或未完成单据。</p>')+'<p>待交付申请在发起清算时取消并释放预留；已交付单仍需本人确认。工资扣款尚未执行，财务复核通过的金额仅列为待扣款。</p></div>';
+    $("departureSubmit").textContent=!c.exit?"发起物资清算":L.cleared(c)?"确认办理离职":"刷新清算结果";
+    $("cancelClearance").hidden=!c.exit;
+  }
+  $("cancelClearance").addEventListener("click",async()=>{
+    const reason=prompt("请填写取消离职清算的原因");if(!reason?.trim())return;
+    try{await MineLogistics.act("cancelExit",{personId:departurePersonId,reason},{admin:true});renderDepartureClearance();toast("已取消清算");}catch(error){toast(error.message);}
+  });
+  $("departureForm").addEventListener("submit",async event => {
     event.preventDefault();
     if (!departurePersonId || !$("departureForm").reportValidity()) return;
-    const reason = $("departureReason").value.trim();
-    if (!reason) { toast("请填写离职原因"); $("departureReason").focus(); return; }
-    if (savePersonnelTransition(departurePersonId,"depart",{departureDate:$("departureDate").value,reason})) {
-      closeDeparture(); toast("离职已办理，资料及历史记录已保留");
-    }
+    const reason=$("departureReason").value.trim();if(!reason){toast("请填写离职原因");return;}
+    const button=$("departureSubmit");button.disabled=true;
+    try{
+      const existing=MineLogistics.openExit(MineLogistics.get(),departurePersonId);
+      if(!existing||existing.date!==$("departureDate").value||existing.reason!==reason){
+        await MineLogistics.act("beginExit",{personId:departurePersonId,date:$("departureDate").value,reason},{admin:true});
+        renderDepartureClearance();toast("已发起清算并发送站内消息，请核对清单后再次确认");return;
+      }
+      const c=MineLogistics.clearance(MineLogistics.get(),MineLogistics.main(),departurePersonId);
+      if(!MineLogistics.cleared(c)){renderDepartureClearance();toast("还有物资或单据未结清，已刷新清单");return;}
+      if(!confirm("物资已清算，确定正式办理离职？确认后工作端口关闭，历史资料保留。"))return;
+      await MineLogistics.act("finalizeExit",{personId:departurePersonId},{admin:true});
+      db=MineLogistics.main();dbRevision=localStorage.getItem(KEY);closeDeparture();renderStats();renderPeople();renderVehicles();toast("离职已办理，资料及历史记录已保留");
+    }catch(error){toast(error.message||"办理失败");}
+    finally{button.disabled=false;}
+  });
+  window.addEventListener("storage",event=>{
+    if(event.key===MineLogistics.KEY&&departurePersonId)renderDepartureClearance();
+    if(event.key===KEY&&archiveDirty)toast("其他页面已更新资料，请关闭编辑并刷新后重试");
+    if(event.key===KEY&&!archiveSaving&&!archiveDirty){try{db=MineLogistics.main();dbRevision=localStorage.getItem(KEY);renderStats();renderPeople();renderVehicles();}catch(error){toast(error.message);}}
   });
   document.addEventListener("click", event => {
     const target = event.target instanceof Element ? event.target : null;
@@ -883,11 +891,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
       if (!row || !confirm("确定删除“" + row.code + "”车辆档案吗？")) return;
       arr.splice(arr.indexOf(row),1); render(); toast("车辆档案已删除"); return;
     }
-    if (button.dataset.action === "delete-supply") {
-      const row = db.supplies.find(item => item.id === id);
-      if (!row || !confirm("确定删除这条领用记录吗？")) return;
-      db.supplies.splice(db.supplies.indexOf(row),1); render(); toast("记录已删除");
-    }
+
   }, true);
   $("exportPeople").addEventListener("click",async () => {
     if (!db.people.length) { toast("暂无人员档案可导出"); return; }
@@ -921,16 +925,6 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     }
   });
   $("vehicleSearch").addEventListener("input",renderVehicles);
-  $("supplyDate").value = new Date().toISOString().slice(0,10);
-  $("supplyForm").addEventListener("submit",event => {
-    event.preventDefault();
-    const person = db.people.find(p => p.id === $("supplyPerson").value);
-    if (!person) { toast("请先选择领用人员"); return; }
-    if (isPersonnelBlocked(person)) { toast("停用或离职人员不能新增物资领用"); renderSupplies(); return; }
-    db.supplies.unshift({id:crypto.randomUUID(),personId:person.id,person:person.name,name:$("supplyName").value.trim(),qty:$("supplyQty").value,unit:$("supplyUnit").value,date:$("supplyDate").value});
-    $("supplyForm").reset(); $("supplyDate").value = new Date().toISOString().slice(0,10);
-    render(); toast("领用记录已保存");
-  });
   document.addEventListener("keydown",event => { if (event.key === "Escape") { if ($("departureBackdrop").classList.contains("open")) { closeDeparture(); return; } if ($("photoSelectBackdrop").classList.contains("open")) { closePhotoSelector(); return; } requestCloseModal(); closeReview(); } });
   render();
 })();
