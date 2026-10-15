@@ -28,12 +28,36 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
 .supplies-grid{display:grid;grid-template-columns:minmax(260px,.8fr) minmax(0,1.2fr);gap:16px;align-items:start}.form-card{padding:19px;border:1px solid var(--line);border-radius:15px;background:#fff;box-shadow:var(--shadow)}.form-card h3{margin:0 0 4px;font-size:16px}.form-card>p{margin:0 0 16px;color:var(--muted);font-size:12px}.field{display:grid;gap:6px;margin:12px 0}.field label{color:#59665e;font-size:11px;font-weight:750}.field input,.field select{width:100%;height:41px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:#fff;outline:none}.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.form-card .btn{width:100%;margin-top:6px}.supply-records{padding:4px 18px}.supply-row{display:flex;justify-content:space-between;gap:14px;padding:13px 0;border-bottom:1px solid #edf0ed}.supply-row:last-child{border-bottom:0}.supply-name{font-weight:750}.supply-meta{margin-top:3px;color:var(--muted);font-size:11px}.supply-right{text-align:right;white-space:nowrap}.supply-qty{font-weight:800}.supply-delete{margin-top:3px;border:0;background:none;color:var(--red);font-size:11px}
 .modal-backdrop{position:fixed;z-index:20;inset:0;display:none;place-items:center;padding:16px;background:#1020199c}.modal-backdrop.open{display:grid}.modal{width:min(900px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:22px;border-radius:17px;background:#fff;box-shadow:0 20px 70px #0003}.modal h2{margin:0;font-size:19px}.modal p{margin:5px 0 15px;color:var(--muted);font-size:12px}.modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:16px}.form-section{margin:14px 0;padding:14px;border:1px solid var(--line);border-radius:12px}.form-section h3{margin:0 0 8px;font-size:13px}.form-section .field-grid{gap:10px}.field textarea{width:100%;min-height:76px;padding:9px 10px;border:1px solid var(--line);border-radius:9px;resize:vertical;font:inherit}.field input[type=file]{height:auto;padding:9px}.privacy-note{padding:10px 12px;border:1px solid #f2d6a3;border-radius:9px;background:#fff8e9;color:#80520b;font-size:11px}.file-help{color:var(--muted);font-size:10px}
 .toast{position:fixed;z-index:30;bottom:24px;left:50%;padding:10px 15px;border-radius:10px;background:#17251e;color:white;transform:translate(-50%,12px);opacity:0;pointer-events:none;transition:.2s}.toast.show{transform:translate(-50%,0);opacity:1}
+.admin-gate{position:fixed;z-index:100;inset:0;display:grid;place-items:center;padding:18px;background:var(--bg)}
+.gate-card{width:min(440px,100%);padding:26px;border:1px solid var(--line);border-radius:18px;background:#fff;box-shadow:0 18px 50px #173d3115}
+.gate-brand{display:flex;align-items:center;gap:10px;color:var(--deep);font-weight:850}
+.gate-brand-mark{display:grid;place-items:center;width:36px;height:36px;border-radius:11px;background:var(--deep);color:var(--lime)}
+.gate-card h1{margin:21px 0 5px;font-size:23px}.gate-card>p{margin:0 0 14px;color:var(--muted);font-size:12px}
+.gate-card .btn{width:100%;margin-top:8px}.gate-error{min-height:18px;color:var(--red);font-size:12px}
+.gate-links{display:flex;justify-content:space-between;gap:12px;margin-top:14px;font-size:11px}
+.gate-links a{color:var(--green);text-decoration:none}
+.gate-note{display:block;margin-top:18px;color:var(--muted);font-size:10px}
 @media(max-width:850px){.layout{grid-template-columns:190px minmax(0,1fr)}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.supplies-grid{grid-template-columns:1fr}}
 @media(max-width:600px){.layout{display:block}.sidebar{position:sticky;z-index:10;top:0;height:auto;padding:11px 12px}.brand{padding:0 4px 10px;font-size:14px}.brand-icon{width:31px;height:31px}.nav-label,.side-note{display:none}.nav{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}.nav button{justify-content:center;flex-direction:column;gap:2px;padding:7px 3px;font-size:10px}.nav .icon{font-size:16px}main{padding:18px 13px 30px}.topbar{margin-bottom:21px}.topbar h1{font-size:20px}.demo{padding:6px 8px;font-size:10px}.stats{gap:9px}.stat{padding:14px}.stat-value{font-size:27px}.view-head{align-items:start;flex-direction:column}.toolbar{width:100%}.search{width:auto;flex:1}.panel-head{padding:14px}.field-grid{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body>
-<div class="layout">
+<div class="admin-gate" id="adminGate">
+  <section class="gate-card">
+    <div class="gate-brand"><span class="gate-brand-mark">M</span><span>矿山管理系统 · 管理员后台</span></div>
+    <h1 id="gateTitle">管理员登录</h1>
+    <p id="gateDesc">输入当前浏览器设置的管理员密码，进入人员审核和管理功能。</p>
+    <form id="adminAuthForm">
+      <div class="field"><label for="adminPassword">管理员密码</label><input id="adminPassword" type="password" required minlength="6" autocomplete="current-password"></div>
+      <div class="field" id="confirmPasswordWrap" hidden><label for="confirmPassword">确认密码</label><input id="confirmPassword" type="password" minlength="6" autocomplete="new-password"></div>
+      <div class="gate-error" id="gateError" role="alert"></div>
+      <button class="btn" id="gateSubmit" type="submit">验证并进入</button>
+    </form>
+    <div class="gate-links"><a href="index.html">返回首页</a><span>首次使用需设置管理员密码</span></div>
+    <small class="gate-note">本地演示密码只在当前浏览器有效。此公开静态页面不提供真实账号安全保护；完成演示后再接入数据库和正式认证。</small>
+  </section>
+</div>
+<div class="layout" style="display:none">
   <aside class="sidebar">
     <div class="brand"><span class="brand-icon">M</span><span>矿山简版</span></div>
     <div class="nav-label">业务模块</div>
@@ -48,7 +72,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
   <main>
     <header class="topbar">
       <div><h1 id="pageTitle">车数统计</h1><p id="pageDesc">快速查看车辆总量和当前状态</p></div>
-      <span class="demo">演示版 · 本地浏览器数据</span>
+      <span class="demo">管理员后台 · 本地演示数据</span>
     </header>
 
     <section class="view" id="statsView">
@@ -99,6 +123,51 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
 </div>
 <div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true"><div class="modal"><h2 id="modalTitle"></h2><p id="modalDesc"></p><form id="archiveForm"><div id="modalFields"></div><div class="modal-actions"><button class="btn btn-soft" type="button" id="modalCancel">取消</button><button class="btn" type="submit">保存档案</button></div></form></div></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script>
+(() => {
+  const AUTH_KEY="mine-management-lite-admin-auth-v1";
+  const $=id=>document.getElementById(id);
+  const layout=document.querySelector(".layout");
+  const gateForm=$("adminAuthForm");
+  const error=$("gateError");
+  function authRecord(){try{return JSON.parse(localStorage.getItem(AUTH_KEY)||"null")}catch{return null}}
+  function setMode(){
+    const setup=!authRecord();
+    $("gateTitle").textContent=setup?"首次使用 · 设置管理员密码":"管理员登录";
+    $("gateDesc").textContent=setup?"设置本浏览器的管理员密码，之后由管理员使用密码进入审核后台。":"输入当前浏览器设置的管理员密码，进入人员审核和管理功能。";
+    $("confirmPasswordWrap").hidden=!setup;
+    $("gateSubmit").textContent=setup?"设置密码并进入":"验证并进入";
+  }
+  function toBase64(bytes){let binary="";bytes.forEach(byte=>binary+=String.fromCharCode(byte));return btoa(binary)}
+  async function passwordHash(password,saltText){
+    const salt=Uint8Array.from(atob(saltText),char=>char.charCodeAt(0));
+    const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(password),"PBKDF2",false,["deriveBits"]);
+    const bits=await crypto.subtle.deriveBits({name:"PBKDF2",salt,iterations:120000,hash:"SHA-256"},key,256);
+    return toBase64(new Uint8Array(bits));
+  }
+  function unlock(){ $("adminGate").hidden=true;layout.style.display=""; }
+  setMode();
+  gateForm.addEventListener("submit",async event=>{
+    event.preventDefault();error.textContent="";
+    const password=$("adminPassword").value, record=authRecord();
+    if(password.length<6){error.textContent="密码至少需要 6 位。";return}
+    $("gateSubmit").disabled=true;
+    try{
+      if(!record){
+        if(password!==$("confirmPassword").value){error.textContent="两次输入的密码不一致。";return}
+        const salt=toBase64(crypto.getRandomValues(new Uint8Array(16)));
+        localStorage.setItem(AUTH_KEY,JSON.stringify({salt,hash:await passwordHash(password,salt)}));
+        unlock();
+      }else if(await passwordHash(password,record.salt)===record.hash){
+        unlock();
+      }else{
+        error.textContent="密码不正确，请重试。";
+      }
+    }catch{error.textContent="浏览器暂不支持本地密码验证，请使用最新版浏览器。"}
+    finally{$("gateSubmit").disabled=false}
+  });
+})();
+</script>
 <script>
 (() => {
   const KEY = "mine-management-lite-records-v1";
