@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#173d31">
+<title>辅助司机端 · 选择岗位</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f3f6f2;color:#17251e;font:14px/1.6 "PingFang SC","Microsoft YaHei",sans-serif}.wrap{width:min(1068px,100%);margin:auto;padding:24px 20px 44px}.top{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:25px}.brand{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:800}.brand-mark{display:grid;place-items:center;width:37px;height:37px;border-radius:11px;background:#173d31;color:#d8f178;font-size:20px}.back{padding:8px 13px;border:1px solid #dce5df;border-radius:10px;background:#fff;color:#176b4a;text-decoration:none;font-weight:700}.hero{padding:30px;border-radius:20px;background:#173d31;color:#fff}.hero small{color:#d8f178;font-size:11px;font-weight:800;letter-spacing:.12em}.hero h1{margin:7px 0;font-size:30px}.hero p{margin:0;color:#d1ddd5}.jobs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:20px}.job{display:flex;flex-direction:column;padding:23px;border:1px solid #e0e8e2;border-radius:17px;background:#fff;color:inherit;text-decoration:none;box-shadow:0 8px 25px #173d3108}.job:hover{border-color:#a5c8b1;box-shadow:0 12px 30px #173d3110}.job:focus-visible,.back:focus-visible{outline:3px solid #8cbea5;outline-offset:3px}.job-icon{display:grid;place-items:center;width:43px;height:43px;border-radius:13px;background:#edf5ef;color:#176b4a;font-size:24px}.job h2{margin:17px 0 5px;font-size:19px}.job p{margin:0;color:#738078;font-size:12px}.job-action{display:flex;justify-content:space-between;gap:10px;margin-top:auto;padding-top:24px;color:#176b4a;font-weight:700;font-size:12px}.application[hidden]{display:none}.application{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-top:20px;padding:16px 20px;border:1px solid #d7e5dc;border-radius:13px;background:#fff}.application p{margin:0;font-size:13px}.application a{color:#176b4a;font-weight:700;white-space:nowrap}@media(max-width:760px){.jobs{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:480px){.wrap{padding:17px 14px 30px}.hero{padding:23px}.hero h1{font-size:26px}.jobs{grid-template-columns:1fr;gap:12px}.application{align-items:start;flex-direction:column}.brand{font-size:14px}}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header class="top"><div class="brand"><span class="brand-mark">M</span><span>矿山管理系统 · 简版</span></div><a class="back" href="index.html">返回首页</a></header>
+  <section class="hero"><small>工作端口 / 辅助司机端</small><h1>选择你的工作岗位</h1><p>选择后进入入职登记，提交管理员审核。</p></section>
+  <section class="application" id="currentApplication" hidden aria-label="已有登记"><p id="currentApplicationText"></p><a id="currentApplicationLink">查看我的登记</a></section>
+  <section class="jobs" aria-label="辅助岗位">
+      <a class="job" href="enroll.html?role=assistant_loader"><span class="job-icon" aria-hidden="true">▰</span><h2>铲车司机</h2><p>铲车岗位工作入口</p><span class="job-action">选择并登记 <span aria-hidden="true">↗</span></span></a>
+      <a class="job" href="enroll.html?role=assistant_fuel"><span class="job-icon" aria-hidden="true">▣</span><h2>加油车司机</h2><p>加油车岗位工作入口</p><span class="job-action">选择并登记 <span aria-hidden="true">↗</span></span></a>
+      <a class="job" href="enroll.html?role=assistant_water"><span class="job-icon" aria-hidden="true">≈</span><h2>水车司机</h2><p>水车岗位工作入口</p><span class="job-action">选择并登记 <span aria-hidden="true">↗</span></span></a>
+      <a class="job" href="enroll.html?role=assistant_grader"><span class="job-icon" aria-hidden="true">▱</span><h2>平地机司机</h2><p>平地机岗位工作入口</p><span class="job-action">选择并登记 <span aria-hidden="true">↗</span></span></a>
+      <a class="job" href="enroll.html?role=assistant_dump"><span class="job-icon" aria-hidden="true">⚑</span><h2>排土管理员</h2><p>排土现场管理岗位工作入口</p><span class="job-action">选择并登记 <span aria-hidden="true">↗</span></span></a>
+  </section>
+</main>
+<script>
+(() => {
+  const allowed=["assistant","assistant_loader","assistant_fuel","assistant_water","assistant_grader","assistant_dump"];
+  try {
+    const current=localStorage.getItem("mine-management-lite-current-application");
+    const db=JSON.parse(localStorage.getItem("mine-management-lite-records-v1")||"{}");
+    const person=Array.isArray(db.people)?db.people.find(p=>p.id===current):null;
+    if(!person || !allowed.includes(person.applicationRole)) return;
+    document.getElementById("currentApplicationText").textContent="已有登记："+(person.role || "辅助司机")+"（"+(person.status || "待审核")+"）";
+    document.getElementById("currentApplicationLink").href="enroll.html?role="+encodeURIComponent(person.applicationRole);
+    document.getElementById("currentApplication").hidden=false;
+  } catch {}
+})();
+</script>
+</body>
+</html>
