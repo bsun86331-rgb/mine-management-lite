@@ -92,7 +92,7 @@ form{display:grid;gap:12px}.section{padding:17px;border:1px solid var(--line);bo
   if(existing&&existing.applicationRole===selectedRole&&selectedRole){setResult(existing);}
   if(existing&&existing.applicationRole===selectedRole&&existing.status==="未通过"){ $("enrollForm").hidden=false;$("result").classList.remove("show"); $("role").value=selectedRole; }
   $("result").addEventListener("click",event=>{if(event.target.id==="workLink"&&event.target.getAttribute("href")==="#")event.preventDefault()});
-  setInterval(()=>{if(!currentId)return;const p=getPerson(currentId);if(p&&p.status!=="待审核"&&p.status!=="未通过")setResult(p);},2500);
+  let autoRedirected=false;setInterval(()=>{if(!currentId)return;const p=getPerson(currentId);if(p&&p.status!=="待审核"&&p.status!=="未通过"){setResult(p);if(!autoRedirected){autoRedirected=true;setTimeout(()=>location.replace(workUrl(p.applicationRole)),1200)}}},2500);
   function nextId(people){let max=0;people.forEach(p=>{const m=String(p.id||"").match(/^P(\d+)$/);if(m)max=Math.max(max,Number(m[1]))});return "P"+String(max+1).padStart(3,"0")}
   function fileData(input){const file=$(input).files?.[0];if(!file)return Promise.resolve(null);if(file.size>200*1024)return Promise.reject(new Error("附件“"+file.name+"”超过 200 KB，请压缩后再提交"));return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve({name:file.name,type:file.type,data:reader.result});reader.onerror=()=>reject(new Error("读取附件失败"));reader.readAsDataURL(file)})}
   $("enrollForm").addEventListener("submit",async event=>{
