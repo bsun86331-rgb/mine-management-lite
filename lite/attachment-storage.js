@@ -37,6 +37,19 @@
     return {id,name:file.name,type:file.type || "application/octet-stream",size:file.size,storage:"indexeddb"};
   }
 
+  async function get(id) {
+    if (!id) return null;
+    const db = await openDB();
+    return new Promise((resolve,reject) => {
+      const transaction = db.transaction(STORE_NAME,"readonly");
+      const request = transaction.objectStore(STORE_NAME).get(id);
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error || new Error("读取附件失败"));
+      transaction.oncomplete = () => db.close();
+      transaction.onerror = () => { db.close(); reject(transaction.error || new Error("读取附件失败")); };
+    });
+  }
+
   async function remove(id) {
     if (!id) return;
     const db = await openDB();
@@ -80,5 +93,5 @@
     }
   }
 
-  window.MineAttachmentStore = {MAX_BYTES,save,remove,migrateRecords};
+  window.MineAttachmentStore = {MAX_BYTES,save,get,remove,migrateRecords};
 })();
