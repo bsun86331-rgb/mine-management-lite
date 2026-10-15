@@ -386,13 +386,13 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     $("reviewTitle").textContent = "入职资料审核 · " + (person.name || person.id);
     $("reviewSubtitle").textContent = "核对全部登记字段和提交附件；只有确认已核对后才能通过。";
     $("reviewFields").innerHTML = [
-      reviewField("姓名",person.name),reviewField("手机号码",person.phone),
+      reviewField("申请编号",person.id),reviewField("姓名",person.name),reviewField("手机号码",person.phone),
       reviewField("申请端口 / 岗位",person.role),reviewField("所属班组",person.team),
       reviewField("入职日期",person.joinDate),reviewField("国籍",person.nationality),
       reviewField("民族",person.ethnicity),reviewField("身份证号",person.idNumber),
       reviewField("护照号",person.passport),reviewField("银行卡号",person.bankNumber),
       reviewField("开户银行",person.bankName),reviewField("紧急联系人",person.emergencyName),
-      reviewField("紧急联系人电话",person.emergencyPhone),reviewField("备注",person.note)
+      reviewField("紧急联系人电话",person.emergencyPhone),reviewField("当前审核状态",person.status),reviewField("备注",person.note)
     ].join("");
     $("reviewFiles").innerHTML = '<div class="empty">正在读取附件…</div>';
     $("reviewBackdrop").classList.add("open");
