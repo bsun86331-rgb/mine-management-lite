@@ -15,6 +15,7 @@ form{display:grid;gap:12px}.section{padding:17px;border:1px solid var(--line);bo
 .btn{min-height:44px;padding:10px 15px;border:0;border-radius:11px;background:var(--green);color:#fff;font:inherit;font-weight:800;cursor:pointer}.btn-secondary{border:1px solid var(--line);background:#fff;color:var(--ink)}.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .result{display:none;padding:24px;border:1px solid var(--line);border-radius:15px;background:#fff;text-align:center}.result.show{display:block}.result h2{margin:0}.result p{color:var(--muted)}.badge{display:inline-block;margin:10px 0;padding:6px 10px;border-radius:99px;background:#fff3df;color:#9a5b0a;font-size:12px;font-weight:800}
 @media(max-width:600px){main{margin:16px auto;padding:0 12px 28px}.intro h1{font-size:21px}.section{padding:13px}.grid{grid-template-columns:1fr}.actions{grid-template-columns:1fr}}
+.field input[readonly]{background:#f4f7f4;color:#425b4b;cursor:default}.role-hint{color:#738078;font-size:11px}
 </style>
 </head>
 <body>
@@ -26,7 +27,7 @@ form{display:grid;gap:12px}.section{padding:17px;border:1px solid var(--line);bo
     <section class="section"><h2>基本资料</h2><div class="grid">
       <div class="field"><label for="name">姓名 <span class="required">*</span></label><input id="name" required maxlength="60" autocomplete="name"></div>
       <div class="field"><label for="phone">手机号码 <span class="required">*</span></label><input id="phone" required type="tel" maxlength="30" autocomplete="tel"></div>
-      <div class="field"><label for="role">申请端口 / 岗位 <span class="required">*</span></label><select id="role" required></select></div>
+      <div class="field"><label for="role">申请端口 / 岗位 <span class="required">*</span></label><input id="role" type="text" readonly aria-readonly="true" aria-describedby="roleHint" autocomplete="off"><small id="roleHint" class="role-hint">与首页所选端口一致，如需更换请返回首页。</small></div>
       <div class="field"><label for="team">所属班组 <span class="required">*</span></label><select id="team" required><option value="">请选择所属班组</option><option>生产A组</option><option>生产B组</option><option>行政办公组</option><option>修理组</option></select></div>
       <div class="field"><label for="joinDate">入职日期</label><input id="joinDate" type="date"></div>
       <div class="field"><label for="nationality">国籍（选填）</label><input id="nationality" maxlength="60" placeholder="例如：中国"></div>
@@ -64,11 +65,17 @@ form{display:grid;gap:12px}.section{padding:17px;border:1px solid var(--line);bo
   const KEY="mine-management-lite-records-v1", CURRENT="mine-management-lite-current-application";
   const roles={driver:["司机端","driver"],excavator:["挖机端","excavator"],assistant:["辅助司机端","assistant"],dispatch:["调度端","dispatch"],manager:["管理端","manager"],middle:["中层管理端","middle"]};
   const ethnicities=["汉族","蒙古族","回族","藏族","维吾尔族","苗族","彝族","壮族","布依族","朝鲜族","满族","侗族","瑶族","白族","土家族","哈尼族","哈萨克族","傣族","黎族","傈僳族","佤族","畲族","高山族","拉祜族","水族","东乡族","纳西族","景颇族","柯尔克孜族","土族","达斡尔族","仫佬族","羌族","布朗族","撒拉族","毛南族","仡佬族","锡伯族","阿昌族","普米族","塔吉克族","怒族","乌孜别克族","俄罗斯族","鄂温克族","德昂族","保安族","裕固族","京族","塔塔尔族","独龙族","鄂伦春族","赫哲族","门巴族","珞巴族","基诺族","其他"];
-  const $=id=>document.getElementById(id), roleSelect=$("role");
+  const $=id=>document.getElementById(id), roleInput=$("role");
+  const params=new URLSearchParams(location.search), requestedRole=params.get("role");
+  if(!Object.prototype.hasOwnProperty.call(roles,requestedRole)){
+    $("enrollForm").hidden=true;
+    location.replace("index.html");
+    return;
+  }
+  const selectedRole=requestedRole;
+  roleInput.value=roles[selectedRole][0];
+  roleInput.defaultValue=roleInput.value;
   MineAttachmentPreview.mount($("enrollForm"));
-  const params=new URLSearchParams(location.search), selectedRole=roles[params.get("role")]?params.get("role"):"";
-  roleSelect.innerHTML='<option value="">请选择工作端口</option>'+Object.entries(roles).map(([key,row])=>'<option value="'+key+'">'+row[0]+'</option>').join("");
-  roleSelect.value=selectedRole;
   $("ethnicity").innerHTML=ethnicities.map(name=>'<option>'+name+'</option>').join("");
   $("joinDate").value=new Date().toISOString().slice(0,10);
   $("backHome").addEventListener("click",()=>location.href="index.html");
@@ -107,14 +114,14 @@ form{display:grid;gap:12px}.section{padding:17px;border:1px solid var(--line);bo
   let currentId=localStorage.getItem(CURRENT);
   const existing=getPerson(currentId);
   if(existing&&existing.applicationRole===selectedRole&&selectedRole){setResult(existing);}
-  if(existing&&existing.applicationRole===selectedRole&&existing.status==="未通过"){ $("enrollForm").hidden=false;$("result").classList.remove("show"); $("role").value=selectedRole; }
+  if(existing&&existing.applicationRole===selectedRole&&existing.status==="未通过"){ $("enrollForm").hidden=false;$("result").classList.remove("show"); }
   $("result").addEventListener("click",event=>{if(event.target.id==="workLink"&&event.target.getAttribute("href")==="#")event.preventDefault()});
   let redirectTimer=null;
   let observedApplication=existing ? String(existing.id)+":"+existing.status : "";
   function refreshApplicationStatus(){
     if(!currentId)return;
     const person=getPerson(currentId);
-    if(!person || (roleSelect.value && person.applicationRole!==roleSelect.value))return;
+    if(!person || person.applicationRole!==selectedRole)return;
     const snapshot=String(person.id)+":"+person.status;
     if(snapshot!==observedApplication){
       observedApplication=snapshot;
@@ -127,7 +134,7 @@ form{display:grid;gap:12px}.section{padding:17px;border:1px solid var(--line);bo
       if(redirectTimer===null)redirectTimer=setTimeout(()=>{
         redirectTimer=null;
         const latest=getPerson(currentId);
-        if(latest && ["在岗","已通过"].includes(latest.status) && latest.applicationRole===person.applicationRole)location.replace(workUrl(latest.applicationRole));
+        if(latest && ["在岗","已通过"].includes(latest.status) && latest.applicationRole===selectedRole)location.replace(workUrl(latest.applicationRole));
       },1200);
     }else if(redirectTimer!==null){
       clearTimeout(redirectTimer);redirectTimer=null;
@@ -139,7 +146,7 @@ form{display:grid;gap:12px}.section{padding:17px;border:1px solid var(--line);bo
   function nextId(people){let max=0;people.forEach(p=>{const m=String(p.id||"").match(/^P(\d+)$/);if(m)max=Math.max(max,Number(m[1]))});return "P"+String(max+1).padStart(3,"0")}
   async function fileData(input,savedIds){const file=$(input).files?.[0];if(!file)return null;const attachment=await MineAttachmentStore.save(file);if(attachment?.id)savedIds.push(attachment.id);return attachment}
   $("enrollForm").addEventListener("submit",async event=>{
-    event.preventDefault();const role=roleSelect.value;if(!roles[role]){roleSelect.focus();return}
+    event.preventDefault();const role=selectedRole;roleInput.value=roles[role][0];
     const button=$("enrollForm").querySelector('button[type="submit"]');button.disabled=true;button.textContent="正在保存…";
     const savedAttachmentIds=[];let recordSaved=false;
     try{
