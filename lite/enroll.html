@@ -107,7 +107,7 @@ form{display:grid;gap:12px}.section{padding:17px;border:1px solid var(--line);bo
   $("backHome").addEventListener("click",()=>location.href="index.html");
   const readDB=()=>{try{const db=JSON.parse(localStorage.getItem(KEY)||"{}");return {people:Array.isArray(db.people)?db.people:[],vehicles:Array.isArray(db.vehicles)?db.vehicles:[],supplies:Array.isArray(db.supplies)?db.supplies:[]}}catch{return {people:[],vehicles:[],supplies:[]}}};
   try { await MineAttachmentStore.migrateRecords(KEY); } catch { $("storageWarning").textContent += " 已有附件迁移未完成，原登记数据仍保留；请确认浏览器存储空间后重试。"; }
-  const workUrl=role=>"portal.html?role="+encodeURIComponent(role);
+  const workUrl=role=>role==="middle_store"?"logistics.html?role=middle_store":"portal.html?role="+encodeURIComponent(role);
   const getPerson=id=>readDB().people.find(p=>p.id===id);
   const setResult=(person)=>{
     let logisticsLink=document.getElementById("personalLogisticsLink");
