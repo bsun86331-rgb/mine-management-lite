@@ -99,7 +99,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     </section>
 
     <section class="view" id="vehiclesView" hidden>
-      <div class="view-head"><div><h2>车辆档案</h2><p>登记车辆信息并维护作业状态</p></div><div class="toolbar"><input class="search" id="vehicleSearch" placeholder="搜索编号、名称、类别或车架号"><button class="btn" id="addVehicle">新增车辆</button></div></div>
+      <div class="view-head"><div><div class="people-title-row"><h2>车辆档案</h2><button class="btn btn-soft" id="exportVehicles" type="button" title="导出所有车辆文字资料，不含照片及附件">车辆导出</button></div><p>登记车辆信息并维护作业状态</p></div><div class="toolbar"><input class="search" id="vehicleSearch" placeholder="搜索编号、名称、类别或车架号"><button class="btn" id="addVehicle">新增车辆</button></div></div>
       <div class="panel"><div class="table-wrap"><table><thead><tr><th>车辆编号</th><th>车辆名称</th><th>设备类别</th><th>车牌号</th><th>所属公司/车队</th><th>状态</th><th>操作</th></tr></thead><tbody id="vehicleRows"></tbody></table></div></div>
     </section>
 
@@ -132,7 +132,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
 <div id="printout"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="attachment-storage.js"></script>
-<script src="personnel-export.js?v=20261015-2"></script>
+<script src="personnel-export.js?v=20261015-3"></script>
 <script>
 (() => {
   const AUTH_KEY="mine-management-lite-admin-auth-v1";
@@ -918,6 +918,21 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     }
   });
   $("peopleSearch").addEventListener("input",renderPeople);
+  $("exportVehicles").addEventListener("click",async () => {
+    if (!db.vehicles.length) { toast("暂无车辆档案可导出"); return; }
+    const button=$("exportVehicles");
+    button.disabled=true;button.textContent="正在导出…";
+    try {
+      await new Promise(resolve=>requestAnimationFrame(resolve));
+      if (!window.MineVehicleExport) throw new Error("导出组件未加载，请刷新页面后重试");
+      window.MineVehicleExport.download(db.vehicles);
+      toast("已导出 "+db.vehicles.length+" 辆车辆的完整文字资料，不含照片");
+    } catch(error) {
+      toast(error.message || "车辆导出失败，请稍后重试");
+    } finally {
+      button.disabled=false;button.textContent="车辆导出";
+    }
+  });
   $("vehicleSearch").addEventListener("input",renderVehicles);
   $("supplyDate").value = new Date().toISOString().slice(0,10);
   $("supplyForm").addEventListener("submit",event => {
