@@ -55,10 +55,10 @@
       Object.assign(item,{name,spec,unit,recoverable,unitPrice,currency});log(d,a,"物资档案",name+" · "+spec);return item.id;
     }
     if(type==="stock"){
-      keeper(a);const item=find("items",x.itemId),qty=fixed(x.qty),reason=note();if(!["in","subtract"].includes(x.mode))fail("未知库存操作");
+      keeper(a);const item=find("items",x.itemId),qty=fixed(x.qty),reason=x.mode==="in"?String(x.reason??"").trim():note();if(!["in","subtract"].includes(x.mode))fail("未知库存操作");if(reason.length>300)fail("原因 / 说明最多300字");
       const inboundType=x.mode==="in"?String(x.inboundType||"").trim():"",supplier=x.mode==="in"?String(x.supplier||"").trim():"";
       if(inboundType.length>40||supplier.length>100)fail("入库类型最多40字，供应商最多100字");
-      const delta=x.mode==="in"?qty:-qty;if(item.stock+delta<reserved(d,item.id))fail("调整后库存不能低于已预留数量");item.stock+=delta;log(d,a,delta>0?"入库":"盘点减少",item.name+"："+num(delta)+item.unit+"；"+reason,{itemId:item.id,delta,...(x.mode==="in"?{inboundType,supplier}:{})});return;
+      const delta=x.mode==="in"?qty:-qty;if(item.stock+delta<reserved(d,item.id))fail("调整后库存不能低于已预留数量");item.stock+=delta;log(d,a,delta>0?"入库":"盘点减少",item.name+"："+num(delta)+item.unit+(reason?"；"+reason:""),{itemId:item.id,delta,...(x.mode==="in"?{inboundType,supplier}:{})});return;
     }
     if(type==="request"){
       if(!active(a.person)||openExit(d,a.person.id))fail("当前不能新增申请：请确认在岗且未进入离职清算");
