@@ -37,6 +37,14 @@
     ["最近离职日期",p=>p.departureDate,18,"date"],["最近离职原因",p=>p.departureReason,36],
     ["备注",p=>p.note,42]
   ];
+  const vehicleFields = [
+    ["档案ID",v=>v.id,22],["车辆编号",v=>v.code,20],["车辆名称",v=>v.name,26],
+    ["设备类别",v=>v.category || v.model,20],["大架号 / 车架号",v=>v.vin,28],
+    ["发动机号",v=>v.engineNumber,25],["车牌号",v=>v.plate,20],
+    ["所属公司 / 车队",v=>v.team,26],["载重 / 斗容",v=>v.capacity,20],
+    ["燃油类型",v=>v.fuelType || "未填写",16],["入场日期",v=>v.entryDate,18,"date"],
+    ["设备状态",v=>v.status,16],["备注",v=>v.note,42]
+  ];
   const historyFields = [
     ["档案编号",r=>r.person.id,16],["员工编号",r=>r.person.employeeId || r.person.staffNo || r.person.id,16],
     ["姓名",r=>r.person.name,14],["操作",r=>actions[r.entry.action] || r.entry.action,20],
@@ -89,15 +97,23 @@
     if(!Array.isArray(people) || !people.length) throw new Error("暂无人员档案可导出。");
     const history=people.flatMap(person=>(Array.isArray(person.employmentHistory)?person.employmentHistory:[]).map(entry=>({person,entry})));
     const sheets=[["人员档案",worksheet(fields,people,"矿山管理系统人员档案")],["任职状态记录",worksheet(historyFields,history,"矿山管理系统人员任职状态记录")]];
+    return createWorkbook(sheets);
+  }
+  function buildVehicleWorkbook(vehicles) {
+    if(!Array.isArray(vehicles) || !vehicles.length) throw new Error("暂无车辆档案可导出。");
+    return createWorkbook([["车辆档案",worksheet(vehicleFields,vehicles,"矿山管理系统车辆档案")]]);
+  }
+  function createWorkbook(sheets) {
     const contentTypes='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'+sheets.map((sheet,i)=>'<Override PartName="/xl/worksheets/sheet'+(i+1)+'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>').join("")+'</Types>';
     const workbook='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'+sheets.map((sheet,i)=>'<sheet name="'+sheet[0]+'" sheetId="'+(i+1)+'" r:id="rId'+(i+1)+'"/>').join("")+'</sheets></workbook>';
     const relations='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+sheets.map((sheet,i)=>'<Relationship Id="rId'+(i+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet'+(i+1)+'.xml"/>').join("")+'<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>';
     return zip([["[Content_Types].xml",contentTypes],["_rels/.rels",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],["xl/workbook.xml",workbook],["xl/_rels/workbook.xml.rels",relations],["xl/styles.xml",styles],...sheets.map((sheet,i)=>["xl/worksheets/sheet"+(i+1)+".xml",sheet[1]])]);
   }
-  function download(people) {
-    const bytes=buildWorkbook(people);
+  function download(people) { return downloadFile(buildWorkbook(people),"人员档案"); }
+  function downloadVehicles(vehicles) { return downloadFile(buildVehicleWorkbook(vehicles),"车辆档案"); }
+  function downloadFile(bytes,prefix) {
     const parts=localParts(new Date());
-    const filename="人员档案_"+parts.year+"-"+parts.month+"-"+parts.day+"_"+parts.hour+parts.minute+parts.second+".xlsx";
+    const filename=prefix+"_"+parts.year+"-"+parts.month+"-"+parts.day+"_"+parts.hour+parts.minute+parts.second+".xlsx";
     const url=URL.createObjectURL(new Blob([bytes],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
     const link=document.createElement("a");
     link.href=url;link.download=filename;document.body.appendChild(link);
@@ -105,4 +121,5 @@
     return filename;
   }
   window.MinePersonnelExport={buildWorkbook,download};
+  window.MineVehicleExport={buildWorkbook:buildVehicleWorkbook,download:downloadVehicles};
 })();
