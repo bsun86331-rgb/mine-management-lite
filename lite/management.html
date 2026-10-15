@@ -224,6 +224,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
           formField("申请岗位","fRole",row.role || "","text",true) +
           formField("所属班组","fTeam",row.team || "","text",true) +
           formField("入职日期","fJoinDate",row.joinDate || new Date().toISOString().slice(0,10),"date") +
+          formField("人员状态","fStatus",row.status || (id ? "在岗" : "待审核"),"text",true,["待审核","在岗","休假","停用"]) +
           formField("国籍","fNationality",row.nationality || "中国","text",true) +
           formField("民族","fEthnicity",row.ethnicity || "汉族","text",true,ethnicities) +
         '</div>') +
@@ -301,7 +302,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
           emergencyPhone:$("fEmergencyPhone").value.trim(),
           note:$("fNote").value.trim(),
           attachments,
-          status:id ? (old.status || "在岗") : "待审核"
+          status:$("fStatus").value
         };
       } else {
         value = {id:$("fCode").value.trim(),code:$("fCode").value.trim(),plate:$("fPlate").value.trim(),model:$("fModel").value.trim(),team:$("fTeam").value.trim(),status:$("fStatus").value};
