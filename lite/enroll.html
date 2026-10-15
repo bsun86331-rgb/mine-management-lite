@@ -23,6 +23,7 @@ form{display:grid;gap:12px}.section{padding:17px;border:1px solid var(--line);bo
 <main>
   <div class="intro"><h1>入职信息登记表</h1><p>请选择岗位并填写信息，提交后由管理员审核；审核通过后可进入对应工作端口。</p></div>
   <div class="warning" id="storageWarning">登记资料只保存在当前浏览器，不会同步到其他手机或管理员设备。单个附件不超过 10 MB；附件保存在浏览器 IndexedDB，仍受浏览器配额和设备空间限制。请勿填写真实身份证、银行卡信息或上传真实证件。</div>
+  <details class="section" style="margin-bottom:16px"><summary style="cursor:pointer;font-weight:700">已有登记？继续本人登记</summary><form id="resumeApplicationForm"><div class="grid"><div class="field"><label for="resumeApplicationId">登记编号</label><input id="resumeApplicationId" required placeholder="例如 P001"></div><div class="field"><label for="resumeApplicationPhone">登记手机号</label><input id="resumeApplicationPhone" required type="tel"></div></div><p style="font-size:12px">请输入入职提交后的登记编号和手机号，继续当前岗位的原登记。</p><button class="btn" type="submit">继续原登记</button></form></details>
   <form id="enrollForm">
     <section class="section"><h2>基本资料</h2><div class="grid">
       <div class="field"><label for="name">姓名 <span class="required">*</span></label><input id="name" required maxlength="60" autocomplete="name"></div>
@@ -59,6 +60,7 @@ form{display:grid;gap:12px}.section{padding:17px;border:1px solid var(--line);bo
   </section>
 </main>
 <script src="attachment-storage.js"></script>
+<script src="logistics-store.js?v=20261016-1"></script>
 <script src="attachment-preview.js?v=20261015-1"></script>
 <script>
 (async () => {
@@ -73,12 +75,21 @@ form{display:grid;gap:12px}.section{padding:17px;border:1px solid var(--line);bo
     return;
   }
   const selectedRole=requestedRole;
+  $("resumeApplicationForm").addEventListener("submit",event=>{
+    event.preventDefault();
+    try{
+      const saved=JSON.parse(localStorage.getItem(KEY)||"{}");
+      const previous=(saved.people||[]).find(person=>String(person.id).toUpperCase()===$("resumeApplicationId").value.trim().toUpperCase()&&String(person.phone||"").trim()===$("resumeApplicationPhone").value.trim()&&person.applicationRole===selectedRole);
+      if(!previous){alert("没有匹配当前岗位的登记，请核对登记编号和手机号。");return;}
+      MineLogistics.selectSession(previous);location.reload();
+    }catch(error){alert(error.message||"无法读取原登记，请稍后重试。");}
+  });
   const legacyGroupPage=selectedRole==="assistant"?"assistant.html":selectedRole==="middle"?"middle.html":"";
   const legacyGroup=Boolean(legacyGroupPage);
   if(legacyGroup){
     let previous=null;
     try{
-      const current=localStorage.getItem(CURRENT);
+      const current=MineLogistics.currentId(selectedRole);
       const saved=JSON.parse(localStorage.getItem(KEY)||"{}");
       previous=Array.isArray(saved.people)?saved.people.find(person=>person.id===current&&person.applicationRole===selectedRole):null;
     }catch{}
@@ -99,6 +110,14 @@ form{display:grid;gap:12px}.section{padding:17px;border:1px solid var(--line);bo
   const workUrl=role=>"portal.html?role="+encodeURIComponent(role);
   const getPerson=id=>readDB().people.find(p=>p.id===id);
   const setResult=(person)=>{
+    let logisticsLink=document.getElementById("personalLogisticsLink");
+    if(!logisticsLink){logisticsLink=document.createElement("a");logisticsLink.id="personalLogisticsLink";logisticsLink.className="btn";$("result").appendChild(logisticsLink);}
+    let registrationId=document.getElementById("registrationId");
+    if(!registrationId){registrationId=document.createElement("p");registrationId.id="registrationId";$("result").appendChild(registrationId);}
+    registrationId.textContent="登记编号："+person.id+"（用于继续本人登记）";
+    logisticsLink.hidden=!["在岗","已通过","休假","停用","离职"].includes(person.status);
+    logisticsLink.textContent=person.status==="离职"?"查看本人领用历史":"本人后勤物资 / 归还清算";
+    logisticsLink.href="logistics.html?role="+encodeURIComponent(selectedRole);
     $("enrollForm").hidden=true;$("result").classList.add("show");
     if(person.status==="在岗"||person.status==="已通过"){
       $("resultTitle").textContent="审核已通过";$("resultBadge").textContent="已通过";$("resultBadge").style.background="#e7f5eb";$("resultBadge").style.color="#176b4a";
@@ -126,7 +145,7 @@ form{display:grid;gap:12px}.section{padding:17px;border:1px solid var(--line);bo
       $("workLink").textContent="等待审核中";$("workLink").href="#";
     }
   };
-  let currentId=localStorage.getItem(CURRENT);
+  let currentId=MineLogistics.currentId(selectedRole);
   const existing=getPerson(currentId);
   if(existing&&existing.applicationRole===selectedRole&&selectedRole){setResult(existing);}
   if(existing&&existing.applicationRole===selectedRole&&existing.status==="未通过"&&!legacyGroup){ $("enrollForm").hidden=false;$("result").classList.remove("show"); }
@@ -165,9 +184,10 @@ form{display:grid;gap:12px}.section{padding:17px;border:1px solid var(--line);bo
     const button=$("enrollForm").querySelector('button[type="submit"]');button.disabled=true;button.textContent="正在保存…";
     const savedAttachmentIds=[];let recordSaved=false;
     try{
-      const db=readDB(),id=nextId(db.people),attachments={selfie:await fileData("selfie",savedAttachmentIds),idPhoto:await fileData("idPhoto",savedAttachmentIds),passportPhoto:await fileData("passportPhoto",savedAttachmentIds),license:await fileData("license",savedAttachmentIds),bankCard:await fileData("bankCard",savedAttachmentIds)};
+      const attachments={selfie:await fileData("selfie",savedAttachmentIds),idPhoto:await fileData("idPhoto",savedAttachmentIds),passportPhoto:await fileData("passportPhoto",savedAttachmentIds),license:await fileData("license",savedAttachmentIds),bankCard:await fileData("bankCard",savedAttachmentIds)};
+      const db=readDB(),id=nextId(db.people);
       const person={id,name:$("name").value.trim(),phone:$("phone").value.trim(),role:roles[role][0],applicationRole:role,team:$("team").value.trim(),joinDate:$("joinDate").value,nationality:$("nationality").value.trim(),ethnicity:$("ethnicity").value,idNumber:$("idNumber").value.trim(),passport:$("passport").value.trim(),bankNumber:$("bankNumber").value.trim(),bankName:$("bankName").value.trim(),emergencyName:$("emergencyName").value.trim(),emergencyPhone:$("emergencyPhone").value.trim(),note:$("note").value.trim(),attachments,status:"待审核"};
-      db.people.unshift(person);localStorage.setItem(KEY,JSON.stringify(db));recordSaved=true;localStorage.setItem(CURRENT,id);currentId=id;setResult(person);
+      db.people.unshift(person);localStorage.setItem(KEY,JSON.stringify(db));recordSaved=true;localStorage.setItem(CURRENT,id);MineLogistics.selectSession(person);currentId=id;setResult(person);
     }catch(error){if(!recordSaved)await Promise.allSettled(savedAttachmentIds.map(id=>MineAttachmentStore.remove(id)));alert(error.message||"保存失败，请稍后重试。浏览器存储空间可能不足。")}
     finally{button.disabled=false;button.textContent="提交管理员审核"}
   });
