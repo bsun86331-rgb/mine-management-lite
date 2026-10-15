@@ -145,7 +145,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     const bits=await crypto.subtle.deriveBits({name:"PBKDF2",salt,iterations:120000,hash:"SHA-256"},key,256);
     return toBase64(new Uint8Array(bits));
   }
-  function unlock(){ $("adminGate").hidden=true;layout.style.display=""; }
+  function unlock(){ $("adminGate").style.display="none";layout.style.display=""; }
   setMode();
   gateForm.addEventListener("submit",async event=>{
     event.preventDefault();error.textContent="";
