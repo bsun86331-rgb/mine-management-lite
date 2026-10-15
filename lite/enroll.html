@@ -84,8 +84,21 @@ form{display:grid;gap:12px}.section{padding:17px;border:1px solid var(--line);bo
       $("resultTitle").textContent="本次登记未通过";$("resultBadge").textContent="未通过";$("resultBadge").style.background="#fdebea";$("resultBadge").style.color="#ad3731";
       $("resultText").textContent="请联系管理员确认原因，可返回首页重新登记。";
       $("workLink").textContent="返回首页重新登记";$("workLink").href="index.html";
+    }else if(person.status==="停用"||person.status==="离职"){
+      $("resultTitle").textContent=person.status==="离职"?"已办理离职":"人员已停用";
+      $("resultBadge").textContent=person.status;
+      $("resultBadge").style.background="#fdebea";$("resultBadge").style.color="#ad3731";
+      $("resultText").textContent=person.status==="离职"?"你的档案及照片已保留，工作端口已关闭。如需返聘，请联系管理员发起重新审核。":"你的档案及照片已保留，工作端口暂时关闭。请联系管理员处理恢复。";
+      $("workLink").textContent="返回首页";$("workLink").href="index.html";
+    }else if(person.status==="休假"){
+      $("resultTitle").textContent="当前处于休假";$("resultBadge").textContent="休假";
+      $("resultBadge").style.background="#fff3df";$("resultBadge").style.color="#9a5b0a";
+      $("resultText").textContent="当前工作端口暂未开放，请联系管理员确认返岗状态。";
+      $("workLink").textContent="返回首页";$("workLink").href="index.html";
     }else{
-      $("resultTitle").textContent="登记已提交";$("resultBadge").textContent="待审核";$("resultText").textContent="申请编号 "+person.id+"。管理员通过后，本页会自动显示工作端口入口。";
+      $("resultTitle").textContent="登记已提交";$("resultBadge").textContent="待审核";
+      $("resultBadge").style.background="#fff3df";$("resultBadge").style.color="#9a5b0a";
+      $("resultText").textContent="申请编号 "+person.id+"。管理员通过后，本页会自动显示工作端口入口。";
       $("workLink").textContent="等待审核中";$("workLink").href="#";
     }
   };
@@ -94,7 +107,25 @@ form{display:grid;gap:12px}.section{padding:17px;border:1px solid var(--line);bo
   if(existing&&existing.applicationRole===selectedRole&&selectedRole){setResult(existing);}
   if(existing&&existing.applicationRole===selectedRole&&existing.status==="未通过"){ $("enrollForm").hidden=false;$("result").classList.remove("show"); $("role").value=selectedRole; }
   $("result").addEventListener("click",event=>{if(event.target.id==="workLink"&&event.target.getAttribute("href")==="#")event.preventDefault()});
-  let autoRedirected=false;setInterval(()=>{if(!currentId)return;const p=getPerson(currentId);if(p&&p.status!=="待审核"&&p.status!=="未通过"){setResult(p);if(!autoRedirected){autoRedirected=true;setTimeout(()=>location.replace(workUrl(p.applicationRole)),1200)}}},2500);
+  let redirectTimer=null;
+  function refreshApplicationStatus(){
+    if(!currentId)return;
+    const person=getPerson(currentId);
+    if(!person || (roleSelect.value && person.applicationRole!==roleSelect.value))return;
+    setResult(person);
+    if(["在岗","已通过"].includes(person.status)){
+      if(redirectTimer===null)redirectTimer=setTimeout(()=>{
+        redirectTimer=null;
+        const latest=getPerson(currentId);
+        if(latest && ["在岗","已通过"].includes(latest.status) && latest.applicationRole===person.applicationRole)location.replace(workUrl(latest.applicationRole));
+      },1200);
+    }else if(redirectTimer!==null){
+      clearTimeout(redirectTimer);redirectTimer=null;
+    }
+  }
+  setInterval(refreshApplicationStatus,2500);
+  window.addEventListener("storage",event=>{if(event.key===KEY||event.key===null)refreshApplicationStatus()});
+  window.addEventListener("focus",refreshApplicationStatus);
   function nextId(people){let max=0;people.forEach(p=>{const m=String(p.id||"").match(/^P(\d+)$/);if(m)max=Math.max(max,Number(m[1]))});return "P"+String(max+1).padStart(3,"0")}
   async function fileData(input,savedIds){const file=$(input).files?.[0];if(!file)return null;const attachment=await MineAttachmentStore.save(file);if(attachment?.id)savedIds.push(attachment.id);return attachment}
   $("enrollForm").addEventListener("submit",async event=>{
