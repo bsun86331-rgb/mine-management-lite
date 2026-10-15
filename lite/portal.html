@@ -13,10 +13,10 @@
 <main class="card">
   <div class="brand">矿山简版 · 端口导航</div>
   <div class="icon" id="roleIcon">◇</div>
-  <span class="tag">入口已建立 · 页面待建设</span>
+  <span class="tag" id="accessTag">审核通过 · 工作端口</span>
   <h1 id="roleTitle">业务端口</h1>
   <p id="roleDesc">该端口将在后续步骤中逐个完成。</p>
-  <div class="note">当前先搭建首页和端口入口。此端口的业务页面尚未实现，后续按顺序逐端制作。</div>
+  <div class="note" id="accessNote">端口访问已开通。当前业务功能仍在逐步建设中。</div>
   <div class="actions"><a class="btn primary" href="index.html">返回首页</a></div>
 </main>
 <script>
@@ -30,6 +30,15 @@ const roles={
 };
 const key=new URLSearchParams(location.search).get("role");
 const item=roles[key]||["业务端口","◇","该端口将在后续步骤中逐个完成。"];
+if(roles[key]){
+  let db={people:[]};
+  try{const saved=JSON.parse(localStorage.getItem("mine-management-lite-records-v1")||"{}");db.people=Array.isArray(saved.people)?saved.people:[]}catch{}
+  const currentId=localStorage.getItem("mine-management-lite-current-application");
+  const applicant=db.people.find(person=>person.id===currentId);
+  if(!applicant||applicant.applicationRole!==key||!["在岗","已通过"].includes(applicant.status)){
+    location.replace("enroll.html?role="+encodeURIComponent(key));
+  }
+}
 document.title=item[0]+" · 矿山简版";
 document.getElementById("roleTitle").textContent=item[0];
 document.getElementById("roleIcon").textContent=item[1];
