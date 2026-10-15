@@ -1,11 +1,12 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="entry-pending">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#173d31">
 <title>矿山管理系统简版</title>
 <style>
+.entry-pending .wrap{display:none}
 :root{--deep:#173d31;--green:#176b4a;--lime:#d8f178;--ink:#17251e;--muted:#738078;--line:#e4ebe5;--paper:#f4f6f2;--white:#fff}
 *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 Inter,"PingFang SC","Microsoft YaHei",sans-serif}
 .wrap{max-width:1120px;margin:auto;padding:0 26px 54px}
@@ -45,8 +46,17 @@
 @media(max-width:800px){.cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.wrap{padding:0 14px 30px}.top{padding:13px 0}.brand{font-size:14px}.brand-icon{width:34px;height:34px}.top-tag{font-size:10px}.hero{grid-template-columns:1fr;padding:27px 20px;border-radius:19px}.qr-card{display:grid;grid-template-columns:94px 1fr;align-items:center;gap:12px;text-align:left}.qr-card img{grid-row:span 2;width:94px;height:94px;margin:0}.hero p{font-size:13px}.section-head{align-items:start;flex-direction:column;margin-top:25px}.cards{grid-template-columns:1fr;gap:10px}.portal{min-height:165px;padding:16px}.portal h3{margin-top:13px}.portal-bottom{padding-top:13px}.footer{flex-direction:column}}
 </style>
+<script>
+(() => {
+  let verified=false;
+  try {verified=sessionStorage.getItem("mine-management-lite-entry-access-v1")==="granted-v1";} catch {}
+  if (verified) document.documentElement.classList.remove("entry-pending");
+  else location.replace("access.html");
+})();
+</script>
 </head>
 <body>
+<noscript><p style="padding:24px;text-align:center">请启用浏览器 JavaScript 后访问系统。</p></noscript>
 <div class="wrap">
   <header class="top">
     <div class="brand"><span class="brand-icon">M</span><span>矿山管理系统 <span style="color:#748178;font-weight:600">/ 简版</span></span></div>
@@ -60,8 +70,8 @@
       <div class="hero-meta"><span>7 个工作端口</span><span>员工端：登记 · 审核</span><span>Boss 端：独立密码</span></div>
     </div>
     <aside class="qr-card">
-      <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&amp;data=https%3A%2F%2Fbsun86331-rgb.github.io%2Fmine-management-lite%2Flite%2Findex.html" alt="扫码打开矿山管理系统简版首页">
-      <div><strong>扫码进入系统</strong><span>手机扫码后选择工作端口</span></div>
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&amp;data=https%3A%2F%2Fbsun86331-rgb.github.io%2Fmine-management-lite%2Flite%2Faccess.html" alt="扫码输入密码后进入矿山管理系统">
+      <div><strong>扫码进入系统</strong><span>扫码输入密码后选择工作端口</span></div>
     </aside>
   </section>
 
