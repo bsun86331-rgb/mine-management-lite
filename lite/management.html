@@ -41,6 +41,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
 @media(max-width:600px){.archive-review-actions{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:850px){.layout{grid-template-columns:190px minmax(0,1fr)}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.supplies-grid{grid-template-columns:1fr}}
 @media(max-width:600px){.layout{display:block}.sidebar{position:sticky;z-index:10;top:0;height:auto;padding:11px 12px}.brand{padding:0 4px 10px;font-size:14px}.brand-icon{width:31px;height:31px}.nav-label,.side-note{display:none}.nav{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}.nav button{justify-content:center;flex-direction:column;gap:2px;padding:7px 3px;font-size:10px}.nav .icon{font-size:16px}main{padding:18px 13px 30px}.topbar{margin-bottom:21px}.topbar h1{font-size:20px}.demo{padding:6px 8px;font-size:10px}.stats{gap:9px}.stat{padding:14px}.stat-value{font-size:27px}.view-head{align-items:start;flex-direction:column}.toolbar{width:100%}.search{width:auto;flex:1}.panel-head{padding:14px}.field-grid{grid-template-columns:1fr 1fr}}
 .actions{flex-wrap:wrap}.action-depart{min-height:32px;padding:6px 9px;border-radius:8px;font-size:12px}.actions button:disabled{opacity:.45;cursor:not-allowed}.departure-backdrop{position:fixed;z-index:35;inset:0;display:none;place-items:center;padding:16px;background:#1020199c}.departure-backdrop.open{display:grid}.departure-dialog{width:min(500px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:22px;border-radius:16px;background:#fff}.departure-dialog h2{margin:0;font-size:20px}.departure-dialog p{color:var(--muted);font-size:12px}.departure-dialog textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:9px;font:inherit;resize:vertical}.employment-history-item{padding:8px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}.employment-history-item:last-child{border-bottom:0}.employment-history-item small{color:var(--muted)}
+.people-title-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.people-title-row .btn{min-height:33px;padding:6px 12px;font-size:12px}.people-title-row .btn:disabled{opacity:.6;cursor:wait}
 </style>
 </head>
 <body>
@@ -92,7 +93,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     </section>
 
     <section class="view" id="peopleView" hidden>
-      <div class="view-head"><div><h2>人员档案</h2><p>登记人员资料、证件与紧急联系人</p></div><div class="toolbar"><input class="search" id="peopleSearch" placeholder="搜索姓名、岗位、国籍或班组"><button class="btn" id="addPerson">登记人员</button></div></div>
+      <div class="view-head"><div><div class="people-title-row"><h2>人员档案</h2><button class="btn btn-soft" id="exportPeople" type="button" title="导出所有人员的完整文字资料和任职状态记录，不含照片及附件">人员导出</button></div><p>登记人员资料、证件与紧急联系人</p></div><div class="toolbar"><input class="search" id="peopleSearch" placeholder="搜索姓名、岗位、国籍或班组"><button class="btn" id="addPerson">登记人员</button></div></div>
       <div class="panel"><div class="table-wrap"><table><thead><tr><th>姓名</th><th>国籍</th><th>民族</th><th>岗位</th><th>班组</th><th>联系电话</th><th>状态</th><th>操作</th></tr></thead><tbody id="peopleRows"></tbody></table></div></div>
     </section>
 
@@ -130,6 +131,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
 <div id="printout"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="attachment-storage.js"></script>
+<script src="personnel-export.js?v=20261015-1"></script>
 <script>
 (() => {
   const AUTH_KEY="mine-management-lite-admin-auth-v1";
@@ -803,6 +805,21 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
       db.supplies.splice(db.supplies.indexOf(row),1); render(); toast("记录已删除");
     }
   }, true);
+  $("exportPeople").addEventListener("click",async () => {
+    if (!db.people.length) { toast("暂无人员档案可导出"); return; }
+    const button = $("exportPeople");
+    button.disabled = true; button.textContent = "正在导出…";
+    try {
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      if (!window.MinePersonnelExport) throw new Error("导出组件未加载，请刷新页面后重试");
+      window.MinePersonnelExport.download(db.people);
+      toast("已导出 " + db.people.length + " 名人员的文字资料及任职记录，不含照片");
+    } catch (error) {
+      toast(error.message || "导出失败，请稍后重试");
+    } finally {
+      button.disabled = false; button.textContent = "人员导出";
+    }
+  });
   $("peopleSearch").addEventListener("input",renderPeople);
   $("vehicleSearch").addEventListener("input",renderVehicles);
   $("supplyDate").value = new Date().toISOString().slice(0,10);
