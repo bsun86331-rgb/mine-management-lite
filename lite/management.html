@@ -353,7 +353,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     return '<div class="review-field"><span>' + esc(label) + '</span><strong>' + esc(value || "—") + '</strong></div>';
   }
   async function reviewAttachment(label,attachment) {
-    if (!attachment) return '<article class="review-file"><strong>' + esc(label) + '</strong><div class="review-file-name">未提交</div></article>';
+    if (!attachment) return {html:'<article class="review-file"><strong>' + esc(label) + '</strong><div class="review-file-name">' + (label === "本人近期照片" ? "必填附件未提交" : "未提交") + '</div></article>',ok:label !== "本人近期照片"};
     let blob = null;
     try {
       if (attachment.id) {
@@ -363,13 +363,13 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
         blob = await (await fetch(attachment.data)).blob();
       }
     } catch {}
-    if (!blob) return '<article class="review-file"><strong>' + esc(label) + '</strong><div class="review-file-name">' + esc(attachment.name || "附件") + ' · 文件读取失败</div></article>';
+    if (!blob) return {html:'<article class="review-file"><strong>' + esc(label) + '</strong><div class="review-file-name">' + esc(attachment.name || "附件") + ' · 文件读取失败</div></article>',ok:false};
     const url = URL.createObjectURL(blob);
     reviewObjectUrls.push(url);
     const image = String(attachment.type || blob.type).startsWith("image/")
       ? '<a href="' + url + '" target="_blank" rel="noopener"><img src="' + url + '" alt="' + esc(label) + '预览"></a>'
       : '';
-    return '<article class="review-file">' + image + '<strong>' + esc(label) + '</strong><div class="review-file-name">' + esc(attachment.name || "附件") + '</div><a href="' + url + '" target="_blank" rel="noopener">打开附件</a><a href="' + url + '" download="' + esc(attachment.name || "附件") + '">下载</a></article>';
+    return {html:'<article class="review-file">' + image + '<strong>' + esc(label) + '</strong><div class="review-file-name">' + esc(attachment.name || "附件") + '</div><a href="' + url + '" target="_blank" rel="noopener">打开附件</a><a href="' + url + '" download="' + esc(attachment.name || "附件") + '">下载</a></article>',ok:true};
   }
   function closeReview() {
     $("reviewBackdrop").classList.remove("open");
@@ -396,14 +396,17 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     $("reviewFiles").innerHTML = '<div class="empty">正在读取附件…</div>';
     $("reviewBackdrop").classList.add("open");
     $("reviewCheck").checked = person.reviewed === true;
-    $("reviewCheck").disabled = person.reviewed === true;
     $("reviewMark").disabled = true;
     $("reviewProgress").textContent = person.reviewed === true ? "资料已核对；如编辑资料，需重新核对。" : "";
+    $("reviewCheck").onchange = () => { $("reviewMark").disabled = !$("reviewCheck").checked || $("reviewCheck").disabled; };
     const labels = [["selfie","本人近期照片"],["idPhoto","身份证照片"],["passportPhoto","护照照片"],["license","驾驶证 / 操作证"],["bankCard","银行卡照片"]];
     const files = [];
     for (const [key,label] of labels) files.push(await reviewAttachment(label,person.attachments?.[key]));
-    if (reviewPersonId === id) $("reviewFiles").innerHTML = files.join("");
-    $("reviewCheck").onchange = () => { $("reviewMark").disabled = !$("reviewCheck").checked || person.reviewed === true; };
+    const attachmentsReadable = files.every(file => file.ok);
+    $("reviewCheck").disabled = person.reviewed === true || !attachmentsReadable;
+    if (!attachmentsReadable && person.reviewed !== true) $("reviewProgress").textContent = "必填照片缺失或有附件无法读取；请确认资料后再处理，当前不能通过。";
+    if (reviewPersonId === id) $("reviewFiles").innerHTML = files.map(file => file.html).join("");
+    $("reviewCheck").onchange();
   }
   $("reviewClose").addEventListener("click",closeReview);
   $("reviewCancel").addEventListener("click",closeReview);
