@@ -115,7 +115,7 @@
       for(const r of d.requests.filter(r=>r.personId===p.id&&r.status==="submitted")){r.status="cancelled";r.reason="发起离职清算，释放未交付预留";log(d,a,"清算取消预留",p.name,{requestId:r.id});}
       notify(d,p.id,"请办理离职物资清算：归还可回收物资；不归还需本人确认赔偿",ex.id);notify(d,"keeper",p.name+"发起离职清算，请核对物资",ex.id);log(d,a,"发起离职清算",p.name+"；"+reason);return;
     }
-    if(type==="cancelExit"){admin(a);const ex=openExit(d,x.personId);if(!ex)fail("没有进行中的清算");if(d.claims.some(c=>c.personId===x.personId&&c.at>=ex.at))fail("本次清算存在赔偿记录，不能直接取消，请先处理赔偿");ex.status="cancelled";ex.cancelReason=note();notify(d,x.personId,"管理员已取消离职清算",ex.id);log(d,a,"取消离职清算",ex.cancelReason);return;}
+    if(type==="cancelExit"){admin(a);const ex=openExit(d,x.personId);if(!ex)fail("没有进行中的清算");ex.status="cancelled";ex.cancelReason=note();notify(d,x.personId,"管理员已取消离职清算；已有归还及赔偿记录保留，赔偿复核继续按原记录处理",ex.id);log(d,a,"取消离职清算",ex.cancelReason);return;}
     if(type==="finalizeExit"){
       admin(a);const c=clearance(d,m,x.personId);if(!c.exit||!cleared(c))fail("物资清算未完成，不能办理离职");const p=m.people.find(p=>p.id===x.personId);if(!p||!["在岗","已通过","休假","停用"].includes(p.status))fail("人员状态已变化，请刷新");const previous=p.status;p.status="离职";p.reviewed=false;p.departureDate=c.exit.date;p.departureReason=c.exit.reason;p.employmentHistory=[...(p.employmentHistory||[]),{action:"depart",fromStatus:previous,toStatus:"离职",at:now(),departureDate:p.departureDate,reason:p.departureReason}];c.exit.status="closed";c.exit.closedAt=now();notify(d,p.id,"离职已办结，个人领用历史保留",c.exit.id);log(d,a,"正式办理离职",p.name);return {peopleChanged:true};
     }
