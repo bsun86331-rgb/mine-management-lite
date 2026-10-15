@@ -21,16 +21,24 @@
 </main>
 <script>
 (() => {
-  const key=new URLSearchParams(location.search).get("role");
-  const current=localStorage.getItem("mine-management-lite-current-application");
-  let db={people:[]};
-  try{const saved=JSON.parse(localStorage.getItem("mine-management-lite-records-v1")||"{}");db.people=Array.isArray(saved.people)?saved.people:[]}catch{}
-  const person=db.people.find(row=>row.id===current);
-  if(!person||person.applicationRole!=="manager"||!["在岗","已通过"].includes(person.status)){
-    location.replace("enroll.html?role=manager");
-  }else{
-    document.getElementById("welcome").textContent="欢迎，"+person.name+"。你的管理端工作端口已开放。";
+  function checkWorkAccess(){
+    const current=localStorage.getItem("mine-management-lite-current-application");
+    let db={people:[]};
+    try{const saved=JSON.parse(localStorage.getItem("mine-management-lite-records-v1")||"{}");db.people=Array.isArray(saved.people)?saved.people:[]}catch{}
+    const person=db.people.find(row=>row.id===current);
+    if(!person||person.applicationRole!=="manager"||!["在岗","已通过"].includes(person.status)){
+      document.querySelector(".card").hidden=true;
+      location.replace("enroll.html?role=manager");
+    }else{
+      document.querySelector(".card").hidden=false;
+      document.getElementById("welcome").textContent="欢迎，"+person.name+"。你的管理端工作端口已开放。";
+    }
   }
+  checkWorkAccess();
+  window.addEventListener("storage",checkWorkAccess);
+  window.addEventListener("focus",checkWorkAccess);
+  window.addEventListener("pageshow",checkWorkAccess);
+  setInterval(checkWorkAccess,2500);
 })();
 </script>
 </body>
