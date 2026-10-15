@@ -11,7 +11,7 @@ dialog#logisticsDialog{width:min(1180px,96vw);height:92vh;max-height:92vh;border
 </style>
 </head>
 <body>
-<main class="card">
+<main class="card" hidden>
   <div class="brand">矿山简版 · 端口导航</div>
   <div class="icon" id="roleIcon">◇</div>
   <span class="tag" id="accessTag">审核通过 · 工作端口</span>
@@ -54,8 +54,9 @@ function checkWorkAccess(){
     location.replace("enroll.html?role="+encodeURIComponent(key));
     return;
   }
-  document.querySelector(".card").hidden=false;
   try{MineLogistics.selectSession(applicant,false);}catch{}
+  if(key==="middle_store"){location.replace("logistics.html?role=middle_store");return;}
+  document.querySelector(".card").hidden=false;
   document.getElementById("accessNote").textContent=key==="middle_store"?"后勤库存、申请发放、归还及清算功能已开放。":"后勤物资申请、本人领用确认及归还清算已开放，其他岗位业务逐步建设。";
   const link=document.getElementById("logisticsLink");link.href="logistics.html?role="+encodeURIComponent(key);
   link.textContent=key==="middle_store"?"进入后勤库管工作台":key==="middle_finance"?"后勤申请 / 赔偿复核":"后勤物资申请";
