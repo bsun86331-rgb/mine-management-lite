@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#173d31">
+<title>输入访问密码 · 矿山管理系统</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:22px;background:#f3f6f2;color:#17251e;font:15px/1.6 "PingFang SC","Microsoft YaHei",sans-serif}.card{width:min(420px,100%);padding:30px;border:1px solid #e0e8e2;border-radius:22px;background:#fff;box-shadow:0 15px 45px #173d3110}.brand{display:flex;align-items:center;gap:11px;font-size:16px;font-weight:800}.mark{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:#173d31;color:#d8f178;font-size:21px}.card h1{margin:26px 0 6px;font-size:25px;line-height:1.3}.intro{margin:0 0 23px;color:#728078;font-size:13px}label{display:block;margin-bottom:7px;font-size:13px;font-weight:700}input{width:100%;height:48px;padding:10px 13px;border:1px solid #dce5df;border-radius:10px;font:inherit;outline:none}input:focus{border-color:#176b4a;box-shadow:0 0 0 3px #176b4a16}.error{min-height:26px;margin:7px 0;color:#b93832;font-size:12px}button{width:100%;min-height:46px;border:0;border-radius:10px;background:#176b4a;color:#fff;font:700 15px "Microsoft YaHei",sans-serif;cursor:pointer}button:disabled{opacity:.6;cursor:wait}button:focus-visible{outline:3px solid #80b49a;outline-offset:3px}
+</style>
+</head>
+<body>
+<main class="card">
+  <div class="brand"><span class="mark">M</span><span>矿山管理系统 · 简版</span></div>
+  <h1>请输入访问密码</h1>
+  <p class="intro">验证后进入首页，选择你的工作端口。</p>
+  <form id="entryForm">
+    <label for="entryPassword">访问密码</label>
+    <input id="entryPassword" type="password" inputmode="numeric" autocomplete="current-password" required maxlength="64" autofocus placeholder="请输入访问密码" aria-describedby="entryError">
+    <div class="error" id="entryError" role="alert" aria-live="polite"></div>
+    <button id="entrySubmit" type="submit">进入系统</button>
+  </form>
+  <noscript><p>请启用浏览器 JavaScript 后再输入密码。</p></noscript>
+</main>
+<script>
+(() => {
+  const form=document.getElementById("entryForm");
+  const input=document.getElementById("entryPassword");
+  const error=document.getElementById("entryError");
+  const button=document.getElementById("entrySubmit");
+  form.addEventListener("submit",event => {
+    event.preventDefault();
+    error.textContent="";
+    if (input.value.trim()!=="123456") {
+      error.textContent="密码不正确，请重新输入。";
+      input.setAttribute("aria-invalid","true");
+      input.focus();input.select();
+      return;
+    }
+    button.disabled=true;
+    try {
+      sessionStorage.setItem("mine-management-lite-entry-access-v1","granted-v1");
+    } catch {
+      error.textContent="浏览器无法保存本次验证，请允许站点存储后重试。";
+      button.disabled=false;
+      return;
+    }
+    location.replace("index.html");
+  });
+  input.addEventListener("input",() => {error.textContent="";input.removeAttribute("aria-invalid");});
+})();
+</script>
+</body>
+</html>
