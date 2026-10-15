@@ -298,7 +298,9 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
   function openArchive(kind,id=null) {
     editState = {kind,id};
     const person = kind === "person";
-    const row = id ? (person ? db.people : db.vehicles).find(item => item.id === id) : {};
+    const sourceRows = person ? db.people : db.vehicles;
+    const row = id ? sourceRows.find(item => String(item.id) === String(id)) : {};
+    if (id && !row) { toast("档案未找到，请刷新后重试"); return; }
     $("modalTitle").textContent = person ? (id ? "人员信息登记表 · 查看/编辑" : "人员信息登记表") : (id ? "编辑车辆档案" : "新增车辆档案");
     $("modalDesc").textContent = person ? "请填写真实、准确的人员资料。带 * 为必填项。" : "填写车辆基本信息和当前状态。";
     let fields;
@@ -546,7 +548,8 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     }
   });
   document.addEventListener("click", event => {
-    const button = event.target.closest("[data-action]"); if (!button) return;
+    const target = event.target instanceof Element ? event.target : null;
+    const button = target?.closest("[data-action]"); if (!button) return;
     const id = button.dataset.id;
     if (button.dataset.action === "edit") { openArchive(button.dataset.kind,id); return; }
     if (button.dataset.action === "review") { openReview(id); return; }
@@ -568,7 +571,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
       if (!row || !confirm("确定删除这条领用记录吗？")) return;
       db.supplies.splice(db.supplies.indexOf(row),1); render(); toast("记录已删除");
     }
-  });
+  }, true);
   $("peopleSearch").addEventListener("input",renderPeople);
   $("vehicleSearch").addEventListener("input",renderVehicles);
   $("supplyDate").value = new Date().toISOString().slice(0,10);
