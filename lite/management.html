@@ -132,6 +132,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
 <div id="printout"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="attachment-storage.js"></script>
+<script src="attachment-preview.js?v=20261015-1"></script>
 <script src="personnel-export.js?v=20261015-3"></script>
 <script>
 (() => {
@@ -210,7 +211,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
   let archiveDirty = false;
   let pendingReviewAfterSave = false;
   let archiveSaving = false;
-  let vehicleObjectUrls = [];
+  let archivePreview = null;
 
   const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const persist = () => localStorage.setItem(KEY, JSON.stringify(db));
@@ -348,9 +349,8 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
   }
   function section(title,fields) { return '<section class="form-section"><h3>' + title + '</h3>' + fields + '</section>'; }
   function registrationFile(label,id,attachment,required=false) {
-    const savedName = attachment && attachment.name ? '<div class="file-help">已保存：' + esc(attachment.name) + '</div>' : '';
     const isRequired = required && !attachment && !(editState && editState.id);
-    return '<div class="field"><label for="' + id + '">' + label + (isRequired ? ' <span style="color:var(--red)">*</span>' : '') + '</label><input id="' + id + '" type="file" accept="image/*,.pdf" ' + (isRequired ? 'required' : '') + '>' + savedName + '<div class="file-help">单个文件不超过 10 MB，附件保存在当前浏览器 IndexedDB</div></div>';
+    return '<div class="field"><label for="' + id + '">' + label + (isRequired ? ' <span style="color:var(--red)">*</span>' : '') + '</label><input id="' + id + '" type="file" accept="image/*,.pdf" ' + (isRequired ? 'required' : '') + '>' + '<div class="file-help">单个文件不超过 10 MB，附件保存在当前浏览器 IndexedDB</div></div>';
   }
   const ethnicities = ["汉族","蒙古族","回族","藏族","维吾尔族","苗族","彝族","壮族","布依族","朝鲜族","满族","侗族","瑶族","白族","土家族","哈尼族","哈萨克族","傣族","黎族","傈僳族","佤族","畲族","高山族","拉祜族","水族","东乡族","纳西族","景颇族","柯尔克孜族","土族","达斡尔族","仫佬族","羌族","布朗族","撒拉族","毛南族","仡佬族","锡伯族","阿昌族","普米族","塔吉克族","怒族","乌孜别克族","俄罗斯族","鄂温克族","德昂族","保安族","裕固族","京族","塔塔尔族","独龙族","鄂伦春族","赫哲族","门巴族","珞巴族","基诺族","其他"];
   const teams = ["生产A组","生产B组","行政办公组","修理组"];
@@ -384,8 +384,8 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     const normal = value => String(value ?? "").trim().toLocaleLowerCase();
     return rows.some(row => String(row.id)!==String(id) && normal(row.code)===normal(code));
   }
-  function vehicleFileField(label,id,attachment,previewId) {
-    return registrationFile(label+"（选填）",id,attachment).replace('accept="image/*,.pdf"','accept="image/*"') + '<div class="vehicle-file-preview" id="'+previewId+'"></div>';
+  function vehicleFileField(label,id,attachment) {
+    return registrationFile(label+"（选填）",id,attachment).replace('accept="image/*,.pdf"','accept="image/*"');
   }
   function vehicleFormFields(row,id=null) {
     const category=row.category || row.model || "";
@@ -401,28 +401,9 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
       formField("燃油类型","fFuelType",row.fuelType || "未填写","text",false,withCurrentOption(vehicleFuels,row.fuelType)) +
       formField("入场日期","fEntryDate",row.entryDate || (id ? "" : vehicleToday()),"date") +
       '<div>'+formField("设备状态","fStatus",row.status || "待命","text",true,vehicleStatuses)+'<div class="file-help">当前为手动维护：作业中、待命、维修中、停用。</div></div>' +
-      '<div>'+vehicleFileField("合格证照片","fCertificatePhoto",row.attachments?.certificatePhoto,"vehicleCertificatePreview")+'</div>' +
-      '<div>'+vehicleFileField("车辆进场照片","fEntryPhoto",row.attachments?.entryPhoto,"vehicleEntryPreview")+'</div>' +
+      '<div>'+vehicleFileField("合格证照片","fCertificatePhoto",row.attachments?.certificatePhoto)+'</div>' +
+      '<div>'+vehicleFileField("车辆进场照片","fEntryPhoto",row.attachments?.entryPhoto)+'</div>' +
       '<div class="field vehicle-full-row"><label for="fVehicleNote">备注</label><textarea id="fVehicleNote" maxlength="1000">'+esc(row.note || "")+'</textarea></div></div>';
-  }
-  async function loadVehiclePhotos(row,session) {
-    for (const [key,targetId] of [["certificatePhoto","vehicleCertificatePreview"],["entryPhoto","vehicleEntryPreview"]]) {
-      const attachment=row.attachments?.[key];
-      if (!attachment) continue;
-      const target=$(targetId);
-      if (!target) continue;
-      target.textContent="正在读取已保存照片…";
-      let blob=null;
-      try {
-        if (attachment.id) blob=(await MineAttachmentStore.get(attachment.id))?.blob || null;
-        else if (attachment.data) blob=await (await fetch(attachment.data)).blob();
-      } catch {}
-      if (editState!==session) return;
-      if (!blob) { target.textContent="已保存照片无法读取，请重新选择图片"; continue; }
-      const url=URL.createObjectURL(blob);
-      vehicleObjectUrls.push(url);
-      target.innerHTML='<a href="'+url+'" target="_blank" rel="noopener"><img src="'+url+'" alt="已保存车辆照片"><span>打开查看原图</span></a>';
-    }
   }
   async function readVehiclePhoto(input,previous,savedIds) {
     const file=input?.files?.[0];
@@ -430,8 +411,8 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     return readAttachment(input,previous,savedIds);
   }
   function openArchive(kind,id=null) {
-    vehicleObjectUrls.forEach(url => URL.revokeObjectURL(url));
-    vehicleObjectUrls = [];
+    archivePreview?.destroy();
+    archivePreview = null;
     editState = {kind,id};
     archiveDirty = false;
     pendingReviewAfterSave = false;
@@ -476,6 +457,13 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
       fields = vehicleFormFields(row,id);
     }
     $("modalFields").innerHTML = fields;
+    archivePreview = MineAttachmentPreview.mount($("modalFields"),person ? {
+      fSelfie:row.attachments?.selfie,fIdPhoto:row.attachments?.idPhoto,
+      fPassportPhoto:row.attachments?.passportPhoto,fLicense:row.attachments?.license,
+      fBankCardPhoto:row.attachments?.bankCard
+    } : {
+      fCertificatePhoto:row.attachments?.certificatePhoto,fEntryPhoto:row.attachments?.entryPhoto
+    });
     $("archiveSave").textContent = person ? (id ? "保存人员资料" : "提交人员登记") : "保存车辆档案";
     $("archiveReviewActions").hidden = !(person && id);
     $("vehicleModalClose").hidden = person;
@@ -484,7 +472,6 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     $("archiveReject").disabled = !canReview;
     $("modalBackdrop").classList.add("open");
     $("modalFields").querySelector("input")?.focus();
-    if (!person) loadVehiclePhotos(row,editState);
   }
   async function readAttachment(input,previous,savedIds) {
     const file = input?.files?.[0];
@@ -494,8 +481,8 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     return attachment;
   }
   function closeModal() {
-    vehicleObjectUrls.forEach(url => URL.revokeObjectURL(url));
-    vehicleObjectUrls = [];
+    archivePreview?.destroy();
+    archivePreview = null;
     $("modalBackdrop").classList.remove("open");
     editState = null;
     archiveDirty = false;
