@@ -21,7 +21,7 @@ form{display:grid;gap:12px}.section{padding:17px;border:1px solid var(--line);bo
 <header><div class="head"><span class="brand">M</span><span>矿山管理系统简版 · 入职登记</span></div></header>
 <main>
   <div class="intro"><h1>入职信息登记表</h1><p>请选择岗位并填写信息，提交后由管理员审核；审核通过后可进入对应工作端口。</p></div>
-  <div class="warning">演示数据只保存在当前浏览器，不会同步到其他手机或管理员设备。请勿填写真实身份证、银行卡信息或上传真实证件。</div>
+  <div class="warning">演示数据只保存在当前浏览器，不会同步到其他手机或管理员设备。每个附件不超过 1 MB；附件累计仍受浏览器本地存储容量限制。请勿填写真实身份证、银行卡信息或上传真实证件。</div>
   <form id="enrollForm">
     <section class="section"><h2>基本资料</h2><div class="grid">
       <div class="field"><label for="name">姓名 <span class="required">*</span></label><input id="name" required maxlength="60" autocomplete="name"></div>
@@ -35,15 +35,15 @@ form{display:grid;gap:12px}.section{padding:17px;border:1px solid var(--line);bo
     <section class="section"><h2>身份凭证</h2><div class="grid">
       <div class="field"><label for="idNumber">身份证号</label><input id="idNumber" maxlength="60"></div>
       <div class="field"><label for="passport">护照号</label><input id="passport" maxlength="60"></div>
-      <div class="field"><label for="selfie">本人近期照片 <span class="required">*</span></label><input id="selfie" type="file" accept="image/*" required><span class="help">演示附件不超过 200 KB</span></div>
-      <div class="field"><label for="idPhoto">身份证照片</label><input id="idPhoto" type="file" accept="image/*,.pdf"><span class="help">演示附件不超过 200 KB</span></div>
-      <div class="field"><label for="passportPhoto">护照照片</label><input id="passportPhoto" type="file" accept="image/*,.pdf"><span class="help">演示附件不超过 200 KB</span></div>
+      <div class="field"><label for="selfie">本人近期照片 <span class="required">*</span></label><input id="selfie" type="file" accept="image/*" required><span class="help">演示附件不超过 1 MB</span></div>
+      <div class="field"><label for="idPhoto">身份证照片</label><input id="idPhoto" type="file" accept="image/*,.pdf"><span class="help">演示附件不超过 1 MB</span></div>
+      <div class="field"><label for="passportPhoto">护照照片</label><input id="passportPhoto" type="file" accept="image/*,.pdf"><span class="help">演示附件不超过 1 MB</span></div>
     </div></section>
-    <section class="section"><h2>驾驶证 / 操作证</h2><div class="field"><label for="license">驾驶证 / 操作证照片</label><input id="license" type="file" accept="image/*,.pdf"><span class="help">如岗位需要请提供；演示附件不超过 200 KB</span></div></section>
+    <section class="section"><h2>驾驶证 / 操作证</h2><div class="field"><label for="license">驾驶证 / 操作证照片</label><input id="license" type="file" accept="image/*,.pdf"><span class="help">如岗位需要请提供；演示附件不超过 1 MB</span></div></section>
     <section class="section"><h2>银行信息</h2><div class="grid">
       <div class="field"><label for="bankNumber">银行卡号</label><input id="bankNumber" inputmode="numeric" maxlength="60"></div>
       <div class="field"><label for="bankName">开户银行</label><input id="bankName" maxlength="80"></div>
-      <div class="field"><label for="bankCard">银行卡照片</label><input id="bankCard" type="file" accept="image/*,.pdf"><span class="help">演示附件不超过 200 KB</span></div>
+      <div class="field"><label for="bankCard">银行卡照片</label><input id="bankCard" type="file" accept="image/*,.pdf"><span class="help">演示附件不超过 1 MB</span></div>
     </div></section>
     <section class="section"><h2>紧急联系人</h2><div class="grid">
       <div class="field"><label for="emergencyName">紧急联系人 <span class="required">*</span></label><input id="emergencyName" required maxlength="60"></div>
@@ -94,7 +94,7 @@ form{display:grid;gap:12px}.section{padding:17px;border:1px solid var(--line);bo
   $("result").addEventListener("click",event=>{if(event.target.id==="workLink"&&event.target.getAttribute("href")==="#")event.preventDefault()});
   let autoRedirected=false;setInterval(()=>{if(!currentId)return;const p=getPerson(currentId);if(p&&p.status!=="待审核"&&p.status!=="未通过"){setResult(p);if(!autoRedirected){autoRedirected=true;setTimeout(()=>location.replace(workUrl(p.applicationRole)),1200)}}},2500);
   function nextId(people){let max=0;people.forEach(p=>{const m=String(p.id||"").match(/^P(\d+)$/);if(m)max=Math.max(max,Number(m[1]))});return "P"+String(max+1).padStart(3,"0")}
-  function fileData(input){const file=$(input).files?.[0];if(!file)return Promise.resolve(null);if(file.size>200*1024)return Promise.reject(new Error("附件“"+file.name+"”超过 200 KB，请压缩后再提交"));return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve({name:file.name,type:file.type,data:reader.result});reader.onerror=()=>reject(new Error("读取附件失败"));reader.readAsDataURL(file)})}
+  function fileData(input){const file=$(input).files?.[0];if(!file)return Promise.resolve(null);if(file.size>1024*1024)return Promise.reject(new Error("附件“"+file.name+"”超过 1 MB，请压缩后再提交"));return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve({name:file.name,type:file.type,data:reader.result});reader.onerror=()=>reject(new Error("读取附件失败"));reader.readAsDataURL(file)})}
   $("enrollForm").addEventListener("submit",async event=>{
     event.preventDefault();const role=roleSelect.value;if(!roles[role]){roleSelect.focus();return}
     const button=$("enrollForm").querySelector('button[type="submit"]');button.disabled=true;button.textContent="正在保存…";
