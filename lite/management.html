@@ -26,7 +26,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
 .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#eef2ef;color:#57645c;font-size:10px;font-weight:750}.pill-green{background:#e7f5eb;color:#176b4a}.pill-amber{background:#fff3df;color:#9a5b0a}.pill-red{background:#fdebea;color:#ad3731}
 .toolbar{display:flex;gap:9px;align-items:center}.search{width:min(250px,40vw);height:40px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:white;outline:none}.search:focus,.field input:focus,.field select:focus{border-color:#80b49a;box-shadow:0 0 0 3px #176b4a18}
 .supplies-grid{display:grid;grid-template-columns:minmax(260px,.8fr) minmax(0,1.2fr);gap:16px;align-items:start}.form-card{padding:19px;border:1px solid var(--line);border-radius:15px;background:#fff;box-shadow:var(--shadow)}.form-card h3{margin:0 0 4px;font-size:16px}.form-card>p{margin:0 0 16px;color:var(--muted);font-size:12px}.field{display:grid;gap:6px;margin:12px 0}.field label{color:#59665e;font-size:11px;font-weight:750}.field input,.field select{width:100%;height:41px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:#fff;outline:none}.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.form-card .btn{width:100%;margin-top:6px}.supply-records{padding:4px 18px}.supply-row{display:flex;justify-content:space-between;gap:14px;padding:13px 0;border-bottom:1px solid #edf0ed}.supply-row:last-child{border-bottom:0}.supply-name{font-weight:750}.supply-meta{margin-top:3px;color:var(--muted);font-size:11px}.supply-right{text-align:right;white-space:nowrap}.supply-qty{font-weight:800}.supply-delete{margin-top:3px;border:0;background:none;color:var(--red);font-size:11px}
-.modal-backdrop{position:fixed;z-index:20;inset:0;display:none;place-items:center;padding:16px;background:#1020199c}.modal-backdrop.open{display:grid}.modal{width:min(460px,100%);padding:22px;border-radius:17px;background:#fff;box-shadow:0 20px 70px #0003}.modal h2{margin:0;font-size:19px}.modal p{margin:5px 0 15px;color:var(--muted);font-size:12px}.modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:16px}
+.modal-backdrop{position:fixed;z-index:20;inset:0;display:none;place-items:center;padding:16px;background:#1020199c}.modal-backdrop.open{display:grid}.modal{width:min(900px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:22px;border-radius:17px;background:#fff;box-shadow:0 20px 70px #0003}.modal h2{margin:0;font-size:19px}.modal p{margin:5px 0 15px;color:var(--muted);font-size:12px}.modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:16px}.form-section{margin:14px 0;padding:14px;border:1px solid var(--line);border-radius:12px}.form-section h3{margin:0 0 8px;font-size:13px}.form-section .field-grid{gap:10px}.field textarea{width:100%;min-height:76px;padding:9px 10px;border:1px solid var(--line);border-radius:9px;resize:vertical;font:inherit}.field input[type=file]{height:auto;padding:9px}.privacy-note{padding:10px 12px;border:1px solid #f2d6a3;border-radius:9px;background:#fff8e9;color:#80520b;font-size:11px}.file-help{color:var(--muted);font-size:10px}
 .toast{position:fixed;z-index:30;bottom:24px;left:50%;padding:10px 15px;border-radius:10px;background:#17251e;color:white;transform:translate(-50%,12px);opacity:0;pointer-events:none;transition:.2s}.toast.show{transform:translate(-50%,0);opacity:1}
 @media(max-width:850px){.layout{grid-template-columns:190px minmax(0,1fr)}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.supplies-grid{grid-template-columns:1fr}}
 @media(max-width:600px){.layout{display:block}.sidebar{position:sticky;z-index:10;top:0;height:auto;padding:11px 12px}.brand{padding:0 4px 10px;font-size:14px}.brand-icon{width:31px;height:31px}.nav-label,.side-note{display:none}.nav{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}.nav button{justify-content:center;flex-direction:column;gap:2px;padding:7px 3px;font-size:10px}.nav .icon{font-size:16px}main{padding:18px 13px 30px}.topbar{margin-bottom:21px}.topbar h1{font-size:20px}.demo{padding:6px 8px;font-size:10px}.stats{gap:9px}.stat{padding:14px}.stat-value{font-size:27px}.view-head{align-items:start;flex-direction:column}.toolbar{width:100%}.search{width:auto;flex:1}.panel-head{padding:14px}.field-grid{grid-template-columns:1fr 1fr}}
@@ -66,8 +66,8 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     </section>
 
     <section class="view" id="peopleView" hidden>
-      <div class="view-head"><div><h2>人员档案</h2><p>维护人员基本信息和在岗状态</p></div><div class="toolbar"><input class="search" id="peopleSearch" placeholder="搜索姓名、工号或班组"><button class="btn" id="addPerson">新增人员</button></div></div>
-      <div class="panel"><div class="table-wrap"><table><thead><tr><th>姓名</th><th>工号</th><th>岗位</th><th>班组</th><th>联系电话</th><th>状态</th><th>操作</th></tr></thead><tbody id="peopleRows"></tbody></table></div></div>
+      <div class="view-head"><div><h2>人员档案</h2><p>登记人员资料、证件与紧急联系人</p></div><div class="toolbar"><input class="search" id="peopleSearch" placeholder="搜索姓名、岗位、国籍或班组"><button class="btn" id="addPerson">登记人员</button></div></div>
+      <div class="panel"><div class="table-wrap"><table><thead><tr><th>姓名</th><th>国籍</th><th>民族</th><th>岗位</th><th>班组</th><th>联系电话</th><th>状态</th><th>操作</th></tr></thead><tbody id="peopleRows"></tbody></table></div></div>
     </section>
 
     <section class="view" id="vehiclesView" hidden>
@@ -156,8 +156,8 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
   }
   function renderPeople() {
     const q = $("peopleSearch").value.trim().toLowerCase();
-    const rows = db.people.filter(p => [p.name,p.id,p.team,p.role,p.phone].some(v => String(v).toLowerCase().includes(q)));
-    $("peopleRows").innerHTML = rows.length ? rows.map(p => '<tr><td class="primary-cell">' + esc(p.name) + '</td><td>' + esc(p.id) + '</td><td>' + esc(p.role) + '</td><td>' + esc(p.team) + '</td><td>' + esc(p.phone) + '</td><td>' + pill(p.status) + '</td><td><div class="actions"><button class="action-edit" data-action="edit" data-kind="person" data-id="' + esc(p.id) + '">编辑</button><button class="btn-delete" data-action="delete" data-kind="person" data-id="' + esc(p.id) + '">删除</button></div></td></tr>').join("") : showEmpty(7);
+    const rows = db.people.filter(p => [p.name,p.id,p.team,p.role,p.phone,p.nationality,p.ethnicity].some(v => String(v ?? "").toLowerCase().includes(q)));
+    $("peopleRows").innerHTML = rows.length ? rows.map(p => '<tr><td class="primary-cell">' + esc(p.name) + '</td><td>' + esc(p.nationality || "—") + '</td><td>' + esc(p.ethnicity || "—") + '</td><td>' + esc(p.role) + '</td><td>' + esc(p.team) + '</td><td>' + esc(p.phone) + '</td><td>' + pill(p.status) + '</td><td><div class="actions"><button class="action-edit" data-action="edit" data-kind="person" data-id="' + esc(p.id) + '">查看/编辑</button><button class="btn-delete" data-action="delete" data-kind="person" data-id="' + esc(p.id) + '">删除</button></div></td></tr>').join("") : showEmpty(8);
   }
   function renderVehicles() {
     const q = $("vehicleSearch").value.trim().toLowerCase();
@@ -188,41 +188,133 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
   document.querySelectorAll("[data-view]").forEach(button => button.addEventListener("click", () => openView(button.dataset.view)));
   document.querySelectorAll("[data-goto]").forEach(button => button.addEventListener("click", () => openView(button.dataset.goto)));
 
-  function inputField(label,id,value,type="text",placeholder="",options=null) {
+  function formField(label,id,value="",type="text",required=false,options=null) {
+    const requiredAttr = required ? " required" : "";
     const control = options
-      ? '<select id="' + id + '" required>' + options.map(x => '<option ' + (x === value ? "selected" : "") + '>' + esc(x) + '</option>').join("") + '</select>'
-      : '<input id="' + id + '" type="' + type + '" value="' + esc(value) + '" placeholder="' + esc(placeholder) + '" required maxlength="60">';
-    return '<div class="field"><label for="' + id + '">' + label + '</label>' + control + '</div>';
+      ? '<select id="' + id + '"' + requiredAttr + '>' + options.map(x => '<option value="' + esc(x) + '"' + (x === value ? " selected" : "") + '>' + esc(x) + '</option>').join("") + '</select>'
+      : '<input id="' + id + '" type="' + type + '" value="' + esc(value) + '"' + requiredAttr + ' maxlength="100">';
+    return '<div class="field"><label for="' + id + '">' + label + (required ? ' <span style="color:var(--red)">*</span>' : '') + '</label>' + control + '</div>';
+  }
+  function section(title,fields) { return '<section class="form-section"><h3>' + title + '</h3>' + fields + '</section>'; }
+  function registrationFile(label,id,attachment,required=false) {
+    const savedName = attachment && attachment.name ? '<div class="file-help">已保存：' + esc(attachment.name) + '</div>' : '';
+    const isRequired = required && !attachment && !(editState && editState.id);
+    return '<div class="field"><label for="' + id + '">' + label + (isRequired ? ' <span style="color:var(--red)">*</span>' : '') + '</label><input id="' + id + '" type="file" accept="image/*,.pdf" ' + (isRequired ? 'required' : '') + '>' + savedName + '<div class="file-help">单个文件不超过 200 KB，保存在当前浏览器</div></div>';
+  }
+  const ethnicities = ["汉族","蒙古族","回族","藏族","维吾尔族","苗族","彝族","壮族","布依族","朝鲜族","满族","侗族","瑶族","白族","土家族","哈尼族","哈萨克族","傣族","黎族","傈僳族","佤族","畲族","高山族","拉祜族","水族","东乡族","纳西族","景颇族","柯尔克孜族","土族","达斡尔族","仫佬族","羌族","布朗族","撒拉族","毛南族","仡佬族","锡伯族","阿昌族","普米族","塔吉克族","怒族","乌孜别克族","俄罗斯族","鄂温克族","德昂族","保安族","裕固族","京族","塔塔尔族","独龙族","鄂伦春族","赫哲族","门巴族","珞巴族","基诺族","其他"];
+  function nextPersonId() {
+    const max = db.people.reduce((n,p) => {
+      const match = String(p.id || "").match(/^P(\\d+)$/);
+      return match ? Math.max(n, Number(match[1])) : n;
+    }, 0);
+    return "P" + String(max + 1).padStart(3,"0");
   }
   function openArchive(kind,id=null) {
     editState = {kind,id};
     const person = kind === "person";
     const row = id ? (person ? db.people : db.vehicles).find(item => item.id === id) : {};
-    $("modalTitle").textContent = (id ? "编辑" : "新增") + (person ? "人员档案" : "车辆档案");
-    $("modalDesc").textContent = person ? "填写人员基本信息。" : "填写车辆基本信息和当前状态。";
-    const fields = person
-      ? inputField("姓名","fName",row.name || "") + inputField("工号","fCode",row.id || "", "text", "例如 P004") + inputField("岗位","fRole",row.role || "") + inputField("班组","fTeam",row.team || "") + inputField("联系电话","fPhone",row.phone || "", "tel") + inputField("状态","fStatus",row.status || "在岗","text","",["在岗","休假","停用"])
-      : inputField("车辆编号","fCode",row.code || "") + inputField("车牌/识别号","fPlate",row.plate || "") + inputField("车型","fModel",row.model || "") + inputField("所属班组","fTeam",row.team || "") + inputField("状态","fStatus",row.status || "待命","text","",["作业中","待命","维修中","停用"]);
+    $("modalTitle").textContent = person ? (id ? "人员信息登记表 · 查看/编辑" : "人员信息登记表") : (id ? "编辑车辆档案" : "新增车辆档案");
+    $("modalDesc").textContent = person ? "请填写真实、准确的人员资料。带 * 为必填项。" : "填写车辆基本信息和当前状态。";
+    let fields;
+    if (person) {
+      fields = '<div class="privacy-note">隐私提醒：这是公开网页中的本地演示原型，请勿录入真实身份证号、银行卡号或上传真实证件照片。信息仅保存在当前浏览器，不会同步到服务器。</div>' +
+        section("基本资料",'<div class="field-grid">' +
+          formField("姓名","fName",row.name || "","text",true) +
+          formField("手机号码","fPhone",row.phone || "","tel",true) +
+          formField("申请岗位","fRole",row.role || "","text",true) +
+          formField("所属班组","fTeam",row.team || "","text",true) +
+          formField("入职日期","fJoinDate",row.joinDate || new Date().toISOString().slice(0,10),"date") +
+          formField("国籍","fNationality",row.nationality || "中国","text",true) +
+          formField("民族","fEthnicity",row.ethnicity || "汉族","text",true,ethnicities) +
+        '</div>') +
+        section("身份凭证",'<div class="field-grid">' +
+          formField("身份证号","fIdNumber",row.idNumber || "") +
+          formField("护照号","fPassport",row.passport || "") +
+        '</div><div class="field-grid">' +
+          registrationFile("本人近期照片","fSelfie",row.attachments?.selfie,true) +
+          registrationFile("身份证照片","fIdPhoto",row.attachments?.idPhoto) +
+          registrationFile("护照照片","fPassportPhoto",row.attachments?.passportPhoto) +
+        '</div>') +
+        section("驾驶证 / 操作证",'<p>如申请岗位需要，请选择对应证件照片。</p>' + registrationFile("驾驶证 / 操作证照片","fLicense",row.attachments?.license)) +
+        section("银行信息",'<div class="field-grid">' +
+          formField("银行卡号","fBankNumber",row.bankNumber || "") +
+          formField("开户银行","fBankName",row.bankName || "") +
+        '</div>' + registrationFile("银行卡照片","fBankCardPhoto",row.attachments?.bankCard)) +
+        section("紧急联系人",'<div class="field-grid">' +
+          formField("紧急联系人","fEmergencyName",row.emergencyName || "","text",true) +
+          formField("联系电话","fEmergencyPhone",row.emergencyPhone || "","tel",true) +
+        '</div>') +
+        section("其他信息",'<div class="field"><label for="fNote">备注</label><textarea id="fNote" maxlength="500">' + esc(row.note || "") + '</textarea></div>');
+    } else {
+      fields = formField("车辆编号","fCode",row.code || "","text",true) + formField("车牌/识别号","fPlate",row.plate || "","text",true) + formField("车型","fModel",row.model || "","text",true) + formField("所属班组","fTeam",row.team || "","text",true) + formField("状态","fStatus",row.status || "待命","text",true,["作业中","待命","维修中","停用"]);
+    }
     $("modalFields").innerHTML = fields;
+    $("archiveForm").querySelector('button[type="submit"]').textContent = isPerson ? (id ? "保存人员资料" : "提交人员登记") : "保存档案";
     $("modalBackdrop").classList.add("open");
     $("modalFields").querySelector("input")?.focus();
+  }
+  async function readAttachment(input,previous) {
+    const file = input?.files?.[0];
+    if (!file) return previous || null;
+    if (file.size > 200 * 1024) throw new Error("文件“" + file.name + "”超过 200 KB，请压缩后重新选择");
+    const data = await new Promise((resolve,reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error("读取附件失败"));
+      reader.readAsDataURL(file);
+    });
+    return {name:file.name,type:file.type,data};
   }
   function closeModal() { $("modalBackdrop").classList.remove("open"); editState = null; }
   $("addPerson").addEventListener("click", () => openArchive("person"));
   $("addVehicle").addEventListener("click", () => openArchive("vehicle"));
   $("modalCancel").addEventListener("click", closeModal);
   $("modalBackdrop").addEventListener("click", event => { if (event.target === $("modalBackdrop")) closeModal(); });
-  $("archiveForm").addEventListener("submit", event => {
+  $("archiveForm").addEventListener("submit", async event => {
     event.preventDefault(); if (!editState) return;
-    const {kind,id} = editState, isPerson = kind === "person", source = isPerson ? db.people : db.vehicles;
-    const value = isPerson
-      ? {id:$("fCode").value.trim(),name:$("fName").value.trim(),role:$("fRole").value.trim(),team:$("fTeam").value.trim(),phone:$("fPhone").value.trim(),status:$("fStatus").value}
-      : {id:$("fCode").value.trim(),code:$("fCode").value.trim(),plate:$("fPlate").value.trim(),model:$("fModel").value.trim(),team:$("fTeam").value.trim(),status:$("fStatus").value};
-    const duplicate = source.some(item => item.id === value.id && item.id !== id);
-    if (duplicate) { toast("工号或车辆编号已存在"); $("fCode").focus(); return; }
-    if (id) Object.assign(source.find(item => item.id === id), value);
-    else source.unshift(value);
-    closeModal(); render(); toast(id ? "档案已更新" : "档案已新增");
+    const {kind,id} = editState, isPerson = kind === "person", sourceRows = isPerson ? db.people : db.vehicles;
+    try {
+      let value;
+      if (isPerson) {
+        const old = id ? sourceRows.find(item => item.id === id) : {};
+        const attachments = {
+          selfie:await readAttachment($("fSelfie"),old.attachments?.selfie),
+          idPhoto:await readAttachment($("fIdPhoto"),old.attachments?.idPhoto),
+          passportPhoto:await readAttachment($("fPassportPhoto"),old.attachments?.passportPhoto),
+          license:await readAttachment($("fLicense"),old.attachments?.license),
+          bankCard:await readAttachment($("fBankCardPhoto"),old.attachments?.bankCard)
+        };
+        value = {
+          id:id || nextPersonId(),
+          name:$("fName").value.trim(),
+          phone:$("fPhone").value.trim(),
+          role:$("fRole").value.trim(),
+          team:$("fTeam").value.trim(),
+          joinDate:$("fJoinDate").value,
+          nationality:$("fNationality").value.trim(),
+          ethnicity:$("fEthnicity").value,
+          idNumber:$("fIdNumber").value.trim(),
+          passport:$("fPassport").value.trim(),
+          bankNumber:$("fBankNumber").value.trim(),
+          bankName:$("fBankName").value.trim(),
+          emergencyName:$("fEmergencyName").value.trim(),
+          emergencyPhone:$("fEmergencyPhone").value.trim(),
+          note:$("fNote").value.trim(),
+          attachments,
+          status:id ? (old.status || "在岗") : "待审核"
+        };
+      } else {
+        value = {id:$("fCode").value.trim(),code:$("fCode").value.trim(),plate:$("fPlate").value.trim(),model:$("fModel").value.trim(),team:$("fTeam").value.trim(),status:$("fStatus").value};
+      }
+      if (!isPerson) value.id = $("fCode").value.trim();
+      const duplicate = sourceRows.some(item => item.id === value.id && item.id !== id);
+      if (duplicate) { toast(isPerson ? "人员编号冲突，请联系管理员" : "车辆编号已存在"); return; }
+      if (id) Object.assign(sourceRows.find(item => item.id === id), value);
+      else sourceRows.unshift(value);
+      closeModal(); render(); toast(id ? "人员资料已更新" : (isPerson ? "人员登记已保存" : "档案已新增"));
+    } catch (error) {
+      toast(error.message || "保存失败，请检查附件大小");
+    }
   });
   document.addEventListener("click", event => {
     const button = event.target.closest("[data-action]"); if (!button) return;
