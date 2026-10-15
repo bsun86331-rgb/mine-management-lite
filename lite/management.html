@@ -27,7 +27,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
 .toolbar{display:flex;gap:9px;align-items:center}.search{width:min(250px,40vw);height:40px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:white;outline:none}.search:focus,.field input:focus,.field select:focus{border-color:#80b49a;box-shadow:0 0 0 3px #176b4a18}
 .supplies-grid{display:grid;grid-template-columns:minmax(260px,.8fr) minmax(0,1.2fr);gap:16px;align-items:start}.form-card{padding:19px;border:1px solid var(--line);border-radius:15px;background:#fff;box-shadow:var(--shadow)}.form-card h3{margin:0 0 4px;font-size:16px}.form-card>p{margin:0 0 16px;color:var(--muted);font-size:12px}.field{display:grid;gap:6px;margin:12px 0}.field label{color:#59665e;font-size:11px;font-weight:750}.field input,.field select{width:100%;height:41px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:#fff;outline:none}.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.form-card .btn{width:100%;margin-top:6px}.supply-records{padding:4px 18px}.supply-row{display:flex;justify-content:space-between;gap:14px;padding:13px 0;border-bottom:1px solid #edf0ed}.supply-row:last-child{border-bottom:0}.supply-name{font-weight:750}.supply-meta{margin-top:3px;color:var(--muted);font-size:11px}.supply-right{text-align:right;white-space:nowrap}.supply-qty{font-weight:800}.supply-delete{margin-top:3px;border:0;background:none;color:var(--red);font-size:11px}
 .modal-backdrop{position:fixed;z-index:20;inset:0;display:none;place-items:center;padding:16px;background:#1020199c}.modal-backdrop.open{display:grid}.modal{width:min(900px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:22px;border-radius:17px;background:#fff;box-shadow:0 20px 70px #0003}.modal h2{margin:0;font-size:19px}.modal p{margin:5px 0 15px;color:var(--muted);font-size:12px}.modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}.modal-fixed-actions{position:sticky;bottom:-22px;z-index:4;margin:12px -22px -22px;padding:12px 22px 22px;border-top:1px solid var(--line);background:#fff}.archive-review-actions{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:8px}.archive-review-actions[hidden]{display:none}.archive-review-actions .btn{min-width:0;padding:9px 7px;font-size:12px}.archive-review-actions .btn:disabled{opacity:.48;cursor:not-allowed}.form-section{margin:14px 0;padding:14px;border:1px solid var(--line);border-radius:12px}.form-section h3{margin:0 0 8px;font-size:13px}.form-section .field-grid{gap:10px}.field textarea{width:100%;min-height:76px;padding:9px 10px;border:1px solid var(--line);border-radius:9px;resize:vertical;font:inherit}.field input[type=file]{height:auto;padding:9px}.privacy-note{padding:10px 12px;border:1px solid #f2d6a3;border-radius:9px;background:#fff8e9;color:#80520b;font-size:11px}.file-help{color:var(--muted);font-size:10px}
-.review-backdrop{position:fixed;z-index:25;inset:0;display:none;place-items:center;padding:16px;background:#1020199c}.review-backdrop.open{display:grid}.review-dialog{width:min(760px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:22px;border-radius:17px;background:#fff;box-shadow:0 20px 70px #0003}.review-head{display:flex;align-items:start;justify-content:space-between;gap:12px}.review-head h2{margin:0;font-size:19px}.review-head p{margin:5px 0 15px;color:var(--muted);font-size:12px}.review-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:16px;margin:12px 0 18px}.review-field{padding:11px 2px;border-bottom:1px solid var(--line);overflow-wrap:anywhere}.review-field span{display:block;margin-bottom:4px;color:var(--muted);font-size:10px}.review-field strong{font-size:13px;font-weight:750}.review-dialog h3{margin:18px 0 9px;font-size:14px}.review-files{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.review-file{padding:12px;border:1px solid var(--line);border-radius:11px}.review-file img{display:block;max-width:100%;max-height:240px;margin:0 auto 9px;border-radius:7px;object-fit:contain}.review-file-name{margin:4px 0;color:var(--muted);font-size:11px;overflow-wrap:anywhere}.review-file a{margin-right:12px;color:var(--green);font-size:12px;font-weight:700}.review-check{display:flex;align-items:start;gap:9px;margin-top:17px;padding:12px;border-radius:10px;background:#f4f7f3;font-size:12px}.review-check input{margin-top:3px}.review-progress{min-height:20px;margin-top:7px;color:var(--muted);font-size:11px}.review-actions{position:sticky;bottom:0;z-index:2;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px -22px -22px;padding:12px 22px 22px;border-top:1px solid var(--line);background:#fff}.review-actions .btn{width:100%}.review-actions .btn:disabled{opacity:.48;cursor:not-allowed}.review-pass{background:#159447}.review-reject{background:#d92d2d}.review-print{background:#465466}#printout{display:none}@media(max-width:700px){.review-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.review-files{grid-template-columns:1fr}.review-actions{grid-template-columns:repeat(2,minmax(0,1fr))}}@media print{body.printing .layout,body.printing .modal-backdrop,body.printing .review-backdrop,body.printing .toast{display:none!important}body.printing #printout{display:block!important;position:absolute;inset:0;padding:18px;background:#fff;color:#111;font:12pt/1.5 Arial,"Microsoft YaHei",sans-serif}body.printing #printout h1{text-align:center;font-size:20pt;margin:0 0 16px}body.printing #printout .print-table{width:100%;border-collapse:collapse;table-layout:fixed;margin-top:10px}body.printing #printout .print-table th,body.printing #printout .print-table td{padding:8px 10px;border:1px solid #cbd2dc;text-align:left;vertical-align:middle;overflow-wrap:anywhere}body.printing #printout .print-table th{width:30%;background:#f1f2f4;color:#111;font-weight:700}body.printing #printout .print-table td{width:70%}body.printing #printout .print-photo{break-inside:avoid;margin:0 0 16px}body.printing #printout .print-photo img{display:block;max-width:100%;max-height:220mm;margin:6px auto;object-fit:contain}body.printing #printout a{display:none}}
+.review-backdrop{position:fixed;z-index:25;inset:0;display:none;place-items:center;padding:16px;background:#1020199c}.review-backdrop.open{display:grid}.review-dialog{width:min(760px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:22px;border-radius:17px;background:#fff;box-shadow:0 20px 70px #0003}.review-head{display:flex;align-items:start;justify-content:space-between;gap:12px}.review-head h2{margin:0;font-size:19px}.review-head p{margin:5px 0 15px;color:var(--muted);font-size:12px}.review-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:16px;margin:12px 0 18px}.review-field{padding:11px 2px;border-bottom:1px solid var(--line);overflow-wrap:anywhere}.review-field span{display:block;margin-bottom:4px;color:var(--muted);font-size:10px}.review-field strong{font-size:13px;font-weight:750}.review-dialog h3{margin:18px 0 9px;font-size:14px}.review-files{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.review-file{padding:12px;border:1px solid var(--line);border-radius:11px}.review-file img{display:block;max-width:100%;max-height:240px;margin:0 auto 9px;border-radius:7px;object-fit:contain}.review-file-name{margin:4px 0;color:var(--muted);font-size:11px;overflow-wrap:anywhere}.review-file a{margin-right:12px;color:var(--green);font-size:12px;font-weight:700}.review-check{display:flex;align-items:start;gap:9px;margin-top:17px;padding:12px;border-radius:10px;background:#f4f7f3;font-size:12px}.review-check input{margin-top:3px}.review-progress{min-height:20px;margin-top:7px;color:var(--muted);font-size:11px}.review-actions{position:sticky;bottom:0;z-index:2;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px -22px -22px;padding:12px 22px 22px;border-top:1px solid var(--line);background:#fff}.review-actions .btn{width:100%}.review-actions .btn:disabled{opacity:.48;cursor:not-allowed}.review-pass{background:#159447}.review-reject{background:#d92d2d}.review-print{background:#465466}.photo-select-backdrop{position:fixed;z-index:40;inset:0;display:none;place-items:center;padding:16px;background:#1020199c}.photo-select-backdrop.open{display:grid}.photo-select-dialog{width:min(680px,100%);max-height:calc(100vh - 32px);display:flex;flex-direction:column;overflow:hidden;padding:20px;border-radius:16px;background:#fff;box-shadow:0 20px 70px #0003}.photo-select-head{display:flex;justify-content:space-between;align-items:start;gap:12px}.photo-select-head h2{margin:0;font-size:18px}.photo-select-head p{margin:5px 0 12px;color:var(--muted);font-size:12px}.photo-select-tools{display:flex;gap:8px;margin-bottom:10px}.photo-select-list{display:grid;gap:8px;overflow:auto;min-height:80px;padding:1px}.photo-select-option{display:grid;grid-template-columns:88px minmax(0,1fr) auto;align-items:center;gap:12px;padding:9px;border:1px solid var(--line);border-radius:11px}.photo-select-option img{width:88px;height:70px;border-radius:7px;background:#f4f6f4;object-fit:contain}.photo-select-copy{min-width:0}.photo-select-copy strong,.photo-select-copy small{display:block;overflow-wrap:anywhere}.photo-select-copy small{margin-top:4px;color:var(--muted);font-size:11px}.photo-select-option input{width:18px;height:18px;accent-color:var(--green)}.photo-select-unavailable{padding:8px 10px;border-radius:8px;background:#fff7e9;color:#85510d;font-size:11px}.photo-select-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px}.photo-select-actions .btn{width:100%}#printout{display:none}@media(max-width:700px){.review-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.review-files{grid-template-columns:1fr}.review-actions{grid-template-columns:repeat(2,minmax(0,1fr))}}@media print{body.printing .layout,body.printing .modal-backdrop,body.printing .review-backdrop,body.printing .photo-select-backdrop,body.printing .toast{display:none!important}body.printing #printout{display:block!important;position:absolute;inset:0;padding:18px;background:#fff;color:#111;font:12pt/1.5 Arial,"Microsoft YaHei",sans-serif}body.printing #printout h1{text-align:center;font-size:20pt;margin:0 0 16px}body.printing #printout .print-table{width:100%;border-collapse:collapse;table-layout:fixed;margin-top:10px}body.printing #printout .print-table th,body.printing #printout .print-table td{padding:8px 10px;border:1px solid #cbd2dc;text-align:left;vertical-align:middle;overflow-wrap:anywhere}body.printing #printout .print-table th{width:30%;background:#f1f2f4;color:#111;font-weight:700}body.printing #printout .print-table td{width:70%}body.printing #printout .print-photo{break-inside:avoid;margin:0 0 16px}body.printing #printout .print-photo img{display:block;max-width:100%;max-height:220mm;margin:6px auto;object-fit:contain}body.printing #printout a{display:none}}
 .toast{position:fixed;z-index:30;bottom:24px;left:50%;padding:10px 15px;border-radius:10px;background:#17251e;color:white;transform:translate(-50%,12px);opacity:0;pointer-events:none;transition:.2s}.toast.show{transform:translate(-50%,0);opacity:1}
 .admin-gate{position:fixed;z-index:100;inset:0;display:grid;place-items:center;padding:18px;background:var(--bg)}
 .gate-card{width:min(440px,100%);padding:26px;border:1px solid var(--line);border-radius:18px;background:#fff;box-shadow:0 18px 50px #173d3115}
@@ -124,6 +124,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
 </div>
 <div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true"><div class="modal"><h2 id="modalTitle"></h2><p id="modalDesc"></p><form id="archiveForm"><div id="modalFields"></div></form><div class="modal-fixed-actions" id="archiveFixedActions"><div class="archive-review-actions" id="archiveReviewActions"><button class="btn review-pass" type="button" id="archiveApprove">审核通过</button><button class="btn review-reject" type="button" id="archiveReject">驳回资料</button><button class="btn review-print" type="button" id="archivePrintData">打印资料</button><button class="btn review-print" type="button" id="archivePrintPhotos">打印照片</button><button class="btn btn-soft" type="button" id="archiveClose">关闭</button></div><div class="modal-actions"><button class="btn btn-soft" type="button" id="modalCancel">取消</button><button class="btn" id="archiveSave" type="submit" form="archiveForm">保存档案</button></div></div></div></div>
 <div class="review-backdrop" id="reviewBackdrop"><section class="review-dialog" role="dialog" aria-modal="true" aria-labelledby="reviewTitle"><div class="review-head"><div><h2 id="reviewTitle">入职资料审核</h2><p id="reviewSubtitle">核对提交信息和附件后确认。</p></div></div><div class="review-grid" id="reviewFields"></div><h3>提交的附件</h3><div class="review-files" id="reviewFiles"></div><label class="review-check"><input type="checkbox" id="reviewCheck"><span>我已逐项核对以上登记资料及提交附件</span></label><div class="review-progress" id="reviewProgress" role="status"></div><div class="review-actions"><button class="btn review-pass" type="button" id="reviewApprove" disabled>审核通过</button><button class="btn review-reject" type="button" id="reviewReject">驳回资料</button><button class="btn review-print" type="button" id="printReviewData">打印资料</button><button class="btn review-print" type="button" id="printReviewPhotos">打印照片</button><button class="btn btn-soft" type="button" id="reviewClose">关闭</button></div></section></div>
+<div class="photo-select-backdrop" id="photoSelectBackdrop"><section class="photo-select-dialog" role="dialog" aria-modal="true" aria-labelledby="photoSelectTitle"><div class="photo-select-head"><div><h2 id="photoSelectTitle">选择要打印的照片</h2><p>默认勾选所有已提交图片，可取消不需要的照片。</p></div></div><div class="photo-select-tools"><button class="btn btn-soft" type="button" id="photoSelectAll">全选</button><button class="btn btn-soft" type="button" id="photoSelectNone">全不选</button></div><div class="photo-select-list" id="photoSelectList"></div><div class="photo-select-actions"><button class="btn btn-soft" type="button" id="photoSelectCancel">取消</button><button class="btn" type="button" id="photoSelectPrint" disabled>打印所选照片</button></div></section></div>
 <div id="printout"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="attachment-storage.js"></script>
@@ -469,7 +470,53 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     printObjectUrls = [];
     $("printout").innerHTML = "";
   }
-  async function printReview(mode,personId=reviewPersonId) {
+  let photoSelectObjectUrls = [];
+  let photoSelectPersonId = null;
+  function closePhotoSelector() {
+    $("photoSelectBackdrop").classList.remove("open");
+    photoSelectObjectUrls.forEach(url => URL.revokeObjectURL(url));
+    photoSelectObjectUrls = [];
+    photoSelectPersonId = null;
+  }
+  function updatePhotoSelectState() {
+    const hasSelected = $("photoSelectList").querySelector('input[data-photo-select-key]:checked');
+    $("photoSelectPrint").disabled = !hasSelected;
+  }
+  async function openPhotoSelector(personId) {
+    const person = db.people.find(item => String(item.id) === String(personId));
+    if (!person) return;
+    closePhotoSelector();
+    photoSelectPersonId = person.id;
+    $("photoSelectList").innerHTML = '<div class="empty">正在读取已提交照片…</div>';
+    $("photoSelectPrint").disabled = true;
+    $("photoSelectBackdrop").classList.add("open");
+    const options = [], unavailable = [];
+    for (const [key,label] of attachmentLabels) {
+      const attachment = person.attachments?.[key];
+      if (!attachment) continue;
+      let blob = null;
+      try {
+        if (attachment.id) blob = (await MineAttachmentStore.get(attachment.id))?.blob || null;
+        else if (attachment.data) blob = await (await fetch(attachment.data)).blob();
+      } catch {}
+      if (!blob) {
+        unavailable.push(label + "：文件读取失败");
+        continue;
+      }
+      if (!String(blob.type || attachment.type || "").startsWith("image/")) {
+        unavailable.push(label + "：不是图片文件");
+        continue;
+      }
+      const url = URL.createObjectURL(blob);
+      photoSelectObjectUrls.push(url);
+      options.push('<label class="photo-select-option"><img src="' + url + '" alt="' + esc(label) + '预览"><span class="photo-select-copy"><strong>' + esc(label) + '</strong><small>' + esc(attachment.name || "图片附件") + '</small></span><input type="checkbox" data-photo-select-key="' + esc(key) + '" checked aria-label="选择打印' + esc(label) + '"></label>');
+    }
+    let contents = options.length ? options.join("") : '<div class="empty">没有可选择打印的图片附件</div>';
+    if (unavailable.length) contents += '<div class="photo-select-unavailable">' + unavailable.map(esc).join("<br>") + '</div>';
+    $("photoSelectList").innerHTML = contents;
+    $("photoSelectPrint").disabled = options.length === 0;
+  }
+  async function printReview(mode,personId=reviewPersonId,selectedPhotoKeys=[]) {
     const person = db.people.find(item => String(item.id) === String(personId));
     if (!person) return;
     const timestamp = new Date().toLocaleString("zh-CN");
@@ -478,7 +525,9 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
       $("printout").innerHTML = '<h1>矿山管理系统人员资料</h1><table class="print-table"><tbody>' + rows + '</tbody></table>';
     } else {
       const photos = [];
+      const selectedKeys = new Set(selectedPhotoKeys || []);
       for (const [key,label] of attachmentLabels) {
+        if (!selectedKeys.has(key)) continue;
         const attachment = person.attachments?.[key];
         if (!attachment) continue;
         let blob = null;
@@ -486,13 +535,26 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
           if (attachment.id) blob = (await MineAttachmentStore.get(attachment.id))?.blob || null;
           else if (attachment.data) blob = await (await fetch(attachment.data)).blob();
         } catch {}
-        if (!blob || !String(attachment.type || blob.type).startsWith("image/")) continue;
+        if (!blob || !String(blob.type || attachment.type || "").startsWith("image/")) continue;
         const url = URL.createObjectURL(blob);
         printObjectUrls.push(url);
         photos.push('<section class="print-photo"><h2>' + esc(label) + '</h2><div>' + esc(attachment.name || "图片附件") + '</div><img src="' + url + '" alt="' + esc(label) + '"></section>');
       }
-      if (!photos.length) { toast("没有可打印的图片附件"); return; }
+      if (!photos.length) { toast("所选照片无法读取或没有可打印图片"); finishPrint(); return; }
       $("printout").innerHTML = '<h1>人员照片 · ' + esc(person.name || person.id) + '</h1><div class="print-meta">打印时间：' + esc(timestamp) + '</div>' + photos.join("");
+    }
+    const printImages = Array.from($("printout").querySelectorAll("img"));
+    await Promise.all(printImages.map(async image => {
+      if (typeof image.decode === "function") {
+        try { await image.decode(); } catch {}
+      } else if (!image.complete) {
+        await new Promise(resolve => { image.onload = resolve; image.onerror = resolve; });
+      }
+    }));
+    if (printImages.some(image => !image.complete || image.naturalWidth === 0)) {
+      toast("部分照片无法加载，已取消打印，请检查附件后重试。");
+      finishPrint();
+      return;
     }
     document.body.classList.add("printing");
     let fallback;
@@ -502,7 +564,19 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     window.print();
   }
   $("printReviewData").addEventListener("click",() => printReview("data"));
-  $("printReviewPhotos").addEventListener("click",() => printReview("photos"));
+  $("printReviewPhotos").addEventListener("click",() => openPhotoSelector(reviewPersonId));
+  $("photoSelectAll").addEventListener("click",() => { $("photoSelectList").querySelectorAll('input[data-photo-select-key]').forEach(input => { input.checked = true; }); updatePhotoSelectState(); });
+  $("photoSelectNone").addEventListener("click",() => { $("photoSelectList").querySelectorAll('input[data-photo-select-key]').forEach(input => { input.checked = false; }); updatePhotoSelectState(); });
+  $("photoSelectList").addEventListener("change",updatePhotoSelectState);
+  $("photoSelectCancel").addEventListener("click",closePhotoSelector);
+  $("photoSelectBackdrop").addEventListener("click",event => { if (event.target === $("photoSelectBackdrop")) closePhotoSelector(); });
+  $("photoSelectPrint").addEventListener("click",async () => {
+    const personId = photoSelectPersonId;
+    const selected = Array.from($("photoSelectList").querySelectorAll('input[data-photo-select-key]:checked')).map(input => input.dataset.photoSelectKey);
+    if (!personId || !selected.length) { toast("请先选择要打印的照片"); return; }
+    closePhotoSelector();
+    await printReview("photos",personId,selected);
+  });
   $("addPerson").addEventListener("click", () => openArchive("person"));
   $("addVehicle").addEventListener("click", () => openArchive("vehicle"));
   $("modalCancel").addEventListener("click", requestCloseModal);
@@ -544,7 +618,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
   $("archivePrintPhotos").addEventListener("click",() => {
     if (!editState || editState.kind !== "person" || !editState.id) return;
     if (archiveDirty && !confirm("打印将使用最近一次已保存的附件，不包含当前未保存文件。继续吗？")) return;
-    printReview("photos",editState.id);
+    openPhotoSelector(editState.id);
   });
   $("archiveForm").addEventListener("submit", async event => {
     event.preventDefault(); if (!editState) return;
