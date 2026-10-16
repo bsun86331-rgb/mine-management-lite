@@ -50,7 +50,16 @@
     return '<div id="dispatchShiftPicker" class="shift-picker" role="group" aria-label="白夜班选择">'+(dispatchShiftLocked?[selectedDispatchShift]:["白班","夜班"]).map(name=>{const times=d.shiftTimes[name],overnight=times.end<times.start;return '<section class="shift-card'+(name===current?' current-shift':'')+(name===selectedDispatchShift?' selected-shift':'')+'"><button type="button" class="shift-name" data-action="selectDispatchShift" data-id="'+name+'" aria-pressed="'+(name===selectedDispatchShift)+'">'+name+(name===current?' · 当前班':'')+'</button><button type="button" class="shift-hours" data-action="editShiftTimes" data-id="'+name+'" aria-label="设置'+name+'时间">'+esc(times.start)+'—'+esc(times.end)+(overnight?' （次日结束）':'')+'</button></section>';}).join("")+'</div>';
   }
   function productionContext(){return {workDate:dispatchProductionDate||T.date(),shiftName:selectedDispatchShift,team:dispatchGroups[selectedDispatchShift]||""};}
-  function productionGroup(){const c=productionContext();return d.productionGroups.find(g=>g.workDate===c.workDate&&g.shiftName===c.shiftName&&g.team===c.team&&g.number===1&&g.status==="draft");}
+  function productionGroups(){const c=productionContext();return d.productionGroups.filter(g=>g.workDate===c.workDate&&g.shiftName===c.shiftName&&g.team===c.team&&g.status==="draft").sort((a,b)=>a.number-b.number);}
+  function productionGroup(id=null){return productionGroups().find(g=>id?g.id===id:g.number===1);}
+  function truckGroup(id){return productionGroups().find(g=>g.id===id||g.followingTrucks.some(t=>t.id===id));}
+  function groupTitle(g){const n=g?.number||1,names=["","一","二","三","四","五","六","七","八","九","十"];return "第"+(names[n]||n)+"组生产设备";}
+  function auxiliaryPlan(){const c=productionContext();return d.auxiliaryPlans.find(p=>p.workDate===c.workDate&&p.shiftName===c.shiftName&&p.team===c.team);}
+  function draftAvailable(field,id,except){return !T.draftSlots(d,productionContext()).some(slot=>slot.id!==except&&slot[field]===id);}
+  const frontLineRoles=["driver","excavator",...T.auxiliaryRoles];
+  const jobName=p=>({driver:"汽车司机",excavator:"挖机司机",assistant_loader:"铲车司机",assistant_fuel:"加油车司机",assistant_water:"洒水车司机",assistant_grader:"平地机司机",assistant_dump:"排土管理员",assistant:"辅助人员"}[p.applicationRole]||p.role||"");
+  function availability(v){const state=T.equipmentState(d,m,v.id),busyShift=d.shifts.find(s=>s.vehicleId===v.id&&s.status!=="closed");return {ok:state==="working"&&!busyShift&&v.status!=="作业中",label:state==="working"?(busyShift?"班次占用":v.status==="作业中"?"作业中":"可调配"):(states[state]||state)};}
+
   function productionZoneName(id,kind){if(!id)return "未设置";const zone=d.zones.find(z=>z.id===id);if(!zone)return "区域已失效";return zone.name+((zone.kind===kind&&zone.enabled&&T.validZone(zone))?"":"（不可用）");}
   function renderProductionRegions(g){
     const unloads=Array.isArray(g.unloadZoneIds)?g.unloadZoneIds:[];
@@ -63,16 +72,32 @@
     }).join("");
     return cards+'<button type="button" class="production-equipment-card following-truck-card add-following-truck" data-action="addFollowingTruck" data-id="'+esc(g.id)+'" aria-label="新增一组跟随汽车" title="新增跟随汽车">＋</button>'+renderProductionRegions(g);
   }
-  function renderProductionGroup(){
+  function renderProductionGroup(g){
     if(!dispatchShiftLocked||timeConfiguredShift!==selectedDispatchShift||!dispatchGroups[selectedDispatchShift])return "";
-    const g=productionGroup(),v=g?vehicleOf(g.vehicleId):null,p=g?m.people.find(p=>p.id===g.personId):null;
+    const v=g?vehicleOf(g.vehicleId):null,p=g?m.people.find(p=>p.id===g.personId):null;
     const driverValid=p&&L.active(p)&&p.applicationRole==="excavator"&&p.team===g.team,ready=g&&T.isExcavator(v)&&driverValid;
-    return '<section class="production-group-section"><div class="actions">'+button("openProductionGroup","","第一组生产设备","")+'</div>'+(g?'<div class="production-equipment-row"><div class="production-equipment-card" aria-label="第一组生产设备挖机">'+button("chooseProductionEquipment",g.id,v?(v.code||v.name||"已选设备"):(g.vehicleId?"设备失效，请重选":"选择设备"),"equipment-choice equipment-label")+button("chooseProductionDriver",g.id,p?(p.name+(driverValid?"":"（需重选）")):(g.personId?"司机失效，请重选":"选择司机"),"equipment-choice driver-label")+button("removeProductionGroup",g.id,"移除","equipment-remove")+'</div>'+(ready?renderFollowingTruck(g):"")+'</div>':"")+'</section>';
+    return '<section class="production-group-section"><div class="actions">'+button("openProductionGroup",g?.id||"",groupTitle(g),"")+'</div>'+(g?'<div class="production-equipment-row"><div class="production-equipment-card" aria-label="'+esc(groupTitle(g))+'挖机">'+button("chooseProductionEquipment",g.id,v?(v.code||v.name||"已选设备"):(g.vehicleId?"设备失效，请重选":"选择设备"),"equipment-choice equipment-label")+button("chooseProductionDriver",g.id,p?(p.name+(driverValid?"":"（需重选）")):(g.personId?"司机失效，请重选":"选择司机"),"equipment-choice driver-label")+button("removeProductionGroup",g.id,"移除","equipment-remove")+'</div>'+(ready?renderFollowingTruck(g):"")+'</div>':"")+'</section>';
   }
   function renderAssignments(){
     const rows=dispatchShiftLocked?d.assignments.filter(r=>r.shiftName===selectedDispatchShift&&(!dispatchGroups[selectedDispatchShift]||m.people.find(p=>p.id===r.personId)?.team===dispatchGroups[selectedDispatchShift])):d.assignments;
     const group=dispatchGroups[selectedDispatchShift]||"";
-    return renderShiftButtons()+(dispatchShiftLocked&&timeConfiguredShift===selectedDispatchShift?'<div class="actions" style="margin-bottom:20px">'+button("selectDispatchGroup",selectedDispatchShift,group?'选择班组：'+group:'选择班组',"")+'</div>':"")+renderProductionGroup()+assignmentCards(rows);
+    return renderShiftButtons()+(dispatchShiftLocked&&timeConfiguredShift===selectedDispatchShift?'<div class="actions" style="margin-bottom:20px">'+button("selectDispatchGroup",selectedDispatchShift,group?'选择班组：'+group:'选择班组',"")+'</div>':"")+renderDispatchLower()+assignmentCards(rows);
+  }
+  function renderDispatchLower(){
+    if(!dispatchShiftLocked||timeConfiguredShift!==selectedDispatchShift||!dispatchGroups[selectedDispatchShift])return "";
+    const groups=productionGroups();
+    return (groups.length?groups.map(renderProductionGroup).join(""):renderProductionGroup(null))+'<button type="button" class="add-production-group" data-action="addProductionGroup">＋ 添加生产组</button>'+renderAuxiliaryVehicles()+renderUnusedResources();
+  }
+  function renderAuxiliaryVehicles(){
+    const cards=(auxiliaryPlan()?.cards||[]).filter(c=>c.status==="draft");
+    return '<section class="dispatch-lower-section"><h3>辅助车辆</h3><div class="auxiliary-vehicle-row">'+cards.map(card=>{
+      const v=vehicleOf(card.vehicleId),p=m.people.find(p=>p.id===card.personId),valid=p&&L.active(p)&&T.auxiliaryRoles.includes(p.applicationRole)&&p.team===productionContext().team;
+      return '<div class="auxiliary-item"><div class="production-equipment-card auxiliary-equipment-card">'+button("auxEquipment",card.id,v?(v.code||v.name||"已选设备"):(card.vehicleId?"设备失效，请重选":"选择设备"),"equipment-choice equipment-label")+button("auxDriver",card.id,p?(p.name+(valid?"":"（需重选）")):(card.personId?"人员失效，请重选":"选择司机"),"equipment-choice driver-label")+button("auxRemove",card.id,"移除","equipment-remove")+'</div>'+button("auxContent",card.id,"作业内容"+(card.content?" · 已设置":""),"auxiliary-content-button")+'</div>';
+    }).join("")+'<button type="button" class="auxiliary-add" data-action="auxAdd" aria-label="增加辅助车辆">＋</button></div></section>';
+  }
+  function renderUnusedResources(){
+    const team=productionContext().team,vehicles=m.vehicles.filter(v=>draftAvailable("vehicleId",v.id,null)),people=m.people.filter(p=>L.active(p)&&p.team===team&&frontLineRoles.includes(p.applicationRole)&&draftAvailable("personId",p.id,null));
+    return '<section class="dispatch-lower-section"><h3>未进入分配的车辆 / 设备</h3><p class="help">绿色为可调配；红色为维修、保养、停用、暂停或作业占用。点击编号查看信息。</p><div class="unused-resource-list">'+(vehicles.map(v=>{const a=availability(v);return button("unusedVehicleInfo",v.id,(v.code||v.name||v.id)+" · "+a.label,"resource-chip"+(a.ok?"":" unavailable"));}).join("")||'<span class="muted">暂无未分配设备</span>')+'</div></section><section class="dispatch-lower-section"><h3>未进入分配的人员</h3><p class="help">仅显示所选班组未分配的一线人员（司机和排土管理）。</p><div class="unused-resource-list">'+(people.map(p=>{const busy=d.shifts.some(s=>s.personId===p.id&&s.status!=="closed");return button("unusedPersonInfo",p.id,p.name+" · "+jobName(p)+" · "+p.team+" · "+(busy?"班次占用":"空闲"),"resource-chip"+(busy?" unavailable":""));}).join("")||'<span class="muted">暂无未分配人员</span>')+'</div></section>';
   }
   const metres=value=>Number.isFinite(value)?value.toFixed(3):"未设置";
   function utmSummary(z){const c=window.MineUTM.zoneCoordinates(z);return "WGS84 / UTM "+(c.zone==null?"分区未设置":c.zone+(c.hemisphere||""))+" · X "+metres(c.easting)+" / Y "+metres(c.northing)+" 米";}
@@ -131,28 +156,29 @@
       const groups=["生产A组","生产B组"];
       show(key+" · 选择班组",select("dispatchTeam","班组",[["","请选择（选填）"],...groups.map(team=>[team,team])],dispatchGroups[key]||""),f=>{
         const team=String(f.get("dispatchTeam")||"");if(team&&!groups.includes(team))throw new Error("请选择现有班组");
-        dispatchGroups[key]=team;closeModal();refresh(true);if(team)document.querySelector('[data-action="openProductionGroup"]')?.scrollIntoView({behavior:"smooth",block:"nearest"});
+        if(team)return operate("auxiliaryPlan",{...productionContext(),team,action:"ensure"},"班组已选择",()=>{dispatchGroups[key]=team;setTimeout(()=>document.querySelector('[data-action="openProductionGroup"]')?.scrollIntoView({behavior:"smooth",block:"nearest"}),0);});
+        dispatchGroups[key]="";closeModal();refresh(true);
       },"确定");return;
     }
-    if(action==="openProductionGroup"){
+    if(action==="openProductionGroup"||action==="addProductionGroup"){
       if(role!=="dispatch"||!dispatchShiftLocked||timeConfiguredShift!==selectedDispatchShift||!dispatchGroups[selectedDispatchShift])return;
-      return operate("productionGroup",{...productionContext(),action:"open"},"第一组生产设备已展开");
+      return operate("productionGroup",{...productionContext(),id:action==="openProductionGroup"?(key||null):null,action:action==="addProductionGroup"?"add":"open"},"生产设备组已展开");
     }
     if(["chooseProductionEquipment","chooseProductionDriver","removeProductionGroup"].includes(action)){
       if(role!=="dispatch"||!dispatchShiftLocked||timeConfiguredShift!==selectedDispatchShift)return;
-      const g=productionGroup();if(!g||g.id!==key)return toast("设备组已变化，请重新选择");
+      const g=productionGroup(key);if(!g)return toast("设备组已变化，请重新选择");
       const context={id:g.id,workDate:g.workDate,shiftName:g.shiftName,team:g.team};
       if(action==="removeProductionGroup")return operate("productionGroup",{...context,action:"remove"},"设备组已移除");
       if(action==="chooseProductionEquipment"){
-        const vehicles=m.vehicles.filter(T.isExcavator);
-        show("第一组生产设备 · 选择挖机",select("vehicleId","挖机设备",[["","请选择（选填）"],...vehicles.map(v=>[v.id,(v.code||v.id)+(v.name?" · "+v.name:"")])],g.vehicleId||"")+(vehicles.length?"":'<p class="help">暂无挖机设备档案。</p>'),f=>operate("productionGroup",{...context,action:"equipment",value:f.get("vehicleId")},"设备已选择"),"确定");return;
+        const vehicles=m.vehicles.filter(v=>T.isExcavator(v)&&draftAvailable("vehicleId",v.id,g.id));
+        show(groupTitle(g)+" · 选择挖机",select("vehicleId","挖机设备",[["","请选择（选填）"],...vehicles.map(v=>[v.id,(v.code||v.id)+(v.name?" · "+v.name:"")])],g.vehicleId||"")+(vehicles.length?"":'<p class="help">暂无挖机设备档案。</p>'),f=>operate("productionGroup",{...context,action:"equipment",value:f.get("vehicleId")},"设备已选择"),"确定");return;
       }
-      const drivers=m.people.filter(p=>L.active(p)&&p.applicationRole==="excavator"&&p.team===g.team);
-      show("第一组生产设备 · 选择挖机司机",select("personId",g.team+"挖机司机",[["","请选择（选填）"],...drivers.map(p=>[p.id,p.name+" / "+p.id])],g.personId||"")+(drivers.length?"":'<p class="help">该班组暂无已审核在岗的挖机司机。</p>'),f=>operate("productionGroup",{...context,action:"driver",value:f.get("personId")},"挖机司机已选择"),"确定");return;
+      const drivers=m.people.filter(p=>L.active(p)&&p.applicationRole==="excavator"&&p.team===g.team&&draftAvailable("personId",p.id,g.id));
+      show(groupTitle(g)+" · 选择挖机司机",select("personId",g.team+"挖机司机",[["","请选择（选填）"],...drivers.map(p=>[p.id,p.name+" / "+p.id])],g.personId||"")+(drivers.length?"":'<p class="help">该班组暂无已审核在岗的挖机司机。</p>'),f=>operate("productionGroup",{...context,action:"driver",value:f.get("personId")},"挖机司机已选择"),"确定");return;
     }
     if(["chooseFollowingTruck","chooseFollowingDriver","removeFollowingTruck","addFollowingTruck"].includes(action)){
       if(role!=="dispatch"||!dispatchShiftLocked||timeConfiguredShift!==selectedDispatchShift)return;
-      const g=productionGroup();if(!g)return toast("设备组已变化，请重新选择");
+      const g=truckGroup(key);if(!g)return toast("设备组已变化，请重新选择");
       const excavator=vehicleOf(g.vehicleId),operator=m.people.find(p=>p.id===g.personId);
       if(!T.isExcavator(excavator)||!operator||!L.active(operator)||operator.applicationRole!=="excavator"||operator.team!==g.team)return toast("请先选择当前班组的有效挖机及挖机司机");
       const base={id:g.id,workDate:g.workDate,shiftName:g.shiftName,team:g.team};
@@ -162,15 +188,15 @@
       const context={...base,truckId:truck.id},others=active.filter(t=>t.id!==truck.id);
       if(action==="removeFollowingTruck")return operate("productionGroup",{...context,action:"removeTruck"},"跟随汽车已移除");
       if(action==="chooseFollowingTruck"){
-        const vehicles=m.vehicles.filter(v=>T.isHaulTruck(v)&&!others.some(t=>t.vehicleId===v.id));
+        const vehicles=m.vehicles.filter(v=>T.isHaulTruck(v)&&draftAvailable("vehicleId",v.id,truck.id));
         show("跟随汽车 · 选择设备",select("vehicleId","汽车设备",[["","请选择（选填）"],...vehicles.map(v=>[v.id,(v.code||v.id)+(v.name?" · "+v.name:"")])],truck.vehicleId||"")+(vehicles.length?"":'<p class="help">暂无尚未在本组选择的矿用自卸车。</p>'),f=>operate("productionGroup",{...context,action:"truckEquipment",value:f.get("vehicleId")},"跟随汽车已选择"),"确定");return;
       }
-      const drivers=m.people.filter(p=>L.active(p)&&p.applicationRole==="driver"&&p.team===g.team&&!others.some(t=>t.personId===p.id));
+      const drivers=m.people.filter(p=>L.active(p)&&p.applicationRole==="driver"&&p.team===g.team&&draftAvailable("personId",p.id,truck.id));
       show("跟随汽车 · 选择司机",select("personId",g.team+"汽车司机",[["","请选择（选填）"],...drivers.map(p=>[p.id,p.name+" / "+p.id])],truck.personId||"")+(drivers.length?"":'<p class="help">该班组暂无尚未在本组选择的在岗汽车司机。</p>'),f=>operate("productionGroup",{...context,action:"truckDriver",value:f.get("personId")},"汽车司机已选择"),"确定");return;
     }
     if(action==="productionRegions"){
       if(role!=="dispatch"||!dispatchShiftLocked||timeConfiguredShift!==selectedDispatchShift)return;
-      const g=productionGroup();if(!g||g.id!==key)return toast("设备组已变化，请重新选择");
+      const g=productionGroup(key);if(!g)return toast("设备组已变化，请重新选择");
       const exc=vehicleOf(g.vehicleId),operator=m.people.find(p=>p.id===g.personId);
       if(!T.isExcavator(exc)||!operator||!L.active(operator)||operator.applicationRole!=="excavator"||operator.team!==g.team)return toast("请先选择当前班组的有效挖机及挖机司机");
       const usable=z=>z.enabled&&T.validZone(z),loads=d.zones.filter(z=>z.kind==="load"&&usable(z));
@@ -180,7 +206,31 @@
       for(const id of selected)if(!items.some(item=>item.id===id))items.push({id,label:productionZoneName(id,"unload")+"，请取消或重选"});
       const checks=items.map(item=>'<label class="region-option"><input type="checkbox" name="unloadZoneIds" value="'+esc(item.id)+'"'+(selected.has(item.id)?' checked':'')+'><span>'+esc(item.label)+'</span></label>').join("");
       const context={id:g.id,workDate:g.workDate,shiftName:g.shiftName,team:g.team};
-      show("第一组生产设备 · 区域设置",select("loadZoneId","装载区（单选）",loadOptions,g.loadZoneId||"")+'<fieldset class="region-checkboxes"><legend>卸载区（可多选）</legend>'+(checks||'<p class="help">暂无已启用的有效卸载区。</p>')+'</fieldset>',f=>operate("productionGroup",{...context,action:"regions",loadZoneId:f.get("loadZoneId"),unloadZoneIds:f.getAll("unloadZoneIds")},"装卸区域已保存"),"保存区域");return;
+      show(groupTitle(g)+" · 区域设置",select("loadZoneId","装载区（单选）",loadOptions,g.loadZoneId||"")+'<fieldset class="region-checkboxes"><legend>卸载区（可多选）</legend>'+(checks||'<p class="help">暂无已启用的有效卸载区。</p>')+'</fieldset>',f=>operate("productionGroup",{...context,action:"regions",loadZoneId:f.get("loadZoneId"),unloadZoneIds:f.getAll("unloadZoneIds")},"装卸区域已保存"),"保存区域");return;
+    }
+    if(["auxAdd","auxEquipment","auxDriver","auxRemove","auxContent"].includes(action)){
+      if(role!=="dispatch"||!dispatchShiftLocked||timeConfiguredShift!==selectedDispatchShift||!dispatchGroups[selectedDispatchShift])return;
+      const context=productionContext();
+      if(action==="auxAdd")return operate("auxiliaryPlan",{...context,action:"add"},"已新增辅助车辆卡");
+      const card=auxiliaryPlan()?.cards.find(c=>c.id===key&&c.status==="draft");if(!card)return toast("辅助车辆卡已变化，请重新选择");
+      const args={...context,cardId:card.id};
+      if(action==="auxRemove")return operate("auxiliaryPlan",{...args,action:"remove"},"辅助车辆卡已移除");
+      if(action==="auxContent")return show("辅助车辆 · 作业内容",'<label>作业内容（选填）<textarea name="content" rows="5" maxlength="1000">'+esc(card.content||"")+'</textarea></label>',f=>operate("auxiliaryPlan",{...args,action:"content",content:f.get("content")},"作业内容已保存"),"保存");
+      if(action==="auxEquipment"){
+        const vehicles=m.vehicles.filter(v=>T.isAuxiliaryVehicle(v)&&draftAvailable("vehicleId",v.id,card.id));
+        return show("辅助车辆 · 选择设备",select("vehicleId","辅助设备",[["","请选择（选填）"],...vehicles.map(v=>[v.id,(v.code||v.id)+(v.name?" · "+v.name:"")])],card.vehicleId||""),f=>operate("auxiliaryPlan",{...args,action:"equipment",value:f.get("vehicleId")},"辅助设备已选择"),"确定");
+      }
+      const drivers=m.people.filter(p=>L.active(p)&&p.team===context.team&&T.auxiliaryRoles.includes(p.applicationRole)&&draftAvailable("personId",p.id,card.id));
+      return show("辅助车辆 · 选择人员",select("personId",context.team+"辅助岗位人员",[["","请选择（选填）"],...drivers.map(p=>[p.id,p.name+" · "+jobName(p)])],card.personId||""),f=>operate("auxiliaryPlan",{...args,action:"driver",value:f.get("personId")},"辅助人员已选择"),"确定");
+    }
+    if(action==="unusedVehicleInfo"){
+      if(role!=="dispatch")return;const v=vehicleOf(key);if(!v)return toast("设备档案已变化");
+      const status=availability(v),record=d.devices.find(r=>r.vehicleId===v.id);
+      return show("设备信息 · "+(v.code||v.id),'<div class="position"><div><span>设备编号</span>'+esc(v.code)+'</div><div><span>设备名称</span>'+esc(v.name||"—")+'</div><div><span>设备类别</span>'+esc(v.category||v.model||"—")+'</div><div><span>当前状态</span>'+esc(status.label)+'</div><div><span>所属公司 / 车队</span>'+esc(v.team||"—")+'</div><div><span>车牌号</span>'+esc(v.plate||"—")+'</div></div>'+(record?.reason?'<p>'+esc(record.reason)+'</p>':""),null);
+    }
+    if(action==="unusedPersonInfo"){
+      if(role!=="dispatch")return;const p=m.people.find(p=>p.id===key);if(!p)return toast("人员档案已变化");const actual=d.shifts.find(s=>s.personId===p.id&&s.status!=="closed");
+      return show("人员信息 · "+p.name,'<div class="position"><div><span>姓名</span>'+esc(p.name)+'</div><div><span>岗位</span>'+esc(jobName(p))+'</div><div><span>班组</span>'+esc(p.team||"—")+'</div><div><span>在岗状态</span>'+esc(p.status)+'</div><div><span>当前实际班次</span>'+esc(actual?actual.vehicleCode+" · "+actual.shiftName:"无设备班次占用")+'</div></div>',null);
     }
     if(action==="assignment")return assignmentForm(key);
     if(action==="zone")return zoneForm(key);
