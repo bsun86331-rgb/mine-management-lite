@@ -11,3 +11,13 @@
 .shift-card .shift-hours{font-size:12px;font-weight:400;white-space:nowrap;cursor:pointer}
 .shift-card .shift-hours:hover{text-decoration:underline;text-underline-offset:3px;background:#ffffff70}
 .shift-card button:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+
+/* First production group's excavator / operator selection. */
+.production-group-section{margin:0 0 22px}
+.production-equipment-card{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;width:144px;min-height:134px;padding:13px 10px;margin-top:14px;border:1px solid #a9dcb2;border-radius:11px;background:#f1f9ef}
+.production-equipment-card .equipment-choice,.production-equipment-card .equipment-remove{display:block;width:100%;padding:4px;border:0;box-shadow:none;background:transparent;border-radius:4px;overflow-wrap:anywhere}
+.production-equipment-card .equipment-label{color:#174883;font-size:13px;font-weight:600}
+.production-equipment-card .driver-label{color:#6c7f9c;font-size:12px;font-weight:400}
+.production-equipment-card .equipment-remove{color:#c7443d;font-size:11px;font-weight:400}
+.production-equipment-card button:hover{background:#e4f2df}
+.production-equipment-card button:focus-visible{outline:2px solid #176b4a;outline-offset:2px}
