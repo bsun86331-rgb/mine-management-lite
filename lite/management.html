@@ -335,7 +335,6 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
   }
   const vehicleCategories = ["矿用自卸车","挖掘机","装载机","推土机","洒水车","加油车","平地机","压路机","维修服务车","其他"];
   const vehicleFuels = ["未填写","柴油","汽油","电动","混合动力","其他"];
-  const vehicleStatuses = ["作业中","待命","维修中","停用"];
   const withCurrentOption = (options,value) => value && !options.includes(value) ? [value,...options] : options;
   const vehicleToday = () => {
     const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Ulaanbaatar",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date()).filter(p=>p.type!=="literal").map(p=>[p.type,p.value]));
@@ -343,9 +342,8 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
   };
   function buildVehicleRecord(values,previous={},id=null) {
     const clean = key => String(values[key] ?? "").trim();
-    const code=clean("code"),category=clean("category"),status=clean("status");
+    const code=clean("code"),category=clean("category"),status=previous.status || "待命";
     if (!code || !category) throw new Error("请填写车辆编号并选择设备类别");
-    if (!vehicleStatuses.includes(status)) throw new Error("请选择有效的车辆状态");
     return {id:id || "vehicle-"+crypto.randomUUID(),code,name:clean("name"),category,model:category,
       vin:clean("vin"),engineNumber:clean("engineNumber"),plate:clean("plate"),team:clean("team"),
       capacity:clean("capacity"),fuelType:clean("fuelType") || "未填写",entryDate:clean("entryDate"),
@@ -371,7 +369,6 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
       formField("载重 / 斗容","fCapacity",row.capacity || "").replace('maxlength="100"','maxlength="100" placeholder="例如 70t / 5m³"') +
       formField("燃油类型","fFuelType",row.fuelType || "未填写","text",false,withCurrentOption(vehicleFuels,row.fuelType)) +
       formField("入场日期","fEntryDate",row.entryDate || (id ? "" : vehicleToday()),"date") +
-      '<div>'+formField("设备状态","fStatus",row.status || "待命","text",true,vehicleStatuses)+'<div class="file-help">当前为手动维护：作业中、待命、维修中、停用。</div></div>' +
       '<div>'+vehicleFileField("合格证照片","fCertificatePhoto",row.attachments?.certificatePhoto)+'</div>' +
       '<div>'+vehicleFileField("车辆进场照片","fEntryPhoto",row.attachments?.entryPhoto)+'</div>' +
       '<div class="field vehicle-full-row"><label for="fVehicleNote">备注</label><textarea id="fVehicleNote" maxlength="1000">'+esc(row.note || "")+'</textarea></div></div>';
@@ -764,7 +761,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
           code:$("fCode").value,name:$("fVehicleName").value,category:$("fCategory").value,
           vin:$("fVin").value,engineNumber:$("fEngineNumber").value,plate:$("fPlate").value,team:$("fTeam").value,
           capacity:$("fCapacity").value,fuelType:$("fFuelType").value,entryDate:$("fEntryDate").value,
-          status:$("fStatus").value,note:$("fVehicleNote").value
+          note:$("fVehicleNote").value
         },previous,id);
         if (vehicleCodeExists(sourceRows,value.code,id)) throw new Error("车辆编号已存在，请使用其他编号");
         value.attachments = {
