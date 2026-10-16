@@ -108,7 +108,7 @@
     }
     if(action==="selectDispatchGroup"){
       if(role!=="dispatch"||!dispatchShiftLocked||key!==selectedDispatchShift||timeConfiguredShift!==key)return;
-      const groups=["生产A组","生产B组","行政办公组","修理组"];
+      const groups=["生产A组","生产B组"];
       show(key+" · 选择班组",select("dispatchTeam","班组",[["","请选择（选填）"],...groups.map(team=>[team,team])],dispatchGroups[key]||""),f=>{
         const team=String(f.get("dispatchTeam")||"");if(team&&!groups.includes(team))throw new Error("请选择现有班组");
         dispatchGroups[key]=team;closeModal();refresh(true);
