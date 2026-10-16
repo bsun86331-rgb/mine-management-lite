@@ -4,12 +4,12 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#173d31">
 <title>后勤物资 · 矿山管理系统</title>
 <link rel="stylesheet" href="logistics.css?v=20261016-1">
-<script src="logistics-store.js?v=20261016-7" defer></script><script src="personnel-export.js?v=20261016-1" defer></script><script src="logistics-ui.js?v=20261016-7" defer></script>
+<script src="logistics-store.js?v=20261016-7" defer></script><script src="personnel-export.js?v=20261016-8" defer></script><script src="logistics-ui.js?v=20261016-8" defer></script>
 </head>
 <body>
 <div class="app" id="app" hidden>
 <aside class="side"><a class="brand" href="index.html"><b>M</b><span>矿山管理系统<br><small>后勤物资</small></span></a><div id="identity" class="identity"></div><nav id="nav" aria-label="后勤功能"></nav><a class="back" id="back" href="index.html">返回工作页 ↗</a></aside>
-<main class="main"><header class="top"><div><small id="eyebrow">LOGISTICS</small><h1 id="title">后勤物资申请</h1><p id="subtitle"></p></div><button class="soft" data-action="refresh">刷新</button></header><div id="notice" aria-live="polite"></div><div id="content"></div><footer>信息保存在当前浏览器；其他手机或浏览器不会同步。站内消息在打开页面时更新。</footer></main>
+<main class="main"><header class="top"><div><small id="eyebrow">LOGISTICS</small><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><h1 id="title">后勤物资申请</h1><button type="button" id="inventoryExport" data-action="exportInventory" hidden>Excel 导出</button></div><p id="subtitle"></p></div><button class="soft" data-action="refresh">刷新</button></header><div id="notice" aria-live="polite"></div><div id="content"></div><footer>信息保存在当前浏览器；其他手机或浏览器不会同步。站内消息在打开页面时更新。</footer></main>
 </div>
 <section id="blocked" class="blocked" hidden><h1>暂时无法进入</h1><p id="blockedText"></p><a href="index.html">返回首页</a></section>
 <dialog id="dialog"><form id="editForm"><header><h2 id="dialogTitle"></h2><button type="button" class="icon-button" data-action="close" aria-label="关闭">×</button></header><div id="dialogBody"></div><p id="dialogError" role="alert" style="color:#b93832"></p><div class="modal-actions"><button type="button" class="soft" data-action="close">取消</button><button type="submit" id="save">保存</button></div></form></dialog>
