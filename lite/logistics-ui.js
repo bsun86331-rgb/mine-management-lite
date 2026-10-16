@@ -32,6 +32,7 @@
     $("back").href=role==="middle_store"?"index.html":["在岗","已通过"].includes(person.status)?"portal.html?role="+encodeURIComponent(role):"enroll.html?role="+encodeURIComponent(role);
     $("nav").innerHTML=entries.map(([key,label])=>'<button data-view="'+key+'" class="'+(view===key?'selected':'')+'">'+label+(key==="messages"&&unread?' ('+unread+')':'')+'</button>').join("");
     $("title").textContent=entries.find(e=>e[0]===view)[1];
+    $("inventoryExport").hidden=view!=="inventory"||!keeper;
     $("subtitle").textContent=keeper?"后勤库管工作台 · 库存、交付、回收和清算":finance?"财务工作台 · 个人领用与赔偿复核":"先申请，现场领取后核对确认；可回收物资需登记归还。";
     const ex=L.openExit(d,person.id);
     $("notice").innerHTML=(ex?'<div class="banner">正在办理离职清算：停止新增申请，请完成领用确认、物资归还或赔偿复核。'+button("go-holdings","","查看清算")+'</div>':!L.active(person)?'<div class="banner">当前'+esc(person.status)+'，不能新增申请。'+(person.status==="离职"?'仅可查看本人历史。':'可处理本人归还及清算。')+'</div>':'')+(unread?'<div class="banner">你有 '+unread+' 条未读站内消息。'+button("go-messages","","查看消息")+'</div>':'');
@@ -106,6 +107,31 @@
       return show('核实旧领用：'+old.name,select("personId","领用人员（请核实身份）",m.people.map(p=>[p.id,p.name+' / '+p.id+' / '+(p.phone||'')]),old.personId||"")+(action==="legacy-loan"?select("itemId","对应可回收物资",[["","请选择物资"],...recoverable.map(i=>[i.id,itemLabel(i)])])+input("qty","当前仍持有数量 *",old.qty||"1","number",true,'min="0.01" step="0.01"'):"<p class=\"help\">仅用于已归还或不可回收等无需追缴的旧记录，请注明核实依据。</p>")+reason(),f=>operate("legacy",{id:key,mode:action==="legacy-loan"?'loan':'closed',personId:f.get("personId"),itemId:f.get("itemId"),qty:f.get("qty"),reason:f.get("reason")}));
     }
     if(action==="read")return operate("read");
+    if(action==="exportInventory"){
+      const current=L.context(role);
+      if(current.id!==person.id||!L.active(current)||current.applicationRole!=="middle_store")throw new Error("仅在岗后勤库管可导出库存，请重新进入本人工作台");
+      if(!window.MineTableExport)throw new Error("导出组件未加载，请刷新页面");
+      const snapshot=L.get();
+      if(!snapshot.items.length)return toast("暂无物资库存可导出");
+      const rows=snapshot.items.map(item=>{
+        const receipt=L.receiptPrice(snapshot,item.id,item.currency);
+        return {...item,reservedQty:L.reserved(snapshot,item.id),availableQty:L.available(snapshot,item.id),heldQty:snapshot.loans.filter(l=>l.itemId===item.id).reduce((s,l)=>s+L.outstanding(l),0),inboundPrice:receipt?.inboundUnitPrice??null,inboundAt:receipt?.at||"",inboundType:receipt?.inboundType||"",supplier:receipt?.supplier||""};
+      });
+      const cols=[
+        ["物资编号",i=>i.id,40],["物资名称",i=>i.name,24],["规格",i=>i.spec,22],["单位",i=>i.unit,12],
+        ["物资属性",i=>i.recoverable?"可回收":"不可回收",16],["币种",i=>i.currency,12],
+        ["最近有价入库单价",i=>i.inboundPrice==null?null:i.inboundPrice/100,22,"number"],
+        ["未归还赔偿单价",i=>i.unitPrice==null?null:i.unitPrice/100,22,"number"],
+        ["在库数量",i=>i.stock/100,16,"number"],["预留数量",i=>i.reservedQty/100,16,"number"],
+        ["可用数量",i=>i.availableQty/100,16,"number"],["员工持有数量",i=>i.heldQty/100,18,"number"],
+        ["损坏待处理数量",i=>i.damaged/100,20,"number"],
+        ["最近有价入库时间（乌兰巴托）",i=>i.inboundAt,30,"datetime"],
+        ["最近有价入库类型",i=>i.inboundType,22],["最近有价入库供应商",i=>i.supplier,30],
+        ["建档时间（乌兰巴托）",i=>i.createdAt,28,"datetime"]
+      ];
+      window.MineTableExport.download(cols,rows,"后勤物资库存管理台账");
+      return toast("已导出全部 "+rows.length+" 种物资的当前库存台账");
+    }
     if(action==="exportClaims"){
       const rows=d.claims.filter(c=>c.status==="finance_approved");if(!rows.length)return toast("暂无复核通过的待扣款记录");
       if(!window.MineTableExport)return toast("导出组件未加载，请刷新页面");
