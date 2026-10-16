@@ -67,7 +67,7 @@
       const team=String(x.team||""),shiftName=String(x.shiftName||""),workDate=named(x.workDate,"日期",10)||date();
       if(!["生产A组","生产B组"].includes(team)||!["白班","夜班"].includes(shiftName))fail("请先选择有效班次和生产班组");
       if(!/^\d{4}-\d{2}-\d{2}$/.test(workDate))fail("日期格式不正确");
-      if(!["open","equipment","driver","remove","truckEquipment","truckDriver","removeTruck","addTruck"].includes(x.action))fail("无效的生产设备组操作");
+      if(!["open","equipment","driver","remove","truckEquipment","truckDriver","removeTruck","addTruck","regions"].includes(x.action))fail("无效的生产设备组操作");
       let row=d.productionGroups.find(g=>g.workDate===workDate&&g.shiftName===shiftName&&g.team===team&&g.number===1&&g.status==="draft");
       const parentReady=g=>{const driver=m.people.find(p=>p.id===g.personId);return isExcavator(m.vehicles.find(v=>v.id===g.vehicleId))&&driver&&L.active(driver)&&driver.applicationRole==="excavator"&&driver.team===team;};
       const blankTruck=()=>({id:uid(),status:"draft",vehicleId:"",personId:"",createdAt:now()});
@@ -78,6 +78,20 @@
       }
       if(!row||row.id!==x.id)fail("当前设备组已变化，请重新选择");
       if(x.action==="remove"){row.status="removed";row.removedAt=now();row.removedBy=a.id;audit(d,a,"移除生产设备组草稿",shiftName+" "+team,{productionGroupId:row.id});return;}
+      if(x.action==="regions"){
+        if(!parentReady(row))fail("请先选择当前班组的有效挖机及挖机司机");
+        if(Array.isArray(x.loadZoneId))fail("装载区只能选择一个");
+        const loadZoneId=String(x.loadZoneId||"");
+        if(x.unloadZoneIds!=null&&!Array.isArray(x.unloadZoneIds))fail("卸载区选择格式不正确");
+        const unloadZoneIds=[...new Set((x.unloadZoneIds||[]).map(String).filter(Boolean))];
+        const usable=(id,kind)=>d.zones.some(z=>z.id===id&&z.kind===kind&&z.enabled&&validZone(z));
+        if(loadZoneId&&!usable(loadZoneId,"load"))fail("所选装载区已停用、失效或用途不符，请重新选择");
+        if(unloadZoneIds.some(id=>!usable(id,"unload")))fail("所选卸载区已停用、失效或用途不符，请取消或重新选择");
+        const before={loadZoneId:row.loadZoneId||"",unloadZoneIds:clone(row.unloadZoneIds||[])};
+        row.loadZoneId=loadZoneId;row.unloadZoneIds=unloadZoneIds;row.updatedAt=now();row.updatedBy=a.id;
+        row.regionSelectionHistory=[...(row.regionSelectionHistory||[]),{at:now(),by:a.id,before,after:{loadZoneId,unloadZoneIds:clone(unloadZoneIds)}}];
+        audit(d,a,"设置生产组装卸区域",shiftName+" "+team,{productionGroupId:row.id,loadZoneId,unloadZoneIds});return row.id;
+      }
       if(["truckEquipment","truckDriver","removeTruck","addTruck"].includes(x.action)){
         if(!parentReady(row))fail("请先选择当前班组的有效挖机及挖机司机");
         if(x.action==="addTruck"){const truck=blankTruck();row.followingTrucks.push(truck);row.updatedAt=now();audit(d,a,"新增跟随汽车空卡",shiftName+" "+team,{productionGroupId:row.id,truckId:truck.id});return truck.id;}
