@@ -96,11 +96,11 @@
   let simulationZones=[];
   function simulationForm(){const s=session();if(!s||s.status!=="working"||!T.working(d,m,s.vehicleId))return toast("请先检查并恢复驾驶设备");const t=currentTrip();if(t?.mode==="gps")return toast("当前车次为真实定位，请先完成本趟，不能切换来源");if(tracking)stopGPS(true);const zones=t?[t.loadZone,...t.unloadZones]:d.zones.filter(z=>z.enabled);simulationZones=[...new Map(zones.filter(T.validZone).map(z=>[z.id,z])).values()];show('输入模拟位置','<div class="banner">此入口只用于位置模拟，生成的车次单独标识，不计入真实定位有效车数。有效停留仍按调度设置执行。</div>'+select("simulationZone","选取区域中心作为参考坐标",[["","手动输入"],...simulationZones.map(z=>[z.id,z.name])])+ '<div class="form-grid">'+input("lat","模拟纬度",lastSimulation.lat,"number",'step="any" min="-90" max="90"')+input("lng","模拟经度",lastSimulation.lng,"number",'step="any" min="-180" max="180"')+input("accuracy","模拟误差（米）",lastSimulation.accuracy,"number",'min="0" step="any"')+'</div><p class="help">在区域内提交有效位置后，等待有效停留时间，再次提交位置。离开装载区后进入卸载区完成这一趟；模拟也不能重复计车。</p>',f=>{lastSimulation={lat:f.get("lat"),lng:f.get("lng"),accuracy:f.get("accuracy")};return operate("location",{...lastSimulation,mode:"simulation",ts:Date.now()},"模拟位置已提交，请按停留规则继续操作");},"提交模拟位置");}
   function openAction(action,key){const s=session();
-    if(action==="selectDispatchShift"){if(role!=="dispatch"||!["白班","夜班"].includes(key))return;selectedDispatchShift=key;refresh();return;}
-    if(action==="editShiftTimes"){
-      if(role!=="dispatch")return;
-      const day=d.shiftTimes["白班"],night=d.shiftTimes["夜班"];
-      show("班次时间设置",'<div class="form-grid">'+input("day_start","白班开始",day.start,"time",'step="60"')+input("day_end","白班结束",day.end,"time",'step="60"')+input("night_start","夜班开始",night.start,"time",'step="60"')+input("night_end","夜班结束",night.end,"time",'step="60"')+'</div><p class="help">按矿区时间（Asia/Ulaanbaatar）显示当前班。结束早于开始表示次日结束；空白保留原时间。</p>',f=>operate("shiftTimes",Object.fromEntries(f),"班次时间已保存"),"保存时间");return;
+    if(action==="selectDispatchShift"||action==="editShiftTimes"){
+      if(role!=="dispatch"||!["白班","夜班"].includes(key))return;
+      selectedDispatchShift=key;refresh();
+      const times=d.shiftTimes[key],prefix=key==="白班"?"day":"night";
+      show(key+"时间设置",'<div class="form-grid">'+input(prefix+"_start",key+"开始",times.start,"time",'step="60"')+input(prefix+"_end",key+"结束",times.end,"time",'step="60"')+'</div><p class="help">结束早于开始表示次日结束；空白保留原时间。</p>',f=>operate("shiftTimes",Object.fromEntries(f),key+"时间已保存"),"保存时间");return;
     }
     if(action==="assignment")return assignmentForm(key);
     if(action==="zone")return zoneForm(key);
