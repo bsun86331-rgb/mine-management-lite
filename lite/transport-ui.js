@@ -51,12 +51,17 @@
   }
   function productionContext(){return {workDate:dispatchProductionDate||T.date(),shiftName:selectedDispatchShift,team:dispatchGroups[selectedDispatchShift]||""};}
   function productionGroup(){const c=productionContext();return d.productionGroups.find(g=>g.workDate===c.workDate&&g.shiftName===c.shiftName&&g.team===c.team&&g.number===1&&g.status==="draft");}
+  function productionZoneName(id,kind){if(!id)return "未设置";const zone=d.zones.find(z=>z.id===id);if(!zone)return "区域已失效";return zone.name+((zone.kind===kind&&zone.enabled&&T.validZone(zone))?"":"（不可用）");}
+  function renderProductionRegions(g){
+    const unloads=Array.isArray(g.unloadZoneIds)?g.unloadZoneIds:[];
+    return '<div class="production-region-card" aria-label="生产组装卸区域"><strong>装卸区域</strong><div class="production-region-values"><p>装载区：<br>'+esc(productionZoneName(g.loadZoneId,"load"))+'</p><p>卸载区：<br>'+esc(unloads.length?unloads.map(id=>productionZoneName(id,"unload")).join("、"):"未设置")+'</p></div>'+button("productionRegions",g.id,"区域设置","region-settings-button")+'</div>';
+  }
   function renderFollowingTruck(g){
     const cards=g.followingTrucks.filter(t=>t.status==="draft").map(truck=>{
       const v=vehicleOf(truck.vehicleId),p=m.people.find(p=>p.id===truck.personId),driverValid=p&&L.active(p)&&p.applicationRole==="driver"&&p.team===g.team;
       return '<div class="production-equipment-card following-truck-card" aria-label="跟随汽车">'+button("chooseFollowingTruck",truck.id,v?(v.code||v.name||"已选汽车"):(truck.vehicleId?"汽车失效，请重选":"选择汽车"),"equipment-choice equipment-label")+button("chooseFollowingDriver",truck.id,p?(p.name+(driverValid?"":"（需重选）")):(truck.personId?"司机失效，请重选":"选择司机"),"equipment-choice driver-label")+button("removeFollowingTruck",truck.id,"移除","equipment-remove")+'</div>';
     }).join("");
-    return cards+'<button type="button" class="production-equipment-card following-truck-card add-following-truck" data-action="addFollowingTruck" data-id="'+esc(g.id)+'" aria-label="新增一组跟随汽车" title="新增跟随汽车">＋</button>';
+    return cards+'<button type="button" class="production-equipment-card following-truck-card add-following-truck" data-action="addFollowingTruck" data-id="'+esc(g.id)+'" aria-label="新增一组跟随汽车" title="新增跟随汽车">＋</button>'+renderProductionRegions(g);
   }
   function renderProductionGroup(){
     if(!dispatchShiftLocked||timeConfiguredShift!==selectedDispatchShift||!dispatchGroups[selectedDispatchShift])return "";
@@ -162,6 +167,20 @@
       }
       const drivers=m.people.filter(p=>L.active(p)&&p.applicationRole==="driver"&&p.team===g.team&&!others.some(t=>t.personId===p.id));
       show("跟随汽车 · 选择司机",select("personId",g.team+"汽车司机",[["","请选择（选填）"],...drivers.map(p=>[p.id,p.name+" / "+p.id])],truck.personId||"")+(drivers.length?"":'<p class="help">该班组暂无尚未在本组选择的在岗汽车司机。</p>'),f=>operate("productionGroup",{...context,action:"truckDriver",value:f.get("personId")},"汽车司机已选择"),"确定");return;
+    }
+    if(action==="productionRegions"){
+      if(role!=="dispatch"||!dispatchShiftLocked||timeConfiguredShift!==selectedDispatchShift)return;
+      const g=productionGroup();if(!g||g.id!==key)return toast("设备组已变化，请重新选择");
+      const exc=vehicleOf(g.vehicleId),operator=m.people.find(p=>p.id===g.personId);
+      if(!T.isExcavator(exc)||!operator||!L.active(operator)||operator.applicationRole!=="excavator"||operator.team!==g.team)return toast("请先选择当前班组的有效挖机及挖机司机");
+      const usable=z=>z.enabled&&T.validZone(z),loads=d.zones.filter(z=>z.kind==="load"&&usable(z));
+      const loadOptions=[["","请选择（选填）"],...loads.map(z=>[z.id,z.name])];
+      if(g.loadZoneId&&!loads.some(z=>z.id===g.loadZoneId))loadOptions.push([g.loadZoneId,productionZoneName(g.loadZoneId,"load")+"，请重新选择"]);
+      const selected=new Set(Array.isArray(g.unloadZoneIds)?g.unloadZoneIds:[]),unloads=d.zones.filter(z=>z.kind==="unload"&&usable(z)),items=unloads.map(z=>({id:z.id,label:z.name+(z.material?" · "+z.material:"")}));
+      for(const id of selected)if(!items.some(item=>item.id===id))items.push({id,label:productionZoneName(id,"unload")+"，请取消或重选"});
+      const checks=items.map(item=>'<label class="region-option"><input type="checkbox" name="unloadZoneIds" value="'+esc(item.id)+'"'+(selected.has(item.id)?' checked':'')+'><span>'+esc(item.label)+'</span></label>').join("");
+      const context={id:g.id,workDate:g.workDate,shiftName:g.shiftName,team:g.team};
+      show("第一组生产设备 · 区域设置",select("loadZoneId","装载区（单选）",loadOptions,g.loadZoneId||"")+'<fieldset class="region-checkboxes"><legend>卸载区（可多选）</legend>'+(checks||'<p class="help">暂无已启用的有效卸载区。</p>')+'</fieldset>',f=>operate("productionGroup",{...context,action:"regions",loadZoneId:f.get("loadZoneId"),unloadZoneIds:f.getAll("unloadZoneIds")},"装卸区域已保存"),"保存区域");return;
     }
     if(action==="assignment")return assignmentForm(key);
     if(action==="zone")return zoneForm(key);
