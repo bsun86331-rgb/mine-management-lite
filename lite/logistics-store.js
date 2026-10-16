@@ -7,7 +7,39 @@
   const fail=message=>{throw new Error(message);};
   function read(key,fallback){const raw=localStorage.getItem(key);if(!raw)return fallback;try{return JSON.parse(raw);}catch{fail("保存数据无法读取，请保留浏览器数据并联系管理员处理。");}}
   function main(){const d=read(PEOPLE,{people:[],vehicles:[],supplies:[]});if(!d||!Array.isArray(d.people))fail("人员数据格式异常");return d;}
-  function get(){const d=read(KEY,{version:1,items:[],requests:[],loans:[],returns:[],claims:[],exits:[],messages:[],ledger:[],legacy:[]});for(const k of ["items","requests","loans","returns","claims","exits","messages","ledger","legacy"])if(!Array.isArray(d[k]))fail("后勤台账格式异常，请勿清除浏览器数据");return d;}
+
+  const knownPrice=v=>Number.isSafeInteger(v)&&v>=0;
+  function receiptPrice(d,itemId,currency){
+    return d.ledger.find(row=>row.type==="入库"&&row.itemId===itemId&&row.delta>0&&knownPrice(row.inboundUnitPrice)&&row.inboundCurrency===currency)||null;
+  }
+  function applyPricing(d){
+    const migrating=d.compensationPricingVersion!==1;
+    for(const item of d.items){
+      if(migrating&&!("legacyCompensationUnitPrice" in item))item.legacyCompensationUnitPrice=item.unitPrice??null;
+      const receipt=receiptPrice(d,item.id,item.currency);
+      item.unitPrice=item.recoverable?(receipt?.inboundUnitPrice??null):0;
+      item.priceReceiptId=item.recoverable?(receipt?.id??null):null;
+    }
+    d.compensationPricingVersion=1;
+    for(const r of d.requests.filter(r=>["submitted","ready"].includes(r.status))){
+      const next=r.lines.map(line=>{const item=d.items.find(i=>i.id===line.itemId);return !item?line:{...line,unitPrice:line.recoverable?item.unitPrice:0,priceReceiptId:line.recoverable?item.priceReceiptId:null};});
+      if(JSON.stringify(next)!==JSON.stringify(r.lines)){
+        if(!r.priceSyncFrom)r.priceSyncFrom=JSON.parse(JSON.stringify(r.lines));
+        r.lines=next;
+      }
+    }
+  }
+  function commitPricingHistory(d){
+    for(const r of d.requests.filter(r=>r.priceSyncFrom)){
+      r.history=Array.isArray(r.history)?r.history:[];
+      const before=r.priceSyncFrom;delete r.priceSyncFrom;
+      r.history.push({at:now(),by:"system",old:before,next:JSON.parse(JSON.stringify(r.lines)),reason:"按最近一次入库价格自动更新赔偿单价，已领用记录不变"});
+      if(["submitted","ready"].includes(r.status))notify(d,r.personId,"物资申请赔偿单价已按入库价格更新，请核对最新明细",r.id);
+    }
+  }
+  function requirePrice(item){if(item.recoverable&&!knownPrice(item.unitPrice))fail(item.name+"尚无入库价格，待入库定价后才能发放；旧入库可在流水中补录价格");}
+
+  function get(){const d=read(KEY,{version:1,items:[],requests:[],loans:[],returns:[],claims:[],exits:[],messages:[],ledger:[],legacy:[]});for(const k of ["items","requests","loans","returns","claims","exits","messages","ledger","legacy"])if(!Array.isArray(d[k]))fail("后勤台账格式异常，请勿清除浏览器数据");applyPricing(d);return d;}
   function fixed(value,label="数量",zero=false){const text=String(value??"").trim();if(!/^\d+(\.\d{1,2})?$/.test(text))fail(label+"须为最多两位小数的非负数");const v=Math.round(Number(text)*100);if(!Number.isSafeInteger(v)||v>10000000000||(!zero&&v<=0))fail(label+"超出范围");return v;}
   const num=n=>(n/100).toFixed(2).replace(/\.00$/,"").replace(/(\.\d)0$/,"$1");
   const amount=(q,p)=>{const product=q*p;if(!Number.isSafeInteger(product))fail("赔偿金额超出范围");return Math.round(product/100);};
@@ -37,7 +69,7 @@
   const finance=a=>{if(!active(a.person)||a.person.applicationRole!=="middle_finance")fail("仅在岗财务可复核");};
   const admin=a=>{if(!a.admin)fail("仅管理员可办理离职");};
   const owner=(a,pid)=>{if(a.person?.id!==pid)fail("只能操作本人记录");};
-  function normalizeLines(d,lines,exclude){if(!Array.isArray(lines)||!lines.length||lines.length>30)fail("请选择1至30项物资");const seen=new Set();return lines.map(l=>{const item=d.items.find(i=>i.id===l.itemId);if(!item)fail("物资不存在");if(seen.has(item.id))fail("同一种物资请合并数量");seen.add(item.id);const qty=fixed(l.qty);if(available(d,item.id,exclude)<qty)fail(item.name+"库存不足，可用 "+num(available(d,item.id,exclude))+" "+item.unit);return {itemId:item.id,name:item.name,spec:item.spec,unit:item.unit,recoverable:item.recoverable,unitPrice:item.unitPrice,currency:item.currency,qty};});}
+  function normalizeLines(d,lines,exclude){if(!Array.isArray(lines)||!lines.length||lines.length>30)fail("请选择1至30项物资");const seen=new Set();return lines.map(l=>{const item=d.items.find(i=>i.id===l.itemId);if(!item)fail("物资不存在");requirePrice(item);if(seen.has(item.id))fail("同一种物资请合并数量");seen.add(item.id);const qty=fixed(l.qty);if(available(d,item.id,exclude)<qty)fail(item.name+"库存不足，可用 "+num(available(d,item.id,exclude))+" "+item.unit);return {itemId:item.id,name:item.name,spec:item.spec,unit:item.unit,recoverable:item.recoverable,unitPrice:item.unitPrice,priceReceiptId:item.priceReceiptId,currency:item.currency,qty};});}
   function pendingQty(d,loanId){return d.returns.filter(r=>r.loanId===loanId&&r.status==="pending").reduce((s,r)=>s+r.qty,0)+d.claims.filter(c=>c.loanId===loanId&&c.status==="employee_confirmed").reduce((s,c)=>s+c.qty,0);}
   function dispatch(d,m,a,type,x){
     if(a.person?.status==="离职"&&type!=="read")fail("正式离职后仅可查看历史");
@@ -46,8 +78,10 @@
     if(type==="saveItem"){
       keeper(a);const name=text(x.name,"物资名称",60),spec=String(x.spec||"").trim().slice(0,80),unit=text(x.unit,"单位",10);
       if(d.items.some(i=>i.id!==x.id&&i.name===name&&i.spec===spec))fail("同名同规格物资已存在");
-      const recoverable=x.recoverable===true,unitPrice=fixed(x.price,"赔偿单价",!recoverable),currency=String(x.currency||"");if(!["CNY","MNT","USD"].includes(currency))fail("请选择币种");
+      const recoverable=x.recoverable===true,currency=String(x.currency||"");if(!["CNY","MNT","USD"].includes(currency))fail("请选择币种");
       let item=x.id?find("items",x.id):null;
+      const pricedReceipt=item?receiptPrice(d,item.id,currency):null,unitPrice=recoverable?(pricedReceipt?.inboundUnitPrice??null):0;
+      if(item&&item.currency!==currency&&(item.stock||d.loans.some(l=>l.itemId===item.id)||d.ledger.some(r=>r.itemId===item.id&&r.type==="入库"&&knownPrice(r.inboundUnitPrice))))fail("已有库存或入库价格/持有记录，不能直接变更币种，请另建物资");
       if(item&&item.recoverable!==recoverable&&(item.stock||d.requests.some(r=>["submitted","ready"].includes(r.status)&&r.lines.some(l=>l.itemId===item.id))||d.loans.some(l=>l.itemId===item.id)))fail("已有库存或领用记录，不能改变回收属性，请另建物资");
       if(item&&d.requests.some(r=>["submitted","ready","recall"].includes(r.status)&&r.lines.some(l=>l.itemId===item.id))&&(item.name!==name||item.spec!==spec||item.unit!==unit||item.unitPrice!==unitPrice||item.currency!==currency))fail("物资存在预留申请，请处理完毕后再修改档案");
       if(item&&item.unit!==unit&&(item.stock||d.loans.some(l=>l.itemId===item.id)))fail("已有库存/台账不能改变单位，请另建物资");
@@ -58,9 +92,18 @@
       keeper(a);const item=find("items",x.itemId),qty=fixed(x.qty),reason=x.mode==="in"?String(x.reason??"").trim():note();if(!["in","subtract"].includes(x.mode))fail("未知库存操作");if(reason.length>300)fail("原因 / 说明最多300字");
       const inboundType=x.mode==="in"?String(x.inboundType||"").trim():"",supplier=x.mode==="in"?String(x.supplier||"").trim():"";
       const inboundPriceText=x.mode==="in"?String(x.inboundUnitPrice??"").trim():"";
-      const inboundUnitPrice=inboundPriceText===""?null:fixed(inboundPriceText,"入库单价",true);
+      if(x.mode==="in"&&inboundPriceText==="")fail("请填写入库单价");
+      const inboundUnitPrice=x.mode==="in"?fixed(inboundPriceText,"入库单价",true):null;
       if(inboundType.length>40||supplier.length>100)fail("入库类型最多40字，供应商最多100字");
       const delta=x.mode==="in"?qty:-qty;if(item.stock+delta<reserved(d,item.id))fail("调整后库存不能低于已预留数量");item.stock+=delta;log(d,a,delta>0?"入库":"盘点减少",item.name+"："+num(delta)+item.unit+(reason?"；"+reason:""),{itemId:item.id,delta,...(x.mode==="in"?{inboundType,supplier,inboundUnitPrice,inboundCurrency:item.currency}:{})});return;
+    }
+    if(type==="priceReceipt"){
+      keeper(a);const receipt=find("ledger",x.id);
+      if(receipt.type!=="入库"||!(receipt.delta>0)||knownPrice(receipt.inboundUnitPrice))fail("只能补录尚未填写价格的历史入库");
+      const item=find("items",receipt.itemId),price=fixed(x.inboundUnitPrice,"入库单价",true);
+      if(receipt.inboundCurrency&&receipt.inboundCurrency!==item.currency)fail("历史入库币种与当前物资不同，请先核实币种，不能直接替换");
+      receipt.inboundUnitPrice=price;receipt.inboundCurrency=receipt.inboundCurrency||item.currency;receipt.priceRecordedAt=now();receipt.priceRecordedBy=a.person.id;
+      log(d,a,"补录入库价格",item.name+"：原入库 "+receipt.at+"；单价 "+num(price)+" "+receipt.inboundCurrency+"，库存数量不变",{itemId:item.id,receiptId:receipt.id,delta:0});return;
     }
     if(type==="request"){
       if(!active(a.person)||openExit(d,a.person.id))fail("当前不能新增申请：请确认在岗且未进入离职清算");
@@ -80,12 +123,14 @@
         keeper(a);if(!["submitted","ready"].includes(r.status))fail("已结束单据不能修改");
         const lines=normalizeLines(d,x.lines,r.id),reason=note();if(openExit(d,r.personId)&&lines.some(l=>l.qty>(r.lines.find(old=>old.itemId===l.itemId)?.qty||0)))fail("离职清算期间只能减少已交付明细，不能增加或更换物资");r.history.push({at:now(),by:a.person.id,old:r.lines,next:lines,reason});r.lines=lines;r.dispute="";notify(d,r.personId,"库管调整了发放明细，请重新核对："+reason,r.id);
       }
-      if(type==="ready"){keeper(a);if(r.status!=="submitted")fail("申请状态已变化");const p=m.people.find(p=>p.id===r.personId);if(!active(p)||openExit(d,r.personId))fail("人员已不能领用，请驳回未交付申请");r.status="ready";r.deliveredAt=now();r.keeperId=a.person.id;notify(d,r.personId,"库管已交付物资，请当面核对并确认领取",r.id);}
+      if(type==="ready"){keeper(a);if(r.status!=="submitted")fail("申请状态已变化");const p=m.people.find(p=>p.id===r.personId);if(!active(p)||openExit(d,r.personId))fail("人员已不能领用，请驳回未交付申请");for(const line of r.lines)requirePrice(find("items",line.itemId));r.status="ready";r.deliveredAt=now();r.keeperId=a.person.id;notify(d,r.personId,"库管已交付物资，请当面核对并确认领取",r.id);}
       if(type==="dispute"){owner(a,r.personId);if(r.status!=="ready")fail("此单不在待确认状态");r.dispute=note();notify(d,"keeper",r.personName+"对发放提出异议："+r.dispute,r.id);}
       if(type==="recall"){keeper(a);if(r.status!=="ready")fail("只能撤销待本人确认的交付");r.recallReason=note();r.status="recall";notify(d,r.personId,"库管申请撤销交付，请确认未领取或已退回全部物资："+r.recallReason,r.id);}
       if(type==="ackRecall"){owner(a,r.personId);if(r.status!=="recall")fail("撤销状态已变化");r.status="cancelled";r.reason="本人确认未领取或已退回全部物资；"+r.recallReason;notify(d,"keeper",r.personName+"确认撤销交付，预留已释放",r.id);}
       if(type==="confirm"){
         owner(a,r.personId);if(r.status!=="ready")fail("此单已处理，不能重复出库");if(r.dispute)fail("请先由库管处理发放异议");
+        if(x.confirmedLines!==JSON.stringify(r.lines))fail("发放明细或赔偿单价已更新，请刷新后重新核对确认");
+        for(const line of r.lines)requirePrice(find("items",line.itemId));
         for(const line of r.lines){const item=find("items",line.itemId);if(item.stock<line.qty)fail(item.name+"库存不足");item.stock-=line.qty;if(line.recoverable)d.loans.push({...line,id:id(),personId:r.personId,personName:r.personName,returned:0,writtenOff:0,requestId:r.id,at:now()});log(d,a,"确认出库",line.name+"×"+num(line.qty),{itemId:item.id,delta:-line.qty,requestId:r.id});}
         r.status="issued";r.confirmedAt=now();notify(d,"keeper",r.personName+"已确认领取，出库完成",r.id);
       }
@@ -94,7 +139,7 @@
     if(type==="return"||type==="nonreturn"){
       const l=find("loans",x.loanId);owner(a,l.personId);const qty=fixed(x.qty);if(qty>outstanding(l)-pendingQty(d,l.id))fail("数量超过可处理的持有量，或已有归还/赔偿待办");
       if(type==="return"){const r={id:id(),loanId:l.id,personId:l.personId,qty,status:"pending",at:now()};d.returns.unshift(r);notify(d,"keeper",a.person.name+"申请归还 "+l.name+"×"+num(qty),r.id);log(d,a,"申请归还",l.name+"×"+num(qty));}
-      else {if(!openExit(d,l.personId))fail("请先由管理员发起离职清算");if(!l.unitPrice)fail("历史物资赔偿价格缺失，请联系库管核实");const c={id:id(),loanId:l.id,personId:l.personId,personName:l.personName,name:l.name,unit:l.unit,qty,unitPrice:l.unitPrice,currency:l.currency,amount:amount(qty,l.unitPrice),reason:note(),status:"employee_confirmed",at:now()};d.claims.unshift(c);notify(d,"keeper",a.person.name+"确认不归还 "+l.name+"，请核实",c.id);log(d,a,"员工确认赔偿",l.name+"×"+num(qty)+"；"+num(c.amount)+c.currency,{claimId:c.id});}return;
+      else {if(!openExit(d,l.personId))fail("请先由管理员发起离职清算");if(!knownPrice(l.unitPrice))fail("历史物资赔偿价格缺失，请联系库管核实");const c={id:id(),loanId:l.id,personId:l.personId,personName:l.personName,name:l.name,unit:l.unit,qty,unitPrice:l.unitPrice,currency:l.currency,amount:amount(qty,l.unitPrice),reason:note(),status:"employee_confirmed",at:now()};d.claims.unshift(c);notify(d,"keeper",a.person.name+"确认不归还 "+l.name+"，请核实",c.id);log(d,a,"员工确认赔偿",l.name+"×"+num(qty)+"；"+num(c.amount)+c.currency,{claimId:c.id});}return;
     }
     if(type==="receiveReturn"){
       keeper(a);const r=find("returns",x.id),l=find("loans",r.loanId);if(r.status!=="pending")fail("归还已处理");if(x.accept===false){r.status="rejected";r.reason=note();notify(d,r.personId,"归还未通过："+r.reason,r.id);}
@@ -111,7 +156,7 @@
     }
     if(type==="legacy"){
       keeper(a);const old=legacyRows(m,d).find(r=>r.legacyId===x.id);if(!old||old.resolution)fail("旧记录已核实或不存在");const p=m.people.find(p=>p.id===x.personId);if(!p)fail("请明确旧记录所属人员");const reason=note();
-      if(x.mode==="loan"){const item=find("items",x.itemId);if(!item.recoverable)fail("请选择可回收物资");const qty=fixed(x.qty);d.loans.push({id:id(),personId:p.id,personName:p.name,itemId:item.id,name:item.name,spec:item.spec,unit:item.unit,recoverable:true,unitPrice:item.unitPrice,currency:item.currency,qty,returned:0,writtenOff:0,at:now(),legacyId:old.legacyId});}
+      if(x.mode==="loan"){const item=find("items",x.itemId);if(!item.recoverable)fail("请选择可回收物资");requirePrice(item);const qty=fixed(x.qty);d.loans.push({id:id(),personId:p.id,personName:p.name,itemId:item.id,name:item.name,spec:item.spec,unit:item.unit,recoverable:true,unitPrice:item.unitPrice,currency:item.currency,qty,returned:0,writtenOff:0,at:now(),legacyId:old.legacyId});}
       else if(x.mode!=="closed")fail("请选择核实结果");d.legacy.push({id:old.legacyId,personId:p.id,mode:x.mode,reason,at:now(),by:a.person.id});log(d,a,"旧领用核实",old.name+" → "+p.name+"；"+reason);return;
     }
     if(type==="beginExit"){
@@ -128,9 +173,10 @@
     fail("未知操作");
   }
   async function act(type,args,actor){if(!navigator.locks?.request)fail("请使用支持事务锁的新版浏览器操作库存");return navigator.locks.request(KEY,async()=>{const d=get(),m=main(),a=auth(actor,m),before=localStorage.getItem(PEOPLE);const result=dispatch(d,m,a,type,args||{});
+      applyPricing(d);commitPricingHistory(d);
       for(const i of d.items){if(!Number.isSafeInteger(i.stock)||i.stock<reserved(d,i.id)||!Number.isSafeInteger(i.damaged)||i.damaged<0)fail("库存校验失败，操作未保存");}
       for(const l of d.loans){if(![l.qty,l.returned,l.writtenOff].every(v=>Number.isSafeInteger(v)&&v>=0)||outstanding(l)<0)fail("持有台账校验失败，操作未保存");}
       let changed=false;try{if(result?.peopleChanged){localStorage.setItem(PEOPLE,JSON.stringify(m));changed=true;}localStorage.setItem(KEY,JSON.stringify(d));}catch(error){if(changed){if(before===null)localStorage.removeItem(PEOPLE);else localStorage.setItem(PEOPLE,before);}throw new Error("保存失败，操作未完成："+error.message);}window.dispatchEvent(new CustomEvent("mine-logistics-change"));return result;});}
-  window.MineLogistics={KEY,PEOPLE,get,main,context,currentId,selectSession,act,active,num,fixed,amount,available,reserved,outstanding,openExit,clearance,cleared,legacyRows};
+  window.MineLogistics={knownPrice,receiptPrice,KEY,PEOPLE,get,main,context,currentId,selectSession,act,active,num,fixed,amount,available,reserved,outstanding,openExit,clearance,cleared,legacyRows};
 })();
 
