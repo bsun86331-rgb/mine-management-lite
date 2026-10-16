@@ -4,7 +4,7 @@
   const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const when=v=>v?new Date(v).toLocaleString("zh-CN",{timeZone:"Asia/Ulaanbaatar"}):"—";
   const labels={driver:"司机工作台",excavator:"挖机工作台",dispatch:"调度工作台"},states={working:"作业中",paused:"已暂停",repair:"维修暂停",maintenance:"保养暂停",disabled:"设备已停用",missing:"设备未找到",checking:"待使用前检查",checked:"异常已上报",closed:"已收班",loaded:"装载已识别",hauling:"运输中",review:"定位待核对",completed:"已完成",voided:"已作废",draft:"草稿",active:"已启用",cancelled:"已取消"};
-  let d,m,person,actor,view=role==="dispatch"?"overview":"work",modalSave=null,busy=false,signature="",watchId=null,gpsTimer=null,gpsFetching=false,gpsGeneration=0,positionBusy=false,lastQueuedPoint=null,tracking=false,photoUrls=[],modalToken=0,recordSearch="",selectedDispatchShift=null,dispatchShiftLocked=false,timeConfiguredShift=null,dispatchGroups={},shiftMinute=null,zoneCenterFix=null,zoneFixRequest=0,lastSimulation={lat:"",lng:"",accuracy:"5"};
+  let d,m,person,actor,view=role==="dispatch"?"overview":"work",modalSave=null,busy=false,signature="",watchId=null,gpsTimer=null,gpsFetching=false,gpsGeneration=0,positionBusy=false,lastQueuedPoint=null,tracking=false,photoUrls=[],modalToken=0,recordSearch="",selectedDispatchShift=null,dispatchShiftLocked=false,timeConfiguredShift=null,dispatchGroups={},dispatchProductionDate=null,shiftMinute=null,zoneCenterFix=null,zoneFixRequest=0,lastSimulation={lat:"",lng:"",accuracy:"5"};
   const nameOf=id=>m.people.find(p=>p.id===id)?.name||"未分配",vehicleOf=id=>m.vehicles.find(v=>v.id===id),vehicleName=id=>vehicleOf(id)?.code||"未分配";
   const button=(action,id,label,style="soft")=>'<button type="button" class="'+style+'" data-action="'+action+'" data-id="'+esc(id||"")+'">'+esc(label)+'</button>';
   const pill=(text,warn=false,red=false)=>'<span class="pill'+(red?' red':warn?' warn':'')+'">'+esc(text)+'</span>';
@@ -49,10 +49,18 @@
     const current=T.currentShift(d.shiftTimes);if(!selectedDispatchShift)selectedDispatchShift=current||"白班";shiftMinute=Math.floor(Date.now()/60000);
     return '<div id="dispatchShiftPicker" class="shift-picker" role="group" aria-label="白夜班选择">'+(dispatchShiftLocked?[selectedDispatchShift]:["白班","夜班"]).map(name=>{const times=d.shiftTimes[name],overnight=times.end<times.start;return '<section class="shift-card'+(name===current?' current-shift':'')+(name===selectedDispatchShift?' selected-shift':'')+'"><button type="button" class="shift-name" data-action="selectDispatchShift" data-id="'+name+'" aria-pressed="'+(name===selectedDispatchShift)+'">'+name+(name===current?' · 当前班':'')+'</button><button type="button" class="shift-hours" data-action="editShiftTimes" data-id="'+name+'" aria-label="设置'+name+'时间">'+esc(times.start)+'—'+esc(times.end)+(overnight?' （次日结束）':'')+'</button></section>';}).join("")+'</div>';
   }
+  function productionContext(){return {workDate:dispatchProductionDate||T.date(),shiftName:selectedDispatchShift,team:dispatchGroups[selectedDispatchShift]||""};}
+  function productionGroup(){const c=productionContext();return d.productionGroups.find(g=>g.workDate===c.workDate&&g.shiftName===c.shiftName&&g.team===c.team&&g.number===1&&g.status==="draft");}
+  function renderProductionGroup(){
+    if(!dispatchShiftLocked||timeConfiguredShift!==selectedDispatchShift||!dispatchGroups[selectedDispatchShift])return "";
+    const g=productionGroup(),v=g?vehicleOf(g.vehicleId):null,p=g?m.people.find(p=>p.id===g.personId):null;
+    const driverValid=p&&L.active(p)&&p.applicationRole==="excavator"&&p.team===g.team;
+    return '<section class="production-group-section"><div class="actions">'+button("openProductionGroup","","第一组生产设备","")+'</div>'+(g?'<div class="production-equipment-card" aria-label="第一组生产设备">'+button("chooseProductionEquipment",g.id,v?(v.code||v.name||"已选设备"):(g.vehicleId?"设备失效，请重选":"选择设备"),"equipment-choice equipment-label")+button("chooseProductionDriver",g.id,p?(p.name+(driverValid?"":"（需重选）")):(g.personId?"司机失效，请重选":"选择司机"),"equipment-choice driver-label")+button("removeProductionGroup",g.id,"移除","equipment-remove")+'</div>':"")+'</section>';
+  }
   function renderAssignments(){
     const rows=dispatchShiftLocked?d.assignments.filter(r=>r.shiftName===selectedDispatchShift&&(!dispatchGroups[selectedDispatchShift]||m.people.find(p=>p.id===r.personId)?.team===dispatchGroups[selectedDispatchShift])):d.assignments;
     const group=dispatchGroups[selectedDispatchShift]||"";
-    return renderShiftButtons()+(dispatchShiftLocked&&timeConfiguredShift===selectedDispatchShift?'<div class="actions" style="margin-bottom:20px">'+button("selectDispatchGroup",selectedDispatchShift,group?'选择班组：'+group:'选择班组',"")+'</div>':"")+assignmentCards(rows);
+    return renderShiftButtons()+(dispatchShiftLocked&&timeConfiguredShift===selectedDispatchShift?'<div class="actions" style="margin-bottom:20px">'+button("selectDispatchGroup",selectedDispatchShift,group?'选择班组：'+group:'选择班组',"")+'</div>':"")+renderProductionGroup()+assignmentCards(rows);
   }
   const metres=value=>Number.isFinite(value)?value.toFixed(3):"未设置";
   function utmSummary(z){const c=window.MineUTM.zoneCoordinates(z);return "WGS84 / UTM "+(c.zone==null?"分区未设置":c.zone+(c.hemisphere||""))+" · X "+metres(c.easting)+" / Y "+metres(c.northing)+" 米";}
@@ -102,7 +110,7 @@
   function openAction(action,key){const s=session();
     if(action==="selectDispatchShift"||action==="editShiftTimes"){
       if(role!=="dispatch"||!["白班","夜班"].includes(key))return;
-      selectedDispatchShift=key;dispatchShiftLocked=true;refresh();
+      selectedDispatchShift=key;dispatchShiftLocked=true;if(!dispatchProductionDate)dispatchProductionDate=T.date();refresh();
       const times=d.shiftTimes[key],prefix=key==="白班"?"day":"night";
       show(key+"时间设置",'<div class="form-grid">'+input(prefix+"_start",key+"开始",times.start,"time",'step="60"')+input(prefix+"_end",key+"结束",times.end,"time",'step="60"')+'</div><p class="help">结束早于开始表示次日结束；空白保留原时间。</p>',f=>operate("shiftTimes",Object.fromEntries(f),key+"时间已保存",()=>{timeConfiguredShift=key;}),"保存时间");return;
     }
@@ -111,8 +119,24 @@
       const groups=["生产A组","生产B组"];
       show(key+" · 选择班组",select("dispatchTeam","班组",[["","请选择（选填）"],...groups.map(team=>[team,team])],dispatchGroups[key]||""),f=>{
         const team=String(f.get("dispatchTeam")||"");if(team&&!groups.includes(team))throw new Error("请选择现有班组");
-        dispatchGroups[key]=team;closeModal();refresh(true);
+        dispatchGroups[key]=team;closeModal();refresh(true);if(team)document.querySelector('[data-action="openProductionGroup"]')?.scrollIntoView({behavior:"smooth",block:"nearest"});
       },"确定");return;
+    }
+    if(action==="openProductionGroup"){
+      if(role!=="dispatch"||!dispatchShiftLocked||timeConfiguredShift!==selectedDispatchShift||!dispatchGroups[selectedDispatchShift])return;
+      return operate("productionGroup",{...productionContext(),action:"open"},"第一组生产设备已展开");
+    }
+    if(["chooseProductionEquipment","chooseProductionDriver","removeProductionGroup"].includes(action)){
+      if(role!=="dispatch"||!dispatchShiftLocked||timeConfiguredShift!==selectedDispatchShift)return;
+      const g=productionGroup();if(!g||g.id!==key)return toast("设备组已变化，请重新选择");
+      const context={id:g.id,workDate:g.workDate,shiftName:g.shiftName,team:g.team};
+      if(action==="removeProductionGroup")return operate("productionGroup",{...context,action:"remove"},"设备组已移除");
+      if(action==="chooseProductionEquipment"){
+        const vehicles=m.vehicles.filter(T.isExcavator);
+        show("第一组生产设备 · 选择挖机",select("vehicleId","挖机设备",[["","请选择（选填）"],...vehicles.map(v=>[v.id,(v.code||v.id)+(v.name?" · "+v.name:"")])],g.vehicleId||"")+(vehicles.length?"":'<p class="help">暂无挖机设备档案。</p>'),f=>operate("productionGroup",{...context,action:"equipment",value:f.get("vehicleId")},"设备已选择"),"确定");return;
+      }
+      const drivers=m.people.filter(p=>L.active(p)&&p.applicationRole==="excavator"&&p.team===g.team);
+      show("第一组生产设备 · 选择挖机司机",select("personId",g.team+"挖机司机",[["","请选择（选填）"],...drivers.map(p=>[p.id,p.name+" / "+p.id])],g.personId||"")+(drivers.length?"":'<p class="help">该班组暂无已审核在岗的挖机司机。</p>'),f=>operate("productionGroup",{...context,action:"driver",value:f.get("personId")},"挖机司机已选择"),"确定");return;
     }
     if(action==="assignment")return assignmentForm(key);
     if(action==="zone")return zoneForm(key);
