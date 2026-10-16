@@ -36,3 +36,14 @@
 .production-equipment-card.add-following-truck{display:flex;align-items:center;justify-content:center;min-height:134px;padding:0;color:#3574b5;font-size:40px;font-weight:300;line-height:1;box-shadow:none;cursor:pointer}
 .production-equipment-card.add-following-truck:hover{background:#dcecff;border-color:#5d9bdc}
 .production-equipment-card.add-following-truck:focus-visible{outline:2px solid #3574b5;outline-offset:3px}
+
+/* Shared loading/unloading area selection for a production group. */
+.production-region-card{flex:0 0 144px;width:144px;min-height:134px;padding:12px 10px;border:1px solid #efb6bb;border-radius:11px;background:#fff4f3;color:#174883;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;overflow-wrap:anywhere}
+.production-region-card strong{font-size:12px}
+.production-region-values{width:100%;max-height:132px;overflow:auto}
+.production-region-values p{margin:0 0 7px;line-height:1.6}
+.production-region-card .region-settings-button{margin-top:auto;padding:7px 11px;border:1px solid #c9d7f2;border-radius:7px;background:#fff;color:#174883;font-size:12px;font-weight:400}
+.region-checkboxes{display:grid;gap:9px;border:1px solid #d8e3da;border-radius:9px;padding:13px;margin:16px 0 0;max-height:280px;overflow:auto}
+.region-checkboxes legend{font-size:12px;font-weight:700;padding:0 5px}
+.region-checkboxes .region-option{display:flex;align-items:flex-start;gap:9px;margin:0;font-size:13px;font-weight:400}
+.region-checkboxes .region-option input{width:16px;height:16px;min-width:16px;margin:2px 0 0;padding:0;accent-color:#176b4a}
