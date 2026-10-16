@@ -65,3 +65,74 @@
 .resource-chip.unavailable{border-color:#edb0b5;background:#fff0f1;color:#a13840}
 .resource-chip:hover{filter:brightness(.97)}
 @media(max-width:500px){.auxiliary-item{flex-basis:118px}.unused-resource-list{padding:10px}.resource-chip{max-width:100%}}
+
+/* Compact dispatcher only; other workspaces retain their existing density. */
+.dispatch-compact{line-height:1.45}
+.dispatch-compact .app{grid-template-columns:178px minmax(0,1fr)}
+.dispatch-compact .sidebar{padding:18px 11px}
+.dispatch-compact .brand{gap:8px;font-size:13px}
+.dispatch-compact .brand b{width:33px;height:33px;border-radius:9px;font-size:19px}
+.dispatch-compact .identity{padding:13px 4px}
+.dispatch-compact .sidebar nav{gap:3px}
+.dispatch-compact .sidebar nav button{padding:7px 9px;font-size:12px;min-height:32px}
+.dispatch-compact .sidebar-bottom{padding-top:14px;gap:7px}
+.dispatch-compact .main{padding:18px 22px}
+.dispatch-compact .page-head{margin-bottom:14px;gap:10px}
+.dispatch-compact .page-head h1{font-size:24px;margin:3px 0}
+.dispatch-compact .page-head p{font-size:12px}
+.dispatch-compact .panel{padding:14px;margin:11px 0;border-radius:12px}
+.dispatch-compact .panel h2{font-size:16px;margin-bottom:8px}
+.dispatch-compact .panel-head{gap:8px}
+.dispatch-compact .actions{gap:6px;margin-top:8px}
+.dispatch-compact .actions button{padding:6px 9px}
+.dispatch-compact #content>.actions{margin-bottom:10px!important}
+.dispatch-compact .grid{gap:10px}
+.dispatch-compact .summary{gap:8px;margin:12px 0}
+.dispatch-compact .summary>div{padding:11px}
+.dispatch-compact .summary strong{font-size:24px}
+.dispatch-compact th,.dispatch-compact td{padding:8px}
+.dispatch-compact .row{padding:9px 0;gap:8px}
+.dispatch-compact .shift-picker{gap:7px;margin-bottom:12px}
+.dispatch-compact .shift-card{min-width:124px;padding:4px 8px 6px}
+.dispatch-compact .shift-card .shift-name,.dispatch-compact .shift-card .shift-hours{padding:3px 5px}
+.dispatch-compact .production-group-section{margin-bottom:13px}
+.dispatch-compact .production-equipment-row{gap:7px;margin-top:8px}
+.dispatch-compact .production-equipment-card{width:116px;min-height:108px;padding:7px 6px;gap:3px;border-radius:8px}
+.dispatch-compact .production-equipment-row .production-equipment-card{flex-basis:116px}
+.dispatch-compact .production-equipment-card .equipment-choice{padding:4px 2px;min-height:25px;line-height:1.3}
+.dispatch-compact .production-equipment-card .equipment-remove{padding:3px 2px;min-height:22px}
+.dispatch-compact .production-equipment-card.add-following-truck{min-height:108px;padding:0;font-size:34px}
+.dispatch-compact .production-region-card{flex-basis:116px;width:116px;min-height:108px;padding:8px 6px;gap:4px;border-radius:8px}
+.dispatch-compact .production-region-values{max-height:70px;font-size:11px}
+.dispatch-compact .production-region-values p{margin-bottom:4px;line-height:1.35}
+.dispatch-compact .production-region-values br{display:none}
+.dispatch-compact .production-region-card .region-settings-button{padding:5px 8px}
+.dispatch-compact .add-production-group{min-height:33px;padding:6px;margin:6px 0 12px;border-radius:7px}
+.dispatch-compact .dispatch-lower-section{padding-top:12px;margin-top:12px}
+.dispatch-compact .dispatch-lower-section h3{font-size:14px;margin-bottom:8px}
+.dispatch-compact .dispatch-lower-section>.help{margin:0 0 7px}
+.dispatch-compact .auxiliary-vehicle-row{gap:7px}
+.dispatch-compact .auxiliary-item{flex-basis:108px;width:108px}
+.dispatch-compact .production-equipment-card.auxiliary-equipment-card{width:108px;min-height:96px;padding:6px;gap:2px}
+.dispatch-compact .auxiliary-item .auxiliary-content-button{max-width:108px;padding:5px 8px;font-size:12px}
+.dispatch-compact .auxiliary-add{flex-basis:48px;min-height:124px;border-radius:8px}
+.dispatch-compact .unused-resource-list{gap:5px;padding:9px;border-radius:9px}
+.dispatch-compact .resource-chip{padding:6px 9px;line-height:1.4}
+.dispatch-compact #editForm{padding:17px}
+.dispatch-compact .modal-head h2{font-size:18px;margin-bottom:8px}
+.dispatch-compact .form-grid{gap:0 11px}
+.dispatch-compact label{margin:7px 0}
+.dispatch-compact input,.dispatch-compact select,.dispatch-compact textarea{padding:8px}
+.dispatch-compact .modal-actions{bottom:-17px;margin-top:10px;padding-top:10px;gap:7px}
+.dispatch-compact .region-checkboxes{gap:7px;padding:10px;margin-top:11px}
+.dispatch-compact .region-checkboxes .region-option{margin:0}
+.dispatch-compact .region-checkboxes .region-option input{padding:0}
+@media(max-width:700px){
+  .dispatch-compact .app{display:block}
+  .dispatch-compact .sidebar{padding:12px}
+  .dispatch-compact .identity{padding:8px 0}
+  .dispatch-compact .sidebar-bottom{padding-top:8px}
+  .dispatch-compact .main{padding:14px 12px}
+  .dispatch-compact .page-head h1{font-size:22px}
+  .dispatch-compact .sidebar nav button{min-height:34px}
+}
