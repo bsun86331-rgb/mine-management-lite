@@ -47,3 +47,21 @@
 .region-checkboxes legend{font-size:12px;font-weight:700;padding:0 5px}
 .region-checkboxes .region-option{display:flex;align-items:flex-start;gap:9px;margin:0;font-size:13px;font-weight:400}
 .region-checkboxes .region-option input{width:16px;height:16px;min-width:16px;margin:2px 0 0;padding:0;accent-color:#176b4a}
+
+/* Dispatcher lower workspace: production groups, auxiliary jobs and resource pools. */
+.add-production-group{display:block;width:100%;min-height:40px;margin:8px 0 18px;padding:9px;border:1px dashed #c9d7f2;border-radius:9px;background:#fff1f1;color:#174883;box-shadow:none;font-size:13px;font-weight:400}
+.add-production-group:hover{background:#ffe7e8}
+.dispatch-lower-section{border-top:1px solid #dce5ef;padding-top:18px;margin-top:18px}
+.dispatch-lower-section h3{font-size:15px;margin:0 0 13px}
+.dispatch-lower-section>.help{margin:-3px 0 10px}
+.auxiliary-vehicle-row{display:flex;align-items:stretch;flex-wrap:wrap;gap:9px}
+.auxiliary-item{flex:0 0 118px;width:118px}
+.production-equipment-card.auxiliary-equipment-card{width:118px;min-height:105px;margin:0;padding:9px 7px;gap:4px}
+.auxiliary-item .auxiliary-content-button{display:block;max-width:118px;padding:8px 12px;border:1px solid #c9d7f2;border-radius:8px;background:#fff;color:#174883;box-shadow:none;font-size:13px;font-weight:400;overflow-wrap:anywhere}
+.auxiliary-add{flex:0 0 62px;min-height:144px;padding:0;border:1px dashed #c9d7f2;border-radius:10px;background:#f8faff;color:#174883;font-size:24px;font-weight:400;box-shadow:none}
+.auxiliary-add:hover{background:#edf3fe}
+.unused-resource-list{display:flex;flex-wrap:wrap;gap:7px;padding:13px;border:1px solid #dce5ef;border-radius:12px;background:#f8faff}
+.resource-chip{border:1px solid #9bd3ac;border-radius:8px;padding:8px 12px;background:#effbf2;color:#174883;box-shadow:none;font-size:12px;font-weight:400;line-height:1.5;text-align:left;overflow-wrap:anywhere}
+.resource-chip.unavailable{border-color:#edb0b5;background:#fff0f1;color:#a13840}
+.resource-chip:hover{filter:brightness(.97)}
+@media(max-width:500px){.auxiliary-item{flex-basis:118px}.unused-resource-list{padding:10px}.resource-chip{max-width:100%}}
