@@ -10,11 +10,20 @@
   const shiftContains=(times,minute)=>{const start=clockMinutes(times.start),end=clockMinutes(times.end);return start<end?minute>=start&&minute<end:minute>=start||minute<end;};
   function currentShift(times,at=new Date()){const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Ulaanbaatar",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(at),values=Object.fromEntries(parts.map(p=>[p.type,p.value])),minute=Number(values.hour)*60+Number(values.minute);const matches=["白班","夜班"].filter(name=>shiftContains(times[name],minute));return matches.length===1?matches[0]:null;}
   const defaults={dwellSeconds:20,maxAccuracy:50,gapSeconds:90,exitMargin:15,maxSpeedKmh:150};
-  function get(){let d;try{d=JSON.parse(localStorage.getItem(KEY)||"null");}catch{fail("运输台账无法读取，请保留浏览器数据并联系管理员");}if(!d)d={version:1,revision:0,settings:{...defaults},assignments:[],zones:[],shifts:[],inspections:[],faults:[],trips:[],devices:[],messages:[],audit:[]};for(const key of ["assignments","zones","shifts","inspections","faults","trips","devices","messages","audit"])if(!Array.isArray(d[key]))fail("运输台账格式异常");if(d.productionGroups==null)d.productionGroups=[];if(!Array.isArray(d.productionGroups))fail("生产设备组草稿格式异常");for(const group of d.productionGroups){if(group.followingTrucks==null)group.followingTrucks=group.followingTruck?[{...group.followingTruck}]:(group.vehicleId&&group.personId?[{id:group.id+"-truck-1",status:"draft",vehicleId:"",personId:"",createdAt:group.updatedAt||group.createdAt}]:[]);if(!Array.isArray(group.followingTrucks))fail("跟随汽车草稿格式异常");}d.settings={...defaults,...d.settings};d.shiftTimes=Object.fromEntries(["白班","夜班"].map(name=>[name,{...shiftTimeDefaults[name],...d.shiftTimes?.[name]}]));return d;}
+  function get(){let d;try{d=JSON.parse(localStorage.getItem(KEY)||"null");}catch{fail("运输台账无法读取，请保留浏览器数据并联系管理员");}if(!d)d={version:1,revision:0,settings:{...defaults},assignments:[],zones:[],shifts:[],inspections:[],faults:[],trips:[],devices:[],messages:[],audit:[]};for(const key of ["assignments","zones","shifts","inspections","faults","trips","devices","messages","audit"])if(!Array.isArray(d[key]))fail("运输台账格式异常");if(d.productionGroups==null)d.productionGroups=[];if(!Array.isArray(d.productionGroups))fail("生产设备组草稿格式异常");for(const group of d.productionGroups){if(group.followingTrucks==null)group.followingTrucks=group.followingTruck?[{...group.followingTruck}]:(group.vehicleId&&group.personId?[{id:group.id+"-truck-1",status:"draft",vehicleId:"",personId:"",createdAt:group.updatedAt||group.createdAt}]:[]);if(!Array.isArray(group.followingTrucks))fail("跟随汽车草稿格式异常");}if(d.auxiliaryPlans==null)d.auxiliaryPlans=[];if(!Array.isArray(d.auxiliaryPlans)||d.auxiliaryPlans.some(p=>!Array.isArray(p.cards)))fail("辅助车辆草稿格式异常");d.settings={...defaults,...d.settings};d.shiftTimes=Object.fromEntries(["白班","夜班"].map(name=>[name,{...shiftTimeDefaults[name],...d.shiftTimes?.[name]}]));return d;}
   function context(role){if(!roles.includes(role))fail("无效工作端口");const p=L.context(role);if(!L.active(p))fail("当前人员状态不能进入运输工作台，请返回登记状态页");return p;}
   const date=()=>new Date().toLocaleDateString("sv-SE",{timeZone:"Asia/Ulaanbaatar"});
   const isExcavator=v=>/挖/.test(String(v?.category||v?.model||""));
   const isHaulTruck=v=>/自卸|矿卡/.test(String(v?.category||v?.model||""));
+  const auxiliaryRoles=["assistant_loader","assistant_fuel","assistant_water","assistant_grader","assistant_dump","assistant"];
+  const isAuxiliaryVehicle=v=>!!v&&!isExcavator(v)&&!isHaulTruck(v);
+  const sameDraftShift=(r,c)=>r.workDate===c.workDate&&r.shiftName===c.shiftName;
+  function draftSlots(d,c){
+    const slots=[];for(const g of d.productionGroups.filter(g=>g.status==="draft"&&sameDraftShift(g,c))){slots.push({id:g.id,vehicleId:g.vehicleId,personId:g.personId});for(const t of g.followingTrucks.filter(t=>t.status==="draft"))slots.push({id:t.id,vehicleId:t.vehicleId,personId:t.personId});}
+    for(const plan of d.auxiliaryPlans.filter(p=>sameDraftShift(p,c)))for(const card of plan.cards.filter(c=>c.status==="draft"))slots.push({id:card.id,vehicleId:card.vehicleId,personId:card.personId});
+    return slots;
+  }
+  function requireFree(d,c,field,value,except){if(value&&draftSlots(d,c).some(slot=>slot.id!==except&&slot[field]===value))fail(field==="vehicleId"?"该设备已在本班其他配置中选择":"该人员已在本班其他配置中选择");}
   const liveTrip=t=>["loaded","hauling","review"].includes(t.status);
   const ownShift=(d,pid)=>d.shifts.find(s=>s.personId===pid&&s.status!=="closed");
   const shiftTrip=(d,s)=>s?d.trips.find(t=>t.shiftId===s.id&&liveTrip(t)):null;
@@ -67,14 +76,18 @@
       const team=String(x.team||""),shiftName=String(x.shiftName||""),workDate=named(x.workDate,"日期",10)||date();
       if(!["生产A组","生产B组"].includes(team)||!["白班","夜班"].includes(shiftName))fail("请先选择有效班次和生产班组");
       if(!/^\d{4}-\d{2}-\d{2}$/.test(workDate))fail("日期格式不正确");
-      if(!["open","equipment","driver","remove","truckEquipment","truckDriver","removeTruck","addTruck","regions"].includes(x.action))fail("无效的生产设备组操作");
-      let row=d.productionGroups.find(g=>g.workDate===workDate&&g.shiftName===shiftName&&g.team===team&&g.number===1&&g.status==="draft");
+      if(!["open","equipment","driver","remove","truckEquipment","truckDriver","removeTruck","addTruck","regions","add"].includes(x.action))fail("无效的生产设备组操作");
+      const scope=g=>g.workDate===workDate&&g.shiftName===shiftName&&g.team===team;
+      let row=d.productionGroups.find(g=>scope(g)&&g.status==="draft"&&(x.id?g.id===x.id:g.number===1));
       const parentReady=g=>{const driver=m.people.find(p=>p.id===g.personId);return isExcavator(m.vehicles.find(v=>v.id===g.vehicleId))&&driver&&L.active(driver)&&driver.applicationRole==="excavator"&&driver.team===team;};
       const blankTruck=()=>({id:uid(),status:"draft",vehicleId:"",personId:"",createdAt:now()});
-      if(x.action==="open"){
+      if(x.id&&!row)fail("生产设备组已变化，请刷新后重新选择");
+      if(x.action==="open"||x.action==="add"){
+        if(x.action==="add")row=null;
         if(row){if(parentReady(row)&&!row.followingTrucks.some(t=>t.status==="draft")){row.followingTrucks.push(blankTruck());row.updatedAt=now();audit(d,a,"恢复跟随汽车空卡",shiftName+" "+team,{productionGroupId:row.id});}return row.id;}
-        row={id:uid(),workDate,shiftName,team,number:1,status:"draft",vehicleId:"",personId:"",followingTrucks:[],createdAt:now(),createdBy:a.id,updatedAt:now()};
-        d.productionGroups.unshift(row);audit(d,a,"建立第一组生产设备草稿",workDate+" "+shiftName+" "+team,{productionGroupId:row.id});return row.id;
+        const number=x.action==="add"?Math.max(0,...d.productionGroups.filter(scope).map(g=>Number(g.number)||1))+1:1;
+        row={id:uid(),workDate,shiftName,team,number,status:"draft",vehicleId:"",personId:"",followingTrucks:[],createdAt:now(),createdBy:a.id,updatedAt:now()};
+        d.productionGroups.unshift(row);audit(d,a,"建立生产设备组草稿",workDate+" "+shiftName+" "+team+" 第"+number+"组",{productionGroupId:row.id});return row.id;
       }
       if(!row||row.id!==x.id)fail("当前设备组已变化，请重新选择");
       if(x.action==="remove"){row.status="removed";row.removedAt=now();row.removedBy=a.id;audit(d,a,"移除生产设备组草稿",shiftName+" "+team,{productionGroupId:row.id});return;}
@@ -101,15 +114,34 @@
         const field=x.action==="truckEquipment"?"vehicleId":"personId",value=String(x.value||"");
         if(value&&field==="vehicleId"&&!isHaulTruck(m.vehicles.find(v=>v.id===value)))fail("请选择矿用自卸车设备");
         if(value&&field==="personId"){const p=m.people.find(p=>p.id===value);if(!p||!L.active(p)||p.applicationRole!=="driver"||p.team!==team)fail("只能选择"+team+"已审核在岗的汽车司机");}
-        if(value&&active.some(t=>t.id!==truck.id&&t[field]===value))fail(field==="vehicleId"?"该汽车已在本生产组中选择":"该司机已在本生产组中选择");
+        requireFree(d,row,field,value,truck.id);
         const previous=truck[field]||"";truck[field]=value;truck.updatedAt=now();truck.updatedBy=a.id;row.updatedAt=now();
         audit(d,a,field==="vehicleId"?"选择跟随汽车":"选择跟随汽车司机",shiftName+" "+team+"；"+previous+" → "+value,{productionGroupId:row.id,truckId:truck.id,field,previous,value});return row.id;
       }
       const field=x.action==="equipment"?"vehicleId":"personId",value=String(x.value||"");
       if(value&&field==="vehicleId"&&!isExcavator(m.vehicles.find(v=>v.id===value)))fail("请选择挖机设备");
       if(value&&field==="personId"){const p=m.people.find(p=>p.id===value);if(!p||!L.active(p)||p.applicationRole!=="excavator"||p.team!==team)fail("只能选择"+team+"已审核在岗的挖机司机");}
+      requireFree(d,row,field,value,row.id);
       const previous=row[field]||"";row[field]=value;row.updatedAt=now();row.updatedBy=a.id;if(parentReady(row)&&row.followingTrucks.length===0)row.followingTrucks.push(blankTruck());
       audit(d,a,field==="vehicleId"?"选择生产组挖机":"选择生产组挖机司机",shiftName+" "+team+"；"+previous+" → "+value,{productionGroupId:row.id,field,previous,value});return row.id;
+    }
+    if(type==="auxiliaryPlan"){
+      dispatchOnly(a);const team=String(x.team||""),shiftName=String(x.shiftName||""),workDate=named(x.workDate,"日期",10)||date();
+      if(!["生产A组","生产B组"].includes(team)||!["白班","夜班"].includes(shiftName)||!/^\d{4}-\d{2}-\d{2}$/.test(workDate))fail("请先选择有效班次和生产班组");
+      if(!["ensure","add","equipment","driver","content","remove"].includes(x.action))fail("无效辅助车辆操作");
+      let plan=d.auxiliaryPlans.find(p=>p.workDate===workDate&&p.shiftName===shiftName&&p.team===team);
+      const blank=()=>({id:uid(),status:"draft",vehicleId:"",personId:"",content:"",createdAt:now()});
+      if(!plan){plan={id:uid(),workDate,shiftName,team,cards:Array.from({length:4},blank),createdAt:now()};d.auxiliaryPlans.push(plan);audit(d,a,"建立辅助车辆配置",shiftName+" "+team,{auxiliaryPlanId:plan.id});}
+      if(x.action==="ensure")return plan.id;
+      if(x.action==="add"){const card=blank();plan.cards.push(card);audit(d,a,"新增辅助车辆空卡",shiftName+" "+team,{auxiliaryPlanId:plan.id,cardId:card.id});return card.id;}
+      const card=plan.cards.find(c=>c.id===x.cardId&&c.status==="draft");if(!card)fail("辅助车辆卡已变化，请刷新");
+      if(x.action==="remove"){card.status="removed";card.removedAt=now();card.removedBy=a.id;audit(d,a,"移除辅助车辆草稿",shiftName+" "+team,{auxiliaryPlanId:plan.id,cardId:card.id});return;}
+      if(x.action==="content"){const before=card.content||"";card.content=named(x.content,"作业内容",1000);card.updatedAt=now();audit(d,a,"设置辅助车辆作业内容",card.content,{auxiliaryPlanId:plan.id,cardId:card.id,before});return;}
+      const field=x.action==="equipment"?"vehicleId":"personId",value=String(x.value||"");
+      if(value&&field==="vehicleId"&&!isAuxiliaryVehicle(m.vehicles.find(v=>v.id===value)))fail("请选择辅助车辆/设备");
+      if(value&&field==="personId"){const p=m.people.find(p=>p.id===value);if(!p||!L.active(p)||p.team!==team||!auxiliaryRoles.includes(p.applicationRole))fail("只能选择"+team+"已审核在岗辅助岗位人员");}
+      requireFree(d,plan,field,value,card.id);const before=card[field]||"";card[field]=value;card.updatedAt=now();card.updatedBy=a.id;
+      audit(d,a,field==="vehicleId"?"选择辅助设备":"选择辅助人员",shiftName+" "+team+"；"+before+" → "+value,{auxiliaryPlanId:plan.id,cardId:card.id,field,before,value});return;
     }
     if(type==="assignment"){
       dispatchOnly(a);const previous=x.id?find("assignments",x.id):null;if(previous&&d.shifts.some(s=>s.assignmentId===previous.id))fail("已有实际班次的排班不能改写，请新建后续排班");const kind=x.kind==="excavator"?"excavator":"driver";const value={personId:String(x.personId||""),vehicleId:String(x.vehicleId||""),excavatorId:kind==="driver"?String(x.excavatorId||""):"",kind,workDate:named(x.workDate,"排班日期",10),shiftName:x.shiftName==="夜班"?"夜班":"白班",note:named(x.note,"说明"),status:"draft"};if(value.workDate&&!/^\d{4}-\d{2}-\d{2}$/.test(value.workDate))fail("排班日期格式不正确");const row=previous||{id:uid(),createdAt:now()};Object.assign(row,value);if(!previous)d.assignments.unshift(row);audit(d,a,"保存排班草稿",kind+"；"+value.workDate+value.shiftName,{assignmentId:row.id});return row.id;
@@ -183,6 +215,6 @@
   }
   function visibleMessages(d,a){const equipment=new Set(d.assignments.filter(r=>r.personId===a.id&&r.kind==="excavator").map(r=>"exc:"+r.vehicleId));return d.messages.filter(msg=>msg.target===a.id||(a.applicationRole==="dispatch"&&msg.target==="dispatch")||(a.applicationRole==="excavator"&&equipment.has(msg.target)));}
   async function act(type,args,actor){if(!navigator.locks?.request)fail("请使用支持事务锁的新版浏览器");return navigator.locks.request(KEY,async()=>{const d=get(),m=L.main(),a=actorFrom(m,actor),result=execute(d,m,a,type,args||{});try{localStorage.setItem(KEY,JSON.stringify(d));}catch(error){fail("保存失败，未新增车次或计数："+error.message);}window.dispatchEvent(new CustomEvent("mine-transport-change"));return result;});}
-  window.MineTransport={KEY,get,context,act,defaults,materialTypes,shiftTimeDefaults,currentShift,date,distance,inside,validZone,ownShift,shiftTrip,liveTrip,equipmentState,working,isExcavator,isHaulTruck,visibleMessages};
+  window.MineTransport={KEY,get,context,act,defaults,materialTypes,shiftTimeDefaults,currentShift,date,distance,inside,validZone,ownShift,shiftTrip,liveTrip,equipmentState,working,isExcavator,isHaulTruck,isAuxiliaryVehicle,auxiliaryRoles,draftSlots,visibleMessages};
 })();
 
