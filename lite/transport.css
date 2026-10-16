@@ -29,3 +29,10 @@
 .production-equipment-card.following-truck-card .equipment-label{color:#1c5697}
 .production-equipment-card.following-truck-card .driver-label{color:#557999}
 .production-equipment-card.following-truck-card button:hover{background:#dcecff}
+
+/* The add tile matches a following truck card and stays last in the row. */
+.production-equipment-row{align-items:stretch}
+.production-equipment-row .production-equipment-card{flex:0 0 144px}
+.production-equipment-card.add-following-truck{display:flex;align-items:center;justify-content:center;min-height:134px;padding:0;color:#3574b5;font-size:40px;font-weight:300;line-height:1;box-shadow:none;cursor:pointer}
+.production-equipment-card.add-following-truck:hover{background:#dcecff;border-color:#5d9bdc}
+.production-equipment-card.add-following-truck:focus-visible{outline:2px solid #3574b5;outline-offset:3px}
