@@ -21,3 +21,11 @@
 .production-equipment-card .equipment-remove{color:#c7443d;font-size:11px;font-weight:400}
 .production-equipment-card button:hover{background:#e4f2df}
 .production-equipment-card button:focus-visible{outline:2px solid #176b4a;outline-offset:2px}
+
+/* Excavator and following haul truck share card layout, with distinct colours. */
+.production-equipment-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:12px;margin-top:14px}
+.production-equipment-row .production-equipment-card{margin-top:0}
+.production-equipment-card.following-truck-card{border-color:#9bc3ed;background:#edf5ff}
+.production-equipment-card.following-truck-card .equipment-label{color:#1c5697}
+.production-equipment-card.following-truck-card .driver-label{color:#557999}
+.production-equipment-card.following-truck-card button:hover{background:#dcecff}
