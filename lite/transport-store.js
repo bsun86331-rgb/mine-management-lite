@@ -65,12 +65,15 @@
     }
     if(type==="cancelAssignment"){dispatchOnly(a);const r=find("assignments",x.id);if(d.shifts.some(s=>s.assignmentId===r.id&&s.status!=="closed"))fail("该排班仍在实际使用，请先结束班次");r.status="cancelled";r.cancelNote=named(x.note,"说明");notify(d,r.personId,"排班已取消："+r.workDate+r.shiftName,r.id);audit(d,a,"取消排班",r.cancelNote,{assignmentId:r.id});return;}
     if(type==="zone"){
-      dispatchOnly(a);const old=x.id?find("zones",x.id):null;const row=old||{id:uid(),createdAt:now(),version:0};Object.assign(row,{name:named(x.name,"区域名称",60)||((x.kind==="unload"?"卸载区":"装载区")+" "+(old?d.zones.indexOf(old)+1:d.zones.length+1)),kind:x.kind==="unload"?"unload":"load",material:materialValue(x.material),lat:optionalNumber(x.lat,"纬度",-90,90),lng:optionalNumber(x.lng,"经度",-180,180),radius:optionalNumber(x.radius,"区域半径",1,100000),enabled:false,version:row.version+1});const fix=x.centerFix;row.centerFix=null;
-      if(fix&&Number.isFinite(fix.lat)&&Number.isFinite(fix.lng)&&fix.lat===row.lat&&fix.lng===row.lng&&Number.isFinite(fix.accuracy)&&fix.accuracy>=0&&Number.isFinite(fix.ts))row.centerFix={lat:fix.lat,lng:fix.lng,accuracy:fix.accuracy,ts:fix.ts};
+      dispatchOnly(a);const old=x.id?find("zones",x.id):null;const row=old||{id:uid(),createdAt:now(),version:0};
+      const coords=x.coordinateSystem==="WGS84-UTM"?window.MineUTM.toWGS84({zone:x.utmZone,hemisphere:x.utmHemisphere,easting:x.easting,northing:x.northing}):{lat:optionalNumber(x.lat,"纬度",-90,90),lng:optionalNumber(x.lng,"经度",-180,180)};
+      const elevation=optionalNumber(x.elevation,"高程",-12000,100000),heightFromGPS=x.elevationSource==="gps"&&Number.isFinite(x.centerFix?.altitude)&&elevation===x.centerFix.altitude;
+      Object.assign(row,{name:named(x.name,"区域名称",60)||((x.kind==="unload"?"卸载区":"装载区")+" "+(old?d.zones.indexOf(old)+1:d.zones.length+1)),kind:x.kind==="unload"?"unload":"load",material:materialValue(x.material),lat:coords.lat,lng:coords.lng,utm:coords.utm||null,coordinateSystem:x.coordinateSystem==="WGS84-UTM"?"WGS84-UTM":"WGS84",elevation,elevationSource:elevation==null?"":heightFromGPS?"gps":"manual",altitudeAccuracy:heightFromGPS&&Number.isFinite(x.centerFix.altitudeAccuracy)?x.centerFix.altitudeAccuracy:null,radius:optionalNumber(x.radius,"区域半径",1,100000),enabled:false,version:row.version+1});const fix=x.centerFix;row.centerFix=null;
+      if(fix&&Number.isFinite(fix.lat)&&Number.isFinite(fix.lng)&&Number.isFinite(row.lat)&&Number.isFinite(row.lng)&&distance(fix,row)<=0.02&&Number.isFinite(fix.accuracy)&&fix.accuracy>=0&&Number.isFinite(fix.ts))row.centerFix={...fix,lat:row.lat,lng:row.lng,accuracy:fix.accuracy,ts:fix.ts};
       if(Object.hasOwn(row,"excavatorId")){row.legacyExcavatorId=row.excavatorId;delete row.excavatorId;}if(!old)d.zones.push(row);d.revision++;audit(d,a,"保存区域草稿",row.name,{zoneId:row.id});return;
     }
     if(type==="toggleZone"){
-      dispatchOnly(a);const z=find("zones",x.id);if(!z.enabled){if(!validZone(z))fail("启用前请设置区域经纬度与有效半径");}z.enabled=!z.enabled;z.version++;d.revision++;audit(d,a,z.enabled?"启用区域":"停用区域",z.name,{zoneId:z.id});return;
+      dispatchOnly(a);const z=find("zones",x.id);if(!z.enabled){if(!validZone(z))fail("启用前请设置完整有效的UTM位置与区域半径");}z.enabled=!z.enabled;z.version++;d.revision++;audit(d,a,z.enabled?"启用区域":"停用区域",z.name,{zoneId:z.id});return;
     }
     if(type==="settings"){
       dispatchOnly(a);const limits={dwellSeconds:[1,600],maxAccuracy:[1,1000],gapSeconds:[10,3600],exitMargin:[0,1000],maxSpeedKmh:[5,300]};for(const key of Object.keys(limits)){const n=optionalNumber(x[key],key,...limits[key]);if(n!=null)d.settings[key]=n;}d.revision++;audit(d,a,"定位规则设置",JSON.stringify(d.settings));return;
