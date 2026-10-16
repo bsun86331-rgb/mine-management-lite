@@ -56,6 +56,7 @@ function checkWorkAccess(){
   }
   try{MineLogistics.selectSession(applicant,false);}catch{}
   if(key==="middle_store"){location.replace("logistics.html?role=middle_store");return;}
+  if(["driver","excavator","dispatch"].includes(key)){location.replace("transport.html?role="+encodeURIComponent(key));return;}
   document.querySelector(".card").hidden=false;
   document.getElementById("accessNote").textContent=key==="middle_store"?"后勤库存、申请发放、归还及清算功能已开放。":"后勤物资申请、本人领用确认及归还清算已开放，其他岗位业务逐步建设。";
   const link=document.getElementById("logisticsLink");link.href="logistics.html?role="+encodeURIComponent(key);
