@@ -5,8 +5,12 @@
   const roles=["driver","excavator","dispatch"], uid=()=>crypto.randomUUID(), now=()=>new Date().toISOString();
   const fail=message=>{throw new Error(message);}, clone=v=>JSON.parse(JSON.stringify(v));
   const materialTypes=Object.freeze(["渣","煤","只记车数"]);
+  const shiftTimeDefaults=Object.freeze({"白班":Object.freeze({start:"08:00",end:"20:00"}),"夜班":Object.freeze({start:"20:00",end:"08:00"})});
+  const clockMinutes=value=>{if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(value)))fail("班次时间请使用HH:mm格式");return Number(value.slice(0,2))*60+Number(value.slice(3));};
+  const shiftContains=(times,minute)=>{const start=clockMinutes(times.start),end=clockMinutes(times.end);return start<end?minute>=start&&minute<end:minute>=start||minute<end;};
+  function currentShift(times,at=new Date()){const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Ulaanbaatar",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(at),values=Object.fromEntries(parts.map(p=>[p.type,p.value])),minute=Number(values.hour)*60+Number(values.minute);const matches=["白班","夜班"].filter(name=>shiftContains(times[name],minute));return matches.length===1?matches[0]:null;}
   const defaults={dwellSeconds:20,maxAccuracy:50,gapSeconds:90,exitMargin:15,maxSpeedKmh:150};
-  function get(){let d;try{d=JSON.parse(localStorage.getItem(KEY)||"null");}catch{fail("运输台账无法读取，请保留浏览器数据并联系管理员");}if(!d)d={version:1,revision:0,settings:{...defaults},assignments:[],zones:[],shifts:[],inspections:[],faults:[],trips:[],devices:[],messages:[],audit:[]};for(const key of ["assignments","zones","shifts","inspections","faults","trips","devices","messages","audit"])if(!Array.isArray(d[key]))fail("运输台账格式异常");d.settings={...defaults,...d.settings};return d;}
+  function get(){let d;try{d=JSON.parse(localStorage.getItem(KEY)||"null");}catch{fail("运输台账无法读取，请保留浏览器数据并联系管理员");}if(!d)d={version:1,revision:0,settings:{...defaults},assignments:[],zones:[],shifts:[],inspections:[],faults:[],trips:[],devices:[],messages:[],audit:[]};for(const key of ["assignments","zones","shifts","inspections","faults","trips","devices","messages","audit"])if(!Array.isArray(d[key]))fail("运输台账格式异常");d.settings={...defaults,...d.settings};d.shiftTimes=Object.fromEntries(["白班","夜班"].map(name=>[name,{...shiftTimeDefaults[name],...d.shiftTimes?.[name]}]));return d;}
   function context(role){if(!roles.includes(role))fail("无效工作端口");const p=L.context(role);if(!L.active(p))fail("当前人员状态不能进入运输工作台，请返回登记状态页");return p;}
   const date=()=>new Date().toLocaleDateString("sv-SE",{timeZone:"Asia/Ulaanbaatar"});
   const isExcavator=v=>/挖/.test(String(v?.category||v?.model||""));
@@ -74,6 +78,14 @@
     if(type==="toggleZone"){
       dispatchOnly(a);const z=find("zones",x.id);if(!z.enabled){if(!validZone(z))fail("启用前请设置完整有效的UTM位置与区域半径");}z.enabled=!z.enabled;z.version++;d.revision++;audit(d,a,z.enabled?"启用区域":"停用区域",z.name,{zoneId:z.id});return;
     }
+    if(type==="shiftTimes"){
+      dispatchOnly(a);const times=clone(d.shiftTimes);
+      for(const [name,prefix] of [["白班","day"],["夜班","night"]])for(const edge of ["start","end"]){const value=named(x[prefix+"_"+edge],"班次时间",5);if(value){clockMinutes(value);times[name][edge]=value;}}
+      for(const name of ["白班","夜班"])if(times[name].start===times[name].end)fail(name+"开始和结束时间不能相同");
+      const intervals=t=>{const start=clockMinutes(t.start),end=clockMinutes(t.end);return start<end?[[start,end]]:[[start,1440],[0,end]];};
+      if(intervals(times["白班"]).some(a=>intervals(times["夜班"]).some(b=>Math.max(a[0],b[0])<Math.min(a[1],b[1]))))fail("白班与夜班时间重叠，请同时调整两班起止时间");
+      d.shiftTimes=times;d.revision++;audit(d,a,"设置白夜班时间",JSON.stringify(times));return;
+    }
     if(type==="settings"){
       dispatchOnly(a);const limits={dwellSeconds:[1,600],maxAccuracy:[1,1000],gapSeconds:[10,3600],exitMargin:[0,1000],maxSpeedKmh:[5,300]};for(const key of Object.keys(limits)){const n=optionalNumber(x[key],key,...limits[key]);if(n!=null)d.settings[key]=n;}d.revision++;audit(d,a,"定位规则设置",JSON.stringify(d.settings));return;
     }
@@ -121,6 +133,6 @@
   }
   function visibleMessages(d,a){const equipment=new Set(d.assignments.filter(r=>r.personId===a.id&&r.kind==="excavator").map(r=>"exc:"+r.vehicleId));return d.messages.filter(msg=>msg.target===a.id||(a.applicationRole==="dispatch"&&msg.target==="dispatch")||(a.applicationRole==="excavator"&&equipment.has(msg.target)));}
   async function act(type,args,actor){if(!navigator.locks?.request)fail("请使用支持事务锁的新版浏览器");return navigator.locks.request(KEY,async()=>{const d=get(),m=L.main(),a=actorFrom(m,actor),result=execute(d,m,a,type,args||{});try{localStorage.setItem(KEY,JSON.stringify(d));}catch(error){fail("保存失败，未新增车次或计数："+error.message);}window.dispatchEvent(new CustomEvent("mine-transport-change"));return result;});}
-  window.MineTransport={KEY,get,context,act,defaults,materialTypes,date,distance,inside,validZone,ownShift,shiftTrip,liveTrip,equipmentState,working,isExcavator,visibleMessages};
+  window.MineTransport={KEY,get,context,act,defaults,materialTypes,shiftTimeDefaults,currentShift,date,distance,inside,validZone,ownShift,shiftTrip,liveTrip,equipmentState,working,isExcavator,visibleMessages};
 })();
 
