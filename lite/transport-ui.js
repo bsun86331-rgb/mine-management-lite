@@ -5,6 +5,7 @@
   const when=v=>v?new Date(v).toLocaleString("zh-CN",{timeZone:"Asia/Ulaanbaatar"}):"—";
   const labels={driver:"司机工作台",excavator:"挖机工作台",dispatch:"调度工作台"},states={working:"作业中",paused:"已暂停",repair:"维修暂停",maintenance:"保养暂停",disabled:"设备已停用",missing:"设备未找到",checking:"待使用前检查",checked:"异常已上报",closed:"已收班",loaded:"装载已识别",hauling:"运输中",review:"定位待核对",completed:"已完成",voided:"已作废",draft:"草稿",active:"已启用",cancelled:"已取消"};
   let d,m,person,actor,view=role==="dispatch"?"overview":"work",modalSave=null,busy=false,signature="",watchId=null,gpsTimer=null,gpsFetching=false,gpsGeneration=0,positionBusy=false,lastQueuedPoint=null,tracking=false,photoUrls=[],modalToken=0,recordSearch="",taskClockSignature="",publishPreviewState=null,selectedDispatchShift=null,dispatchShiftLocked=false,timeConfiguredShift=null,dispatchGroups={},dispatchProductionDate=null,shiftMinute=null,zoneCenterFix=null,zoneFixRequest=0,lastSimulation={lat:"",lng:"",accuracy:"5"};
+  const dispatchBindingEdits=new Map();
   const nameOf=id=>m.people.find(p=>p.id===id)?.name||"未分配",vehicleOf=id=>m.vehicles.find(v=>v.id===id),vehicleName=id=>vehicleOf(id)?.code||"未分配";
   const button=(action,id,label,style="soft")=>'<button type="button" class="'+style+'" data-action="'+action+'" data-id="'+esc(id||"")+'">'+esc(label)+'</button>';
   const pill=(text,warn=false,red=false)=>'<span class="pill'+(red?' red':warn?' warn':'')+'">'+esc(text)+'</span>';
@@ -51,6 +52,9 @@
     return '<div id="dispatchShiftPicker" class="shift-picker" role="group" aria-label="白夜班选择">'+(dispatchShiftLocked?[selectedDispatchShift]:["白班","夜班"]).map(name=>{const times=d.shiftTimes[name],overnight=times.end<times.start;return '<section class="shift-card'+(name===current?' current-shift':'')+(name===selectedDispatchShift?' selected-shift':'')+'"><button type="button" class="shift-name" data-action="selectDispatchShift" data-id="'+name+'" aria-pressed="'+(name===selectedDispatchShift)+'">'+name+(name===current?' · 当前班':'')+'</button><button type="button" class="shift-hours" data-action="editShiftTimes" data-id="'+name+'" aria-label="设置'+name+'时间">'+esc(times.start)+'—'+esc(times.end)+(overnight?' （次日结束）':'')+'</button></section>';}).join("")+'</div>';
   }
   function productionContext(){return {workDate:dispatchProductionDate||T.date(),shiftName:selectedDispatchShift,team:dispatchGroups[selectedDispatchShift]||""};}
+  function dispatchBindingKey(){const c=productionContext();return JSON.stringify([c.workDate,c.shiftName,c.team]);}
+  function publishedDispatchTask(){const c=productionContext();return d.taskReleases.find(r=>r.status==="published"&&(r.sourceDate||r.workDate)===c.workDate&&r.shiftName===c.shiftName&&r.team===c.team);}
+  function dispatchPublishButton(){const release=publishedDispatchTask(),editing=release&&dispatchBindingEdits.get(dispatchBindingKey())===release.id;return button(release&&!editing?"changeTaskBinding":"publishTasks","",release&&!editing?"更改绑定":"发布任务","");}
   function productionGroups(){const c=productionContext();return d.productionGroups.filter(g=>g.workDate===c.workDate&&g.shiftName===c.shiftName&&g.team===c.team&&g.status==="draft").sort((a,b)=>Number(a.number)-Number(b.number)||String(a.createdAt||"").localeCompare(String(b.createdAt||""))||a.id.localeCompare(b.id)).map((g,index)=>({...g,number:index+1}));}
   function productionGroup(id=null){return productionGroups().find(g=>id?g.id===id:g.number===1);}
   function truckGroup(id){return productionGroups().find(g=>g.id===id||g.followingTrucks.some(t=>t.id===id));}
@@ -86,7 +90,7 @@
   function renderDispatchLower(){
     if(!dispatchShiftLocked||timeConfiguredShift!==selectedDispatchShift||!dispatchGroups[selectedDispatchShift])return "";
     const groups=productionGroups();
-    return (groups.length?groups.map(renderProductionGroup).join(""):renderProductionGroup(null))+(groups.length?'<button type="button" class="add-production-group" data-action="addProductionGroup">＋ '+esc(groupTitle({number:groups.length+1}))+'</button>':"")+renderAuxiliaryVehicles()+renderUnusedResources()+'<div class="publish-task-bar">'+button("publishTasks","","发布任务","")+'</div>';
+    return (groups.length?groups.map(renderProductionGroup).join(""):renderProductionGroup(null))+(groups.length?'<button type="button" class="add-production-group" data-action="addProductionGroup">＋ '+esc(groupTitle({number:groups.length+1}))+'</button>':"")+renderAuxiliaryVehicles()+renderUnusedResources()+'<div class="publish-task-bar">'+dispatchPublishButton()+'</div>';
   }
   function renderAuxiliaryVehicles(){
     const cards=(auxiliaryPlan()?.cards||[]).filter(c=>c.status==="draft");
@@ -157,16 +161,17 @@
   }
   function openPublishTasks(){
     if(role!=="dispatch"||!dispatchShiftLocked||timeConfiguredShift!==selectedDispatchShift||!dispatchGroups[selectedDispatchShift])return;
-    const context=productionContext(),fallbackDate=MineTaskEngine.suggestDate(context.workDate,d.shiftTimes[context.shiftName]);
+    const context=productionContext(),release=publishedDispatchTask(),editing=release&&dispatchBindingEdits.get(dispatchBindingKey())===release.id,fallbackDate=editing?release.workDate:MineTaskEngine.suggestDate(context.workDate,d.shiftTimes[context.shiftName]);
     publishPreviewState={context,fallbackDate,valid:false,signature:null};
     show("发布班次任务",input("taskDate","任务日期（班次开始日，选填）",fallbackDate,"date")+'<div id="taskPublishPreview" class="publish-task-preview"></div><p class="help">到班次开始时间任务自动执行；司机和挖机仍须完成使用前检查。发布后修改配置需重新发布，旧版本保留。</p>',f=>{
       const state=publishPreviewState;if(!state?.valid)throw new Error("请先核对可发布任务");
       const taskDate=f.get("taskDate")||state.fallbackDate;
       if(taskDate!==state.taskDate)throw new Error("任务日期已变化，请重新核对预览");
-      return operate("publishTasks",{sourceDate:state.context.workDate,shiftName:state.context.shiftName,team:state.context.team,taskDate,expectedSignature:state.signature},"任务已发布，各岗位看板已更新",()=>{view="tasks";});
+      return operate("publishTasks",{sourceDate:state.context.workDate,shiftName:state.context.shiftName,team:state.context.team,taskDate,expectedSignature:state.signature},"任务已发布，各岗位看板已更新",()=>{dispatchBindingEdits.delete(JSON.stringify([state.context.workDate,state.context.shiftName,state.context.team]));view="assignments";});
     },"发布任务");updatePublishPreview();
   }
   function openAction(action,key){const s=session();
+    if(action==="changeTaskBinding"){if(role!=="dispatch")return;const release=publishedDispatchTask();if(!release)return refresh();dispatchBindingEdits.set(dispatchBindingKey(),release.id);refresh();return toast("请调整绑定，完成后点击发布任务");}
     if(action==="publishTasks")return openPublishTasks();
     if(action==="taskInspection"){if(!["driver","excavator"].includes(role))return;return operate("openShift",{id:key},"请完成使用前检查",()=>{view="work";});}
     if(action==="selectDispatchShift"||action==="editShiftTimes"){
