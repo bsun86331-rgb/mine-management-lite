@@ -51,7 +51,7 @@
     const legacy=[...new Set((d.assignments||[]).filter(a=>a.kind==="excavator"&&a.vehicleId===trip.excavatorId&&a.workDate===trip.workDate&&a.shiftName===trip.shiftName).map(a=>a.personId))];
     return legacy.length===1?legacy[0]:null;
   }
-  function shiftTripTotal(d,m,r){
+  function shiftTripSummary(d,m,r){
     const rows=(d.trips||[]).filter(t=>{
       if(t.status!=="completed"||t.mode!=="gps"||t.workDate!==r.workDate||t.shiftName!==r.shiftName)return false;
       const release=(d.taskReleases||[]).find(v=>v.id===t.releaseId);
@@ -59,7 +59,8 @@
       const team=release?.team||assignment?.team||m.people.find(p=>p.id===t.personId)?.team;
       return team===r.team;
     });
-    return new Set(rows.map(t=>t.id)).size;
+    const unique=[...new Map(rows.map(t=>[t.id,t])).values()];
+    return {total:unique.length,materials:Object.fromEntries(["渣","煤","只记车数"].map(name=>[name,unique.filter(t=>t.material===name).length]))};
   }
   function completedTrips(d,r,task){
     const rows=(d.trips||[]).filter(t=>t.status==="completed"&&t.mode==="gps"&&t.workDate===r.workDate&&t.shiftName===r.shiftName);
@@ -98,6 +99,7 @@
     return '<div class="task-shift-stats" aria-label="班次人员与设备统计"><div class="task-stat-group" title="本班组已审核的一线人员；出勤按已发布分配统计，不代表已完成使用前检查；请假读取档案休假状态"><strong>人员·本班组</strong>'+count("总数",people.length)+count("出勤",attending)+count("请假",leaveCount)+'</div>'+equipment("挖机·共享",excavators)+equipment("汽车·共享",trucks)+'</div>';
   }
   function releaseSection(d,m,r,person,dispatch){
+    const haul=shiftTripSummary(d,m,r);
     const ownTasks=dispatch?r.tasks:r.tasks.filter(t=>t.personId===person.id&&t.role===person.applicationRole),taskIds=new Set(ownTasks.map(t=>t.id));
     const groups=(r.groups||[]).filter(g=>ownTasks.some(t=>t.group?.sourceGroupId===g.sourceGroupId));
     const rows=groups.map(g=>{
@@ -108,7 +110,7 @@
     }).join("");
     const auxiliary=ownTasks.filter(t=>t.kind==="auxiliary");
     const aux=auxiliary.length?'<section class="task-auxiliary"><h4>辅助车辆 / 人员</h4><div class="task-equipment-row">'+auxiliary.map(t=>'<div class="task-auxiliary-item">'+equipment(d,r,t,"auxiliary",t.vehicleCode,t.personName,person.id)+(t.content?'<div class="task-aux-content"><b>作业内容</b><span>'+esc(t.content)+'</span></div>':"")+'</div>').join("")+'</div></section>':"";
-    return '<section class="task-release"><header><div><div class="task-release-title"><h3>'+esc(r.workDate+" · "+r.shiftName+" · "+r.team)+'</h3><span class="task-shift-total" title="该班组本班已完成的真实定位车次；包含非卸载区完成，不含未完成、作废及模拟记录">当班总拉运车数：<b>'+shiftTripTotal(d,m,r)+'</b> 车</span></div><p>'+esc(time(r.startAt)+" — "+time(r.endAt))+' <span>第'+esc(r.version)+'版</span></p></div><span class="task-phase task-'+esc(E().phase(r))+'">'+esc(names[E().phase(r)]||"")+'</span></header>'+releaseStats(d,m,r)+rows+aux+'</section>';
+    return '<section class="task-release"><header><div><div class="task-release-title"><h3>'+esc(r.workDate+" · "+r.shiftName+" · "+r.team)+'</h3><span class="task-shift-total" title="该班组本班已完成的真实定位车次；包含非卸载区完成，不含未完成、作废及模拟记录">当班总拉运车数：<b>'+haul.total+'</b> 车</span>'+["渣","煤","只记车数"].map(name=>'<span class="task-shift-material">'+esc(name)+'：<b>'+haul.materials[name]+'</b> 车</span>').join("")+'</div><p>'+esc(time(r.startAt)+" — "+time(r.endAt))+' <span>第'+esc(r.version)+'版</span></p></div><span class="task-phase task-'+esc(E().phase(r))+'">'+esc(names[E().phase(r)]||"")+'</span></header>'+releaseStats(d,m,r)+rows+aux+'</section>';
   }
   function render(d,m,person,options={}){
     const dispatch=options.dispatch===true,key=dispatch?"dispatch":person.id+":"+person.applicationRole,mode=modes.get(key)||"current";
