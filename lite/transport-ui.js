@@ -65,6 +65,16 @@
     const operatorId=t=>{if(!operators.has(t.id))operators.set(t.id,MineTaskBoard.excavatorOperator(d,t));return operators.get(t.id);};
     return {blank,days,byDate,releases,assignments,people,vehicles,trips,operatorId};
   }
+  function haulSummaryPersonGroup(scope){return {"__crew_a_persons__":"生产A组","__crew_b_persons__":"生产B组"}[scope.personId]||"";}
+  function haulSummaryPersonMulti(scope){return scope.personId==="__all_persons__"||!!haulSummaryPersonGroup(scope);}
+  function haulSummaryPersonMatches(id,scope,context,trip=null){
+    if(scope.personId==="__all_persons__")return true;
+    const team=haulSummaryPersonGroup(scope);
+    if(!team)return id!=null&&id!==""&&String(id)===scope.personId;
+    const person=context.people.get(String(id));
+    const sourceTeam=trip?(context.releases.get(trip.releaseId)?.team||context.assignments.get(trip.assignmentId)?.team):"";
+    return (person?.team||sourceTeam)===team;
+  }
   function haulSummaryOptions(scope,context){
     const entries=new Map(),add=(id,name,description)=>{if(id!=null&&id!==""&&!entries.has(String(id)))entries.set(String(id),{name:name||String(id),label:(name||String(id))+(description?" · "+description:"")+"（"+id+"）"});};
     if(scope.mode==="person"){
@@ -75,7 +85,7 @@
         const actual=d.shifts.find(s=>s.kind==="excavator"&&s.personId===id&&s.vehicleId===t.excavatorId&&s.workDate===t.workDate&&s.shiftName===t.shiftName);
         add(id,operator?.name||actual?.personName||(group?.excavatorDriverId===id?group.excavatorDriverName:""),operator?.role||"挖机司机");
       }
-      if(scope.personId&&scope.personId!=="__all_persons__"&&!entries.has(scope.personId)){const p=context.people.get(scope.personId);add(scope.personId,p?.name,p?.role||"原人员");}
+      if(scope.personId&&!haulSummaryPersonMulti(scope)&&!entries.has(scope.personId)){const p=context.people.get(scope.personId);add(scope.personId,p?.name,p?.role||"原人员");}
     }else if(scope.mode==="equipment"){
       for(const v of m.vehicles.filter(v=>T.isExcavator(v)||T.isHaulTruck(v)))add(v.id,v.code||v.name,v.category||v.model);
       for(const t of context.trips){
@@ -93,8 +103,10 @@
       let hauling=false,loading=false;
       if(scope.mode==="person"){
         const all=scope.personId==="__all_persons__",operatorId=context.operatorId(t);
-        hauling=all?(t.personId!=null&&t.personId!==""):String(t.personId)===scope.personId;loading=all?(operatorId!=null&&operatorId!==""):operatorId!=null&&String(operatorId)===scope.personId;
-        if(!scope.personId||(!all&&!hauling&&!loading))continue;
+        hauling=t.personId!=null&&t.personId!==""&&haulSummaryPersonMatches(t.personId,scope,context,t);
+        loading=operatorId!=null&&operatorId!==""&&haulSummaryPersonMatches(operatorId,scope,context,t);
+        const unassigned=(t.personId==null||t.personId==="")&&(operatorId==null||operatorId==="")&&haulSummaryPersonMulti(scope)&&haulSummaryPersonMatches(null,scope,context,t);
+        if(!scope.personId||(!all&&!hauling&&!loading&&!unassigned))continue;
       }else if(scope.mode==="equipment"){
         hauling=scope.vehicleId==="__all_trucks__"?(t.vehicleId!=null&&t.vehicleId!==""):scope.vehicleId==="__all_excavators__"?false:String(t.vehicleId)===scope.vehicleId;loading=scope.vehicleId==="__all_excavators__"?(t.excavatorId!=null&&t.excavatorId!==""):scope.vehicleId==="__all_trucks__"?false:String(t.excavatorId)===scope.vehicleId;
         if(!scope.vehicleId||(!hauling&&!loading))continue;
@@ -106,15 +118,15 @@
     }
     return {days:context.days,totals};
   }
-  function haulSummaryPeopleRows(context,options){
+  function haulSummaryPeopleRows(context,options,scope){
     const nameCounts=new Map();
     for(const [id,label] of options){const name=context.people.get(id)?.name||label;nameCounts.set(name,(nameCounts.get(name)||0)+1);}
     const people=new Map(options.map(([id,label])=>{const name=context.people.get(id)?.name||label;return [id,{id,name:name+(nameCounts.get(name)>1?"（"+id+"）":"")}];}));
     const rows=new Map(),key=(date,id)=>JSON.stringify([date,id]);
-    for(const day of context.days)for(const person of people.values())rows.set(key(day.workDate,person.id),{workDate:day.workDate,personId:person.id,personName:person.name,...context.blank()});
+    for(const day of context.days)for(const person of people.values())if(haulSummaryPersonMatches(person.id,scope,context))rows.set(key(day.workDate,person.id),{workDate:day.workDate,personId:person.id,personName:person.name,...context.blank()});
     for(const trip of context.trips){
-      const operator=context.operatorId(trip),driver=trip.personId,ids=[...new Set([driver,operator].filter(id=>id!=null&&id!=="").map(String))];
-      if(!ids.length)ids.push("__unassigned_person__");
+      const operator=context.operatorId(trip),driver=trip.personId,actualIds=[...new Set([driver,operator].filter(id=>id!=null&&id!=="").map(String))],ids=actualIds.filter(id=>haulSummaryPersonMatches(id,scope,context,trip));
+      if(!actualIds.length&&haulSummaryPersonMatches(null,scope,context,trip))ids.push("__unassigned_person__");
       for(const id of ids){
         const rowKey=key(trip.workDate,id);
         if(!rows.has(rowKey))rows.set(rowKey,{workDate:trip.workDate,personId:id,personName:people.get(id)?.name||"历史未归属",...context.blank()});
@@ -130,11 +142,11 @@
     if(role!=="dispatch")return "";
     const scope=haulSummaryScope(),context=haulSummaryContext(scope),options=haulSummaryOptions(scope,context),{days,totals}=haulSummaryData(scope,context),today=T.date(),showOther=totals.otherCrew>0,showUnknown=totals.unknown>0;
     haulSummaryRenderedToday=today;
-    const entityId=scope.mode==="person"?scope.personId:scope.vehicleId,entityName=scope.mode==="person"?(entityId==="__all_persons__"?"全员":context.people.get(entityId)?.name||options.find(([id])=>id===entityId)?.[1]||entityId):(entityId==="__all_excavators__"?"全部挖机":entityId==="__all_trucks__"?"全部汽车":context.vehicles.get(entityId)?.code||context.vehicles.get(entityId)?.name||options.find(([id])=>id===entityId)?.[1]||entityId);
+    const entityId=scope.mode==="person"?scope.personId:scope.vehicleId,entityName=scope.mode==="person"?(entityId==="__all_persons__"?"全员":haulSummaryPersonGroup(scope)||context.people.get(entityId)?.name||options.find(([id])=>id===entityId)?.[1]||entityId):(entityId==="__all_excavators__"?"全部挖机":entityId==="__all_trucks__"?"全部汽车":context.vehicles.get(entityId)?.code||context.vehicles.get(entityId)?.name||options.find(([id])=>id===entityId)?.[1]||entityId);
     const modeLabel=scope.mode==="crew"?"生产A组 / 生产B组":scope.mode==="person"?(entityId?"人员："+entityName:"按人名逐日统计"):(entityId?"设备："+entityName:"按设备逐日统计");
     $("subtitle").textContent=scope.startDate+" 至 "+scope.endDate+" · "+modeLabel;
     const tabs='<div class="haul-summary-mode-tabs" role="group" aria-label="逐日统计方式">'+[["crew","班组逐日统计"],["person","按人名逐日统计"],["equipment","按设备逐日统计"]].map(([key,label])=>'<button type="button" data-action="haulSummaryMode" data-id="'+key+'" class="'+(scope.mode===key?"":"soft")+'" aria-pressed="'+(scope.mode===key)+'">'+label+'</button>').join("")+'</div>';
-    const subject=scope.mode==="person"?select("haulSummaryPerson","人员",[["","请选择人员（选填）"],["__all_persons__","全员"],...options],scope.personId):scope.mode==="equipment"?select("haulSummaryVehicle","设备",[["","请选择设备（选填）"],["__all_excavators__","全部挖机"],["__all_trucks__","全部汽车"],...options],scope.vehicleId):"";
+    const subject=scope.mode==="person"?select("haulSummaryPerson","人员",[["","请选择人员（选填）"],["__all_persons__","全员"],["__crew_a_persons__","生产A组"],["__crew_b_persons__","生产B组"],...options],scope.personId):scope.mode==="equipment"?select("haulSummaryVehicle","设备",[["","请选择设备（选填）"],["__all_excavators__","全部挖机"],["__all_trucks__","全部汽车"],...options],scope.vehicleId):"";
     const filters='<div class="haul-summary-filters haul-month-filter">'+subject+input("haulSummaryStartDate","开始日期",scope.startDate,"date")+input("haulSummaryEndDate","结束日期",scope.endDate,"date")+'</div>',toolbar='<div class="haul-summary-toolbar">'+tabs+filters+'</div>';
     if(scope.error)return '<section class="haul-summary">'+toolbar+'<section class="panel"><p class="haul-summary-range-error" role="alert">'+esc(scope.error)+'</p></section></section>';
     if(scope.mode!=="crew"&&!entityId)return '<section class="haul-summary">'+toolbar+'<section class="panel"><p class="help">请选择'+(scope.mode==="person"?"人员":"设备")+'，查看所选日期范围每天的车数及区间合计。</p></section></section>';
@@ -144,7 +156,7 @@
     else line='<span>'+esc(entityName)+'</span>'+T.materialTypes.map(name=>'<span>'+esc(name)+' <b>'+totals[name]+'</b> 车</span>').join("")+'<strong>区间合计 <b>'+totals.total+'</b> 车</strong>';
     const roleColumns=scope.mode==="crew"?[["crewA","生产A组"],["crewB","生产B组"],...(showOther?[["otherCrew","其他/未归属"]]:[])]:scope.mode==="person"?[["haul","拉运车数"],["load","装车车数"]]:[];
     const columns=[...roleColumns,...T.materialTypes.map(name=>[name,name]),...(showUnknown?[["unknown","历史未分类"]]:[])];
-    const allPeople=scope.mode==="person"&&scope.personId==="__all_persons__",displayRows=allPeople?haulSummaryPeopleRows(context,options):days;
+    const allPeople=scope.mode==="person"&&haulSummaryPersonMulti(scope),displayRows=allPeople?haulSummaryPeopleRows(context,options,scope):days;
     haulSummaryExportData={scope,modeLabel,allPeople,totals,columns,context,options,rows:displayRows.map(row=>({...row,future:row.workDate>today&&row.total===0}))};
     $("exportHaulSummary").disabled=false;
     const head='<th>日期</th>'+(allPeople?'<th>姓名</th>':"")+columns.map(([key,label])=>'<th class="haul-summary-number'+(["crewA","crewB"].includes(key)?' haul-crew-heading':'')+'">'+esc(label)+'</th>').join("")+'<th class="haul-summary-number">当日合计</th>';
@@ -153,7 +165,7 @@
       return '<tr class="'+(future?"haul-summary-future":row.workDate===today?"haul-summary-today":"")+'"><td>'+esc(row.workDate)+'</td>'+(allPeople?'<td>'+esc(row.personName)+'</td>':"")+columns.map(([key])=>'<td class="haul-summary-number">'+value(row[key])+'</td>').join("")+'<td class="haul-summary-number haul-summary-total">'+value(row.total)+'</td></tr>';
     }).join("");
     const footer='<tr><td'+(allPeople?' colspan="2"':"")+'>'+(allPeople?'区间合计（车次去重）':'区间合计')+'</td>'+columns.map(([key])=>'<td class="haul-summary-number">'+totals[key]+'</td>').join("")+'<td class="haul-summary-number">'+totals.total+'</td></tr>';
-    return '<section class="haul-summary">'+toolbar+'<div class="haul-summary-line haul-crew-strip">'+line+'</div><section class="panel"><div class="table-wrap"><table class="haul-summary-table haul-crew-month-table" aria-label="'+esc(haulSummaryTitles[scope.mode])+'"><thead><tr>'+head+'</tr></thead><tbody>'+body+'</tbody><tfoot>'+footer+'</tfoot></table></div></section><p class="help">单位：车。夜班按开始日归属，跨月仍计入开始日所在月份。仅统计已完成的真实定位车次，非卸载区完成同样计入；每趟在合计中只计一次。未来日期暂无记录时显示“—”。'+(scope.mode==="person"?' 拉运按实际汽车驾驶员统计，装车按实际装载挖机及其对应司机统计，包含临时挖机装载。':scope.mode==="equipment"?' 按车次记录中的实际汽车或实际装载挖机统计，包含临时挖机装载。':"")+(allPeople?' 全员按日期和姓名逐行展示，含零车数司机；同一趟分别归属汽车司机和挖机司机，个人行不可相加作为总车数，底部合计按实际车次去重。':"")+(scope.mode==="crew"&&showOther?' 旧记录的其他或未归属班组车次单独列出。':"")+(showUnknown?' 旧物料未归入统一三类时单独显示“历史未分类”。':"")+'</p></section>';
+    return '<section class="haul-summary">'+toolbar+'<div class="haul-summary-line haul-crew-strip">'+line+'</div><section class="panel"><div class="table-wrap"><table class="haul-summary-table haul-crew-month-table" aria-label="'+esc(haulSummaryTitles[scope.mode])+'"><thead><tr>'+head+'</tr></thead><tbody>'+body+'</tbody><tfoot>'+footer+'</tfoot></table></div></section><p class="help">单位：车。夜班按开始日归属，跨月仍计入开始日所在月份。仅统计已完成的真实定位车次，非卸载区完成同样计入；每趟在合计中只计一次。未来日期暂无记录时显示“—”。'+(scope.mode==="person"?' 拉运按实际汽车驾驶员统计，装车按实际装载挖机及其对应司机统计，包含临时挖机装载。':scope.mode==="equipment"?' 按车次记录中的实际汽车或实际装载挖机统计，包含临时挖机装载。':"")+(allPeople?' 所选范围人员按日期和姓名逐行展示，含零车数司机；同一趟分别归属汽车司机和挖机司机，个人行不可相加作为总车数，底部合计按实际车次去重。':"")+(scope.mode==="crew"&&showOther?' 旧记录的其他或未归属班组车次单独列出。':"")+(showUnknown?' 旧物料未归入统一三类时单独显示“历史未分类”。':"")+'</p></section>';
   }
   function assignmentCards(rows,own=false){return rows.length?rows.map(r=>'<section class="panel"><div class="panel-head"><h2>'+esc(r.workDate||"日期未设置")+' · '+esc(r.shiftName)+'</h2>'+pill(states[r.status]||r.status,r.status==="draft")+'</div><p><strong>'+esc(nameOf(r.personId))+'</strong> · '+esc(vehicleName(r.vehicleId))+'</p><p class="muted">'+(r.kind==="driver"?'绑定挖机：'+esc(vehicleName(r.excavatorId)):'挖机操作人员排班')+'</p>'+(r.note?'<p class="muted">'+esc(r.note)+'</p>':'')+'<div class="actions">'+(own&&r.status==="active"&&!session()?button("openShift",r.id,"接班并检查设备",""):"")+(role==="dispatch"&&!d.shifts.some(s=>s.assignmentId===r.id)?button("assignment",r.id,"编辑"):'')+(role==="dispatch"&&r.status==="draft"?button("activateAssignment",r.id,"启用排班",""):'')+(role==="dispatch"&&["draft","active"].includes(r.status)?button("cancelAssignment",r.id,"取消排班","danger"):'')+'</div></section>').join(""):(own?empty("尚无可用排班，请等待调度分配车辆和班次"):"");}
 
@@ -281,15 +293,15 @@
     },"发布任务");updatePublishPreview();
   }
   function personnelMatrixSheets(report){
-    const {scope,context,options}=report,all=scope.personId==="__all_persons__",today=T.date();
+    const {scope,context,options}=report,all=haulSummaryPersonMulti(scope),today=T.date();
     return [["driver","汽车司机汇总","汽车拉运车数统计表","haul"],["excavator","挖机司机汇总","挖机装车数统计表","load"]].map(([roleCode,name,heading,kind])=>{
-      const people=new Map(),add=(id,label)=>{if(id==null||id===""||(!all&&String(id)!==scope.personId))return;id=String(id);if(!people.has(id))people.set(id,{id,name:context.people.get(id)?.name||label||id,counts:new Map()});};
+      const people=new Map(),add=(id,label,trip=null)=>{if(id==null||id===""||(!all&&String(id)!==scope.personId)||!haulSummaryPersonMatches(id,scope,context,trip))return;id=String(id);if(!people.has(id))people.set(id,{id,name:context.people.get(id)?.name||label||id,counts:new Map()});};
       for(const p of m.people)if(p.applicationRole===roleCode)add(p.id,p.name);
       for(const t of context.trips){
         const id=kind==="haul"?t.personId:context.operatorId(t),hasEquipment=kind==="haul"?t.vehicleId:t.excavatorId;
-        if(!hasEquipment)continue;
-        if(id==null||id===""){if(all)add("__unassigned_"+kind+"__","历史未归属");}
-        else add(id,options.find(([key])=>key===String(id))?.[1]);
+        if(!hasEquipment||!haulSummaryPersonMatches(id,scope,context,t))continue;
+        if(id==null||id===""){if(all)add("__unassigned_"+kind+"__","历史未归属",t);}
+        else add(id,options.find(([key])=>key===String(id))?.[1],t);
         const row=people.get(id==null||id===""?"__unassigned_"+kind+"__":String(id));
         if(row)row.counts.set(t.workDate,(row.counts.get(t.workDate)||0)+1);
       }
@@ -297,7 +309,7 @@
       const records=[...people.values()].sort((a,b)=>a.name.localeCompare(b.name,"zh-CN",{numeric:true})||a.id.localeCompare(b.id)).map(p=>({name:p.name+(duplicateNames.get(p.name)>1?"（"+p.id+"）":""),values:context.days.map(day=>day.workDate>today&&!p.counts.has(day.workDate)?null:p.counts.get(day.workDate)||0)}));
       const crossYear=scope.startDate.slice(0,4)!==scope.endDate.slice(0,4);
       const dates=context.days.map(day=>crossYear?day.workDate:Number(day.workDate.slice(5,7))+"月"+Number(day.workDate.slice(8,10))+"日");
-      return {name,title:scope.startDate+"至"+scope.endDate+" "+heading,dates,records,matrix:true,notes:["单位：车。"+(all?"全部人员":"当前所选人员")+"；按班次开始日归属，仅统计已完成真实定位车次。",kind==="haul"?"汽车司机按每趟实际驾驶员统计。":"挖机司机按实际装载设备对应司机统计，包含临时挖机。","无车数显示0，未来暂无记录留空；汽车与挖机分别统计，同一趟不能将两张表相加作为总拉运数。"]};
+      return {name,title:scope.startDate+"至"+scope.endDate+" "+heading,dates,records,matrix:true,notes:["单位：车。"+(haulSummaryPersonGroup(scope)||(all?"全部人员":"当前所选人员"))+"；按班次开始日归属，仅统计已完成真实定位车次。",kind==="haul"?"汽车司机按每趟实际驾驶员统计。":"挖机司机按实际装载设备对应司机统计，包含临时挖机。","无车数显示0，未来暂无记录留空；汽车与挖机分别统计，同一趟不能将两张表相加作为总拉运数。"]};
     });
   }
   function exportHaulSummary(){
@@ -309,7 +321,7 @@
     const {scope,modeLabel,allPeople,totals,columns}=report;
     const fields=[["日期",r=>r.workDate,26,"date"],...(allPeople?[["姓名",r=>r.personName,24]]:[]),...columns.map(([key,label])=>[label,r=>r.future?null:r[key],18,"integer"]),["当日合计",r=>r.future?null:r.total,18,"integer"]];
     const rows=[...report.rows,{...totals,workDate:allPeople?"区间合计（车次去重）":"区间合计",personName:""}];
-    const notes=["单位：车。仅统计已完成的真实定位车次，按班次开始日归属；未来日期暂无记录的数值留空。",...(scope.mode==="person"?["拉运按实际汽车司机、装车按实际装载挖机对应司机归属，包含临时挖机。"]:[]),...(allPeople?["全员按日期和姓名列出，含零车数人员；同一趟分别归属汽车和挖机司机，个人行不能相加作为总车数，区间合计按实际车次去重。"]:[]),...(scope.mode==="equipment"?["按车次实际汽车或实际装载挖机归集，包含临时挖机。"]:[]),...(totals.unknown?["历史未分类车次保留在单独分类和合计中。"]:[])];
+    const notes=["单位：车。仅统计已完成的真实定位车次，按班次开始日归属；未来日期暂无记录的数值留空。",...(scope.mode==="person"?["拉运按实际汽车司机、装车按实际装载挖机对应司机归属，包含临时挖机。"]:[]),...(allPeople?["所选范围人员按日期和姓名列出，含零车数人员；同一趟分别归属汽车和挖机司机，个人行不能相加作为总车数，区间合计按实际车次去重。"]:[]),...(scope.mode==="equipment"?["按车次实际汽车或实际装载挖机归集，包含临时挖机。"]:[]),...(totals.unknown?["历史未分类车次保留在单独分类和合计中。"]:[])];
     const title=(haulSummaryTitles[scope.mode]+"_"+scope.startDate+"至"+scope.endDate+"_"+modeLabel).replace(/[\\/:*?"<>|\[\]]/g,"_");
     try{if(scope.mode==="person")window.MineTableExport.downloadSheets([{name:"人员逐日明细",columns:fields,records:rows,title,notes},...personnelMatrixSheets(report)],title);else window.MineTableExport.download(fields,rows,title,{notes});toast("Excel 已导出");}catch(error){toast("导出失败："+error.message);}
   }
