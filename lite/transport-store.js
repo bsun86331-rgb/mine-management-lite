@@ -128,9 +128,32 @@
     audit(d,a,"设备状态",vehicleId+" → "+mode+"；"+reason,{vehicleId});
   }
   function resetCandidate(s){s.candidate=null;}
-  function reviewTrip(d,s,trip,reason,a){resetCandidate(s);s.locationWarning=reason;if(trip&&trip.status!=="review"){trip.resumeStatus=trip.status;trip.status="review";trip.reviewReason=reason;trip.unloadCandidate=null;trip.events.push({at:now(),type:"定位中断待核对",reason});notify(d,s.personId,"本趟运输待核对："+reason,trip.id);notify(d,"dispatch",s.personName+"运输定位待核对："+reason,trip.id);audit(d,a,"车次待核对",reason,{tripId:trip.id});}}
-  function completeTrip(d,s,t,method,p,zone,material,a){if(!liveTrip(t))fail("本趟已结束，不能重复计车");Object.assign(t,{status:"completed",completedAt:now(),method,unloadPoint:p?clone(p):null,unloadZone:zone?clone(zone):null,material:material||"未分类",materialSource:zone?"卸载区":"区外卸料填写",unloadCandidate:null});t.events.push({at:now(),type:method==="gps"?"GPS卸载区完成":"非卸载区卸料",point:p?clone(p):null});resetCandidate(s);s.tempExcavatorId=null;notify(d,t.personId,"本趟卸料完成，车辆和实际装载挖机各计1车",t.id);notify(d,"exc:"+t.excavatorId,t.vehicleCode+"已卸料，装载车次完成："+t.material,t.id);if(method==="outside")notify(d,"dispatch",t.personName+"提交非卸载区卸料，已计1车："+t.material,t.id);audit(d,a,"运输完成",t.vehicleCode+" → "+t.excavatorCode+"；"+t.material+"；"+method,{tripId:t.id,mode:t.mode});}
-  function startLoad(d,m,s,z,p,a){const assignment=d.assignments.find(v=>v.id===s.assignmentId),exc=m.vehicles.find(v=>v.id===(s.tempExcavatorId||assignment?.excavatorId));if(!assignment||!exc||!working(d,m,exc.id))fail("装载挖机当前不可作业，请选择可用的临时挖机");const taskZones=window.MineTaskEngine?.zonesFor(d,assignment,exc.id);const t={id:uid(),shiftId:s.id,assignmentId:s.assignmentId,releaseId:assignment.releaseId||null,taskId:assignment.taskId||null,personId:s.personId,personName:s.personName,vehicleId:s.vehicleId,vehicleCode:s.vehicleCode,workDate:s.workDate,shiftName:s.shiftName,excavatorId:exc.id,excavatorCode:exc.code,originalExcavatorId:assignment.excavatorId,isTemporary:exc.id!==assignment.excavatorId,mode:p.mode,status:"loaded",loadedAt:now(),loadPoint:clone(p),loadZone:clone(z),unloadZones:clone((taskZones?taskZones.unloads:d.zones.filter(z=>z.enabled&&z.kind==="unload"&&validZone(z))).map(z=>!z.material||materialTypes.includes(z.material)?z:{...z,legacyMaterial:z.material,material:""})),settings:clone(d.settings),zoneRevision:d.revision,events:[{at:now(),type:"装载区有效停留",point:clone(p)}]};d.trips.unshift(t);s.tempExcavatorId=null;resetCandidate(s);notify(d,"exc:"+exc.id,s.vehicleCode+"已在装载区形成在途车次",t.id);audit(d,a,"装载车次开始",s.vehicleCode+" 在 "+exc.code+" 装载",{tripId:t.id,mode:p.mode});return t;}
+  function beginHaulDistance(p){return {version:1,basis:"gps-sampled",metres:0,complete:true,samples:1,lastFix:clone(p),anchor:clone(p),track:[clone(p)],gaps:[]};}
+  function breakHaulDistance(t,reason){
+    const h=t?.haulDistance;if(!h)return;
+    h.complete=false;h.anchor=null;h.lastFix=null;h.gaps.push({at:now(),reason});
+  }
+  function recordHaulDistance(t,p){
+    const h=t?.haulDistance;if(!h||t.mode!=="gps")return;
+    if(!p||p.mode!=="gps"||!Number.isFinite(p.lat)||!Number.isFinite(p.lng)||!Number.isFinite(p.ts)||!Number.isFinite(p.accuracy)||p.accuracy>(t.settings?.maxAccuracy??50))return;
+    if(h.lastFix&&p.ts<=h.lastFix.ts)return;
+    if(h.lastFix&&p.ts-h.lastFix.ts>(t.settings?.gapSeconds??90)*1000)breakHaulDistance(t,"有效定位间隔过长");
+    h.samples++;h.lastFix=clone(p);
+    if(!h.anchor){h.anchor=clone(p);h.track.push({...clone(p),breakBefore:true});return;}
+    const metres=distance(h.anchor,p),noise=Math.max(5,(h.anchor.accuracy+p.accuracy)/2);
+    if(metres<noise)return;
+    h.metres+=metres;h.anchor=clone(p);h.track.push(clone(p));
+  }
+  function finishHaulDistance(t,p,method){
+    if(!t.haulDistance)return;
+    recordHaulDistance(t,p);
+    if(!p||!Number.isFinite(p.ts)||Date.now()-p.ts>(t.settings?.gapSeconds??90)*1000)breakHaulDistance(t,"卸料时缺少及时有效的终点定位");
+    t.haulDistance.finishedAt=now();t.haulDistance.endPoint=p?clone(p):null;
+    t.haulDistance.endSource=method==="outside"?"outside-last-fix":"gps-unload";
+  }
+  function reviewTrip(d,s,trip,reason,a){breakHaulDistance(trip,reason);resetCandidate(s);s.locationWarning=reason;if(trip&&trip.status!=="review"){trip.resumeStatus=trip.status;trip.status="review";trip.reviewReason=reason;trip.unloadCandidate=null;trip.events.push({at:now(),type:"定位中断待核对",reason});notify(d,s.personId,"本趟运输待核对："+reason,trip.id);notify(d,"dispatch",s.personName+"运输定位待核对："+reason,trip.id);audit(d,a,"车次待核对",reason,{tripId:trip.id});}}
+  function completeTrip(d,s,t,method,p,zone,material,a){if(!liveTrip(t))fail("本趟已结束，不能重复计车");finishHaulDistance(t,p,method);Object.assign(t,{status:"completed",completedAt:now(),method,unloadPoint:p?clone(p):null,unloadZone:zone?clone(zone):null,material:material||"未分类",materialSource:zone?"卸载区":"区外卸料填写",unloadCandidate:null});t.events.push({at:now(),type:method==="gps"?"GPS卸载区完成":"非卸载区卸料",point:p?clone(p):null});resetCandidate(s);s.tempExcavatorId=null;notify(d,t.personId,"本趟卸料完成，车辆和实际装载挖机各计1车",t.id);notify(d,"exc:"+t.excavatorId,t.vehicleCode+"已卸料，装载车次完成："+t.material,t.id);if(method==="outside")notify(d,"dispatch",t.personName+"提交非卸载区卸料，已计1车："+t.material,t.id);audit(d,a,"运输完成",t.vehicleCode+" → "+t.excavatorCode+"；"+t.material+"；"+method,{tripId:t.id,mode:t.mode});}
+  function startLoad(d,m,s,z,p,a){const assignment=d.assignments.find(v=>v.id===s.assignmentId),exc=m.vehicles.find(v=>v.id===(s.tempExcavatorId||assignment?.excavatorId));if(!assignment||!exc||!working(d,m,exc.id))fail("装载挖机当前不可作业，请选择可用的临时挖机");const taskZones=window.MineTaskEngine?.zonesFor(d,assignment,exc.id);const t={id:uid(),shiftId:s.id,assignmentId:s.assignmentId,releaseId:assignment.releaseId||null,taskId:assignment.taskId||null,personId:s.personId,personName:s.personName,vehicleId:s.vehicleId,vehicleCode:s.vehicleCode,workDate:s.workDate,shiftName:s.shiftName,excavatorId:exc.id,excavatorCode:exc.code,originalExcavatorId:assignment.excavatorId,isTemporary:exc.id!==assignment.excavatorId,mode:p.mode,status:"loaded",haulDistance:p.mode==="gps"?beginHaulDistance(p):null,loadedAt:now(),loadPoint:clone(p),loadZone:clone(z),unloadZones:clone((taskZones?taskZones.unloads:d.zones.filter(z=>z.enabled&&z.kind==="unload"&&validZone(z))).map(z=>!z.material||materialTypes.includes(z.material)?z:{...z,legacyMaterial:z.material,material:""})),settings:clone(d.settings),zoneRevision:d.revision,events:[{at:now(),type:"装载区有效停留",point:clone(p)}]};d.trips.unshift(t);s.tempExcavatorId=null;resetCandidate(s);notify(d,"exc:"+exc.id,s.vehicleCode+"已在装载区形成在途车次",t.id);audit(d,a,"装载车次开始",s.vehicleCode+" 在 "+exc.code+" 装载",{tripId:t.id,mode:p.mode});return t;}
   function location(d,m,a,x){if(a.applicationRole!=="driver")fail("仅司机端处理运输定位");const s=requireWorking(d,a);if(!working(d,m,s.vehicleId))fail("当前车辆已暂停、维修或停用");let t=shiftTrip(d,s);const settings=t?.settings||d.settings,mode=x.mode;if(!["gps","simulation"].includes(mode))fail("请选择定位来源");if(t&&t.mode!==mode)fail("在途车次不能切换定位来源，请先处理本趟");
     const p={lat:optionalNumber(x.lat,"纬度",-90,90),lng:optionalNumber(x.lng,"经度",-180,180),accuracy:optionalNumber(x.accuracy,"定位精度",0,100000),ts:Number(x.ts),mode};if(p.lat==null||p.lng==null||p.accuracy==null||!Number.isFinite(p.ts))fail("尚未获得有效位置，请开启定位或输入模拟坐标");if(Math.abs(Date.now()-p.ts)>60000){s.locationWarning="位置时间已过期，等待新的定位";resetCandidate(s);return;}
     if(s.lastPoint?.mode!==mode){s.lastPoint=null;resetCandidate(s);}if(s.lastPoint&&p.ts<=s.lastPoint.ts)return;
@@ -138,6 +161,7 @@
     if(s.lastPoint&&p.ts-s.lastPoint.ts>settings.gapSeconds*1000){reviewTrip(d,s,t,"定位间隔超过 "+settings.gapSeconds+" 秒",a);s.lastPoint=p;s.track=[...(s.track||[]),p].slice(-80);if(t)return;}
     if(s.lastPoint&&mode==="gps"&&p.ts>s.lastPoint.ts&&distance(s.lastPoint,p)/(p.ts-s.lastPoint.ts)*3600>settings.maxSpeedKmh){reviewTrip(d,s,t,"定位发生明显跳点，未自动计车",a);s.lastRejectedPoint=p;s.lastPoint=p;return;}
     s.lastPoint=p;s.track=[...(s.track||[]),p].slice(-80);s.locationWarning="";if(t?.status==="review"){s.locationWarning=t.reviewReason;return;}
+    if(t)recordHaulDistance(t,p);
     if(!t){const assignment=d.assignments.find(v=>v.id===s.assignmentId),excId=s.tempExcavatorId||assignment?.excavatorId;if(!excId){s.locationWarning="尚未绑定装载挖机";return;}if(!working(d,m,excId)){s.locationWarning="绑定挖机暂停/维修，请选择临时非绑定挖机";resetCandidate(s);return;}
       if(assignment?.releaseId&&Date.now()>=Date.parse(assignment.endAt)){s.locationWarning="班次时间已结束，不再开始新装载；可完成原在途车次";resetCandidate(s);return;}
       const taskZones=window.MineTaskEngine?.zonesFor(d,assignment,excId);
