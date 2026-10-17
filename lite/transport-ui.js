@@ -6,7 +6,8 @@
   const labels={driver:"司机工作台",excavator:"挖机工作台",dispatch:"调度工作台"},states={working:"作业中",paused:"已暂停",repair:"维修暂停",maintenance:"保养暂停",disabled:"设备已停用",missing:"设备未找到",checking:"待使用前检查",checked:"异常已上报",closed:"已收班",loaded:"装载已识别",hauling:"运输中",review:"定位待核对",completed:"已完成",voided:"已作废",draft:"草稿",active:"已启用",cancelled:"已取消"};
   let d,m,person,actor,view=role==="dispatch"?"tasks":"work",modalSave=null,busy=false,signature="",watchId=null,gpsTimer=null,gpsFetching=false,gpsGeneration=0,positionBusy=false,lastQueuedPoint=null,tracking=false,photoUrls=[],modalToken=0,recordSearch="",taskClockSignature="",publishPreviewState=null,selectedDispatchShift=null,dispatchShiftLocked=false,timeConfiguredShift=null,dispatchGroups={},dispatchProductionDate=null,shiftMinute=null,zoneCenterFix=null,zoneFixRequest=0,lastSimulation={lat:"",lng:"",accuracy:"5"};
   const dispatchBindingEdits=new Map();
-  const haulSummaryFilters={workDate:null,shiftName:null,team:""};
+  const haulSummaryFilters={month:null,shiftName:"",team:""};
+  let haulSummaryRenderedMonth="";
   const nameOf=id=>m.people.find(p=>p.id===id)?.name||"未分配",vehicleOf=id=>m.vehicles.find(v=>v.id===id),vehicleName=id=>vehicleOf(id)?.code||"未分配";
   const button=(action,id,label,style="soft")=>'<button type="button" class="'+style+'" data-action="'+action+'" data-id="'+esc(id||"")+'">'+esc(label)+'</button>';
   const pill=(text,warn=false,red=false)=>'<span class="pill'+(red?' red':warn?' warn':'')+'">'+esc(text)+'</span>';
@@ -38,55 +39,47 @@
   function render(){
     $("transportFooter").hidden=role==="dispatch";
     $("workspaceRefresh").hidden=role==="dispatch";
-    const entries=role==="dispatch"?[["tasks","任务看板"],["summary","汇总统计"],["assignments","白夜班排班"],["zones","GPS作业区域"],["records","运输车次"],["faults","检查与异常责任"],["devices","设备暂停与恢复"],["sessions","实际班次"],["messages","消息中心"],["settings","定位规则"],["audit","操作记录"]]:[["work",role==="driver"?"本班驾驶作业":"本班装载作业"],["tasks","我的任务看板"],["records","运输车次"],["faults","检查与责任关联"],["sessions","我的班次"],["messages","消息中心"]];
+    const entries=role==="dispatch"?[["tasks","任务看板"],["summary","月报汇总"],["assignments","白夜班排班"],["zones","GPS作业区域"],["records","运输车次"],["faults","检查与异常责任"],["devices","设备暂停与恢复"],["sessions","实际班次"],["messages","消息中心"],["settings","定位规则"],["audit","操作记录"]]:[["work",role==="driver"?"本班驾驶作业":"本班装载作业"],["tasks","我的任务看板"],["records","运输车次"],["faults","检查与责任关联"],["sessions","我的班次"],["messages","消息中心"]];
     if(!entries.some(e=>e[0]===view))view=entries[0][0];const unread=T.visibleMessages(d,person).filter(v=>!v.readBy.includes(person.id)).length;
     $("roleLabel").textContent=labels[role];$("identity").textContent=person.name+" · "+person.status;$("nav").innerHTML=entries.map(([id,label])=>'<button type="button" data-view="'+id+'" class="'+(id===view?'selected':'')+'">'+label+(id==="messages"&&unread?' ('+unread+')':'')+'</button>').join("");
-    $("title").textContent=entries.find(v=>v[0]===view)[1];$("subtitle").textContent=view==="summary"?"按日期、班次和班组汇总有效完成车次":role==="dispatch"?"排班、区域、设备与车次共用同一台账":role==="driver"?"先检查设备，再按装载与卸载区域完成运输":"按实际装载挖机汇总跟随车辆的已完成车次";document.title=labels[role]+" · 矿山管理系统";
+    $("title").textContent=entries.find(v=>v[0]===view)[1];$("subtitle").textContent=view==="summary"?"按月逐日汇总拉运车数":role==="dispatch"?"排班、区域、设备与车次共用同一台账":role==="driver"?"先检查设备，再按装载与卸载区域完成运输":"按实际装载挖机汇总跟随车辆的已完成车次";document.title=labels[role]+" · 矿山管理系统";
     $("eyebrow").hidden=false;$("subtitle").hidden=false;$("notice").hidden=false;
     $("notice").innerHTML=(unread?'<div class="banner">你有 '+unread+' 条未读作业消息。'+button("go-messages","","查看")+'</div>':'');
     const renderers={summary:renderHaulSummary,tasks:()=>MineTaskBoard.render(d,m,person,{dispatch:role==="dispatch",hideTitle:true}),assignments:renderAssignments,zones:renderZones,records:renderRecords,faults:renderFaults,devices:renderDevices,sessions:renderSessions,messages:renderMessages,settings:renderSettings,audit:renderAudit,work:role==="driver"?renderDriver:renderExcavator};
     $("content").innerHTML=(view==="work"?MineTaskBoard.render(d,m,person):"")+renderers[view]();taskClockSignature=MineTaskBoard.clockKey(d);
   }
   function haulSummaryScope(){
-    const current=MineTaskBoard.slots(d).current;
-    return {workDate:haulSummaryFilters.workDate||current?.workDate||T.date(),shiftName:haulSummaryFilters.shiftName??current?.shiftName??T.currentShift(d.shiftTimes)??"",team:haulSummaryFilters.team};
+    return {month:haulSummaryFilters.month||T.date().slice(0,7),shiftName:haulSummaryFilters.shiftName,team:haulSummaryFilters.team};
   }
   function haulSummaryData(scope){
+    const blank=()=>({total:0,"渣":0,"煤":0,"只记车数":0,unknown:0});
+    const end=new Date(scope.month+"-01T00:00:00Z");end.setUTCMonth(end.getUTCMonth()+1,0);
+    const days=Array.from({length:end.getUTCDate()},(_,index)=>({workDate:scope.month+"-"+String(index+1).padStart(2,"0"),...blank()})),byDate=new Map(days.map(row=>[row.workDate,row]));
     const releases=new Map(d.taskReleases.map(r=>[r.id,r])),assignments=new Map(d.assignments.map(a=>[a.id,a])),people=new Map(m.people.map(p=>[p.id,p]));
     const tripTeam=t=>releases.get(t.releaseId)?.team||assignments.get(t.assignmentId)?.team||people.get(t.personId)?.team||"未记录班组";
-    const selected=new Map(d.trips.filter(t=>t.status==="completed"&&t.mode==="gps"&&t.workDate===scope.workDate&&(!scope.shiftName||t.shiftName===scope.shiftName)&&(!scope.team||tripTeam(t)===scope.team)).map(t=>[t.id,t]));
-    const totals={total:0,"渣":0,"煤":0,"只记车数":0,unknown:0},groups=new Map();
-    function rowFor(vehicleId,operatorId,team,shiftName,vehicleCode,personName){
-      const key=JSON.stringify([vehicleId||vehicleCode||"",operatorId||"",team,shiftName]);
-      if(!groups.has(key))groups.set(key,{vehicleId,operatorId,team,shiftName,vehicleCode:vehicleCode||"未记录挖机",personName:personName||"未记录司机",total:0,"渣":0,"煤":0,"只记车数":0,unknown:0});
-      return groups.get(key);
-    }
-    // Include published excavator assignments with zero completed trips.
-    for(const release of d.taskReleases.filter(r=>r.status==="published"&&r.workDate===scope.workDate&&(!scope.shiftName||r.shiftName===scope.shiftName)&&(!scope.team||r.team===scope.team))){
-      for(const task of release.tasks.filter(t=>t.kind==="excavator"))rowFor(task.vehicleId,task.personId,release.team,release.shiftName,task.vehicleCode,task.personName);
-    }
+    const selected=new Map(d.trips.filter(t=>t.status==="completed"&&t.mode==="gps"&&byDate.has(t.workDate)&&(!scope.shiftName||t.shiftName===scope.shiftName)&&(!scope.team||tripTeam(t)===scope.team)).map(t=>[t.id,t]));
+    const totals=blank();
     for(const t of selected.values()){
-      const source=releases.get(t.releaseId),operatorId=MineTaskBoard.excavatorOperator(d,t),snapshot=source?.groups?.find(g=>g.excavatorId===t.excavatorId);
-      const operatorName=(snapshot?.excavatorDriverId===operatorId?snapshot.excavatorDriverName:"")||people.get(operatorId)?.name||d.shifts.find(s=>s.kind==="excavator"&&s.personId===operatorId&&s.vehicleId===t.excavatorId&&s.workDate===t.workDate&&s.shiftName===t.shiftName)?.personName;
-      const row=rowFor(t.excavatorId,operatorId,tripTeam(t),t.shiftName,t.excavatorCode,operatorName);
-      const material=T.materialTypes.includes(t.material)?t.material:"unknown";
+      const row=byDate.get(t.workDate),material=T.materialTypes.includes(t.material)?t.material:"unknown";
       row.total++;row[material]++;totals.total++;totals[material]++;
     }
-    const rows=[...groups.values()].sort((a,b)=>String(a.team).localeCompare(String(b.team),"zh-CN")||(["白班","夜班"].indexOf(a.shiftName)-["白班","夜班"].indexOf(b.shiftName))||String(a.vehicleCode).localeCompare(String(b.vehicleCode),"zh-CN",{numeric:true})||String(a.personName).localeCompare(String(b.personName),"zh-CN"));
-    return {rows,totals};
+    return {days,totals};
   }
   function renderHaulSummary(){
     if(role!=="dispatch")return "";
-    const scope=haulSummaryScope(),{rows,totals}=haulSummaryData(scope),showTeam=!scope.team,showShift=!scope.shiftName,showUnknown=totals.unknown>0;
-    const materials=[...T.materialTypes,...(showUnknown?["unknown"]:[])],names={unknown:"历史未分类"},columns=2+Number(showTeam)+Number(showShift)+materials.length+1;
-    const filters='<div class="haul-summary-filters">'+input("haulSummaryDate","日期",scope.workDate,"date")+select("haulSummaryShift","班次",[["","全部班次"],["白班","白班"],["夜班","夜班"]],scope.shiftName)+select("haulSummaryTeam","生产班组",[["","全部班组"],["生产A组","生产A组"],["生产B组","生产B组"]],scope.team)+'</div>';
-    const heading='<div class="haul-summary-context">'+esc(scope.workDate+" · "+(scope.shiftName||"全部班次")+" · "+(scope.team||"全部班组"))+'</div>';
-    const line='<div class="haul-summary-line"><strong>总拉运 <b>'+totals.total+'</b> 车</strong>'+T.materialTypes.map(name=>'<span>'+esc(name)+' <b>'+totals[name]+'</b> 车</span>').join("")+'</div>';
-    const labelCols='<th>挖机</th><th>挖机司机</th>'+(showTeam?'<th>班组</th>':"")+(showShift?'<th>班次</th>':"");
-    const countHead=materials.map(name=>'<th class="haul-summary-number">'+esc(names[name]||name)+'</th>').join("")+'<th class="haul-summary-number">合计</th>';
-    const body=rows.length?rows.map(row=>'<tr><td><strong>'+esc(row.vehicleCode)+'</strong></td><td>'+esc(row.personName)+'</td>'+(showTeam?'<td>'+esc(row.team)+'</td>':"")+(showShift?'<td>'+esc(row.shiftName)+'</td>':"")+materials.map(name=>'<td class="haul-summary-number">'+row[name]+'</td>').join("")+'<td class="haul-summary-number haul-summary-total">'+row.total+'</td></tr>').join(""):'<tr><td colspan="'+columns+'" class="haul-summary-empty">暂无该范围的已发布挖机任务或已完成车次</td></tr>';
-    const footer='<tr><td colspan="'+(2+Number(showTeam)+Number(showShift))+'">合计</td>'+materials.map(name=>'<td class="haul-summary-number">'+totals[name]+'</td>').join("")+'<td class="haul-summary-number">'+totals.total+'</td></tr>';
-    return '<section class="haul-summary">'+filters+heading+line+'<section class="panel"><h2>挖机装车汇总</h2><div class="table-wrap"><table class="haul-summary-table"><thead><tr>'+labelCols+countHead+'</tr></thead><tbody>'+body+'</tbody><tfoot>'+footer+'</tfoot></table></div></section><p class="help">单位：车。仅统计已完成的真实定位车次，非卸载区完成同样计入；按实际装载挖机归属，每趟只计一次。'+(showUnknown?' 旧车次未归入现有三类物料的数量单独列为“历史未分类”。':"")+'</p></section>';
+    const scope=haulSummaryScope(),{days,totals}=haulSummaryData(scope),today=T.date(),showUnknown=totals.unknown>0;
+    haulSummaryRenderedMonth=scope.month;
+    const materials=[...T.materialTypes,...(showUnknown?["unknown"]:[])],names={unknown:"历史未分类"};
+    const filters='<div class="haul-summary-filters">'+input("haulSummaryMonth","月份",scope.month,"month")+select("haulSummaryShift","班次",[["","全部班次"],["白班","白班"],["夜班","夜班"]],scope.shiftName)+select("haulSummaryTeam","生产班组",[["","全部班组"],["生产A组","生产A组"],["生产B组","生产B组"]],scope.team)+'</div>';
+    const heading='<div class="haul-summary-context">'+esc(scope.month.replace("-","年")+"月 · "+(scope.shiftName||"全部班次")+" · "+(scope.team||"全部班组"))+'</div>';
+    const line='<div class="haul-summary-line"><strong>本月总拉运 <b>'+totals.total+'</b> 车</strong>'+T.materialTypes.map(name=>'<span>'+esc(name)+' <b>'+totals[name]+'</b> 车</span>').join("")+'</div>';
+    const head='<th>日期</th>'+materials.map(name=>'<th class="haul-summary-number">'+esc(names[name]||name)+'</th>').join("")+'<th class="haul-summary-number">当日合计</th>';
+    const body=days.map(row=>{
+      const future=row.workDate>today&&row.total===0,value=n=>future?"—":n;
+      return '<tr class="'+(future?"haul-summary-future":row.workDate===today?"haul-summary-today":"")+'"><td>'+esc(row.workDate)+(row.workDate===today?' <small class="haul-summary-today-label">今日</small>':"")+'</td>'+materials.map(name=>'<td class="haul-summary-number">'+value(row[name])+'</td>').join("")+'<td class="haul-summary-number haul-summary-total">'+value(row.total)+'</td></tr>';
+    }).join("");
+    const footer='<tr><td>本月合计</td>'+materials.map(name=>'<td class="haul-summary-number">'+totals[name]+'</td>').join("")+'<td class="haul-summary-number">'+totals.total+'</td></tr>';
+    return '<section class="haul-summary">'+filters+heading+line+'<section class="panel"><h2>逐日月报汇总</h2><div class="table-wrap"><table class="haul-summary-table haul-monthly-table"><thead><tr>'+head+'</tr></thead><tbody>'+body+'</tbody><tfoot>'+footer+'</tfoot></table></div></section><p class="help">单位：车。夜班按班次开始日归属，跨月仍计入开始日所在月份。仅统计已完成的真实定位车次，非卸载区完成同样计入，每趟只计一次；未来日期暂无记录时显示“—”。'+(showUnknown?' 旧车次未归入现有三类物料的数量单独列为“历史未分类”。':"")+'</p></section>';
   }
   function assignmentCards(rows,own=false){return rows.length?rows.map(r=>'<section class="panel"><div class="panel-head"><h2>'+esc(r.workDate||"日期未设置")+' · '+esc(r.shiftName)+'</h2>'+pill(states[r.status]||r.status,r.status==="draft")+'</div><p><strong>'+esc(nameOf(r.personId))+'</strong> · '+esc(vehicleName(r.vehicleId))+'</p><p class="muted">'+(r.kind==="driver"?'绑定挖机：'+esc(vehicleName(r.excavatorId)):'挖机操作人员排班')+'</p>'+(r.note?'<p class="muted">'+esc(r.note)+'</p>':'')+'<div class="actions">'+(own&&r.status==="active"&&!session()?button("openShift",r.id,"接班并检查设备",""):"")+(role==="dispatch"&&!d.shifts.some(s=>s.assignmentId===r.id)?button("assignment",r.id,"编辑"):'')+(role==="dispatch"&&r.status==="draft"?button("activateAssignment",r.id,"启用排班",""):'')+(role==="dispatch"&&["draft","active"].includes(r.status)?button("cancelAssignment",r.id,"取消排班","danger"):'')+'</div></section>').join(""):(own?empty("尚无可用排班，请等待调度分配车辆和班次"):"");}
 
@@ -380,15 +373,15 @@
   $("logisticsDialog").addEventListener("close",()=>{$("logisticsFrame").src="about:blank";});
   window.addEventListener("message",event=>{if(event.origin===location.origin&&event.source===$("logisticsFrame").contentWindow&&event.data?.type==="mine-close-logistics")$("logisticsDialog").close();});
   document.addEventListener("change",event=>{
-    if(["haulSummaryDate","haulSummaryShift","haulSummaryTeam"].includes(event.target.name)){
+    if(["haulSummaryMonth","haulSummaryShift","haulSummaryTeam"].includes(event.target.name)){
       if(role!=="dispatch")return;
-      if(event.target.name==="haulSummaryDate"){const value=event.target.value;haulSummaryFilters.workDate=/^\d{4}-\d{2}-\d{2}$/.test(value)?value:null;}
+      if(event.target.name==="haulSummaryMonth"){const value=event.target.value;haulSummaryFilters.month=/^\d{4}-(0[1-9]|1[0-2])$/.test(value)?value:null;}
       if(event.target.name==="haulSummaryShift")haulSummaryFilters.shiftName=["","白班","夜班"].includes(event.target.value)?event.target.value:"";
       if(event.target.name==="haulSummaryTeam")haulSummaryFilters.team=["","生产A组","生产B组"].includes(event.target.value)?event.target.value:"";
       refresh();return;
     }if(event.target.name==="taskDate")updatePublishPreview();invalidateZoneFix(event.target);if(event.target.name==="kind")syncAssignmentFields();if(event.target.name==="zoneKind")syncZoneFields();if(event.target.id==="inspectionPhotos")previewSelected(event.target.files||[]);if(event.target.name==="simulationZone"){const z=simulationZones.find(z=>z.id===event.target.value);if(z){$("editForm").querySelector('[name="lat"]').value=z.lat;$("editForm").querySelector('[name="lng"]').value=z.lng;}}});
   document.addEventListener("input",event=>{invalidateZoneFix(event.target);if(event.target.id==="recordSearch"){recordSearch=event.target.value;const start=event.target.selectionStart;$("content").innerHTML=renderRecords();const field=$("recordSearch");field.focus();field.setSelectionRange(start,start);}});
-  async function externalChange(){try{await T.sync();T.context(role);const latest=T.stamp()+localStorage.getItem(L.PEOPLE)+localStorage.getItem(L.KEY);if(latest!==signature||MineTaskBoard.clockKey(d)!==taskClockSignature||(role==="dispatch"&&view==="assignments"&&shiftMinute!==Math.floor(Date.now()/60000)))refresh();}catch(error){block(error);}}
+  async function externalChange(){try{await T.sync();T.context(role);const latest=T.stamp()+localStorage.getItem(L.PEOPLE)+localStorage.getItem(L.KEY);if(latest!==signature||MineTaskBoard.clockKey(d)!==taskClockSignature||(role==="dispatch"&&view==="summary"&&!haulSummaryFilters.month&&haulSummaryRenderedMonth!==T.date().slice(0,7))||(role==="dispatch"&&view==="assignments"&&shiftMinute!==Math.floor(Date.now()/60000)))refresh();}catch(error){block(error);}}
   document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")stopGPS(true);else externalChange();});
   window.addEventListener("pagehide",()=>{stopGPS(true);releasePhotos();});window.addEventListener("storage",externalChange);window.addEventListener("focus",externalChange);setInterval(externalChange,1000);T.ready().then(()=>refresh()).catch(block);
 })();
