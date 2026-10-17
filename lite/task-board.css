@@ -3,3 +3,5 @@
 @media(max-width:600px){.task-board-toolbar>div{align-items:flex-start;flex-direction:column;gap:3px}.task-board-toolbar span{line-height:1.5}.task-equipment,.task-auxiliary-item{flex-basis:104px;width:104px}.task-region{flex-basis:128px;width:128px}.task-equipment-row{gap:5px}.task-release{padding:8px}}
 
 .task-shift-stats{display:flex;flex-wrap:wrap;gap:5px 10px;padding:7px 0 2px;font-size:14px;line-height:1.6}.task-stat-group{display:flex;align-items:center;flex-wrap:wrap;gap:3px 8px;padding:3px 7px;border:1px solid #e0e9e2;border-radius:6px;background:#f7faf7}.task-stat-group strong{font-size:14px;color:#176b4a}.task-stat-group span{white-space:nowrap;color:#63756a}.task-stat-group b{font-weight:600;color:#17251e}
+
+.task-driver-count{font-size:12px;font-weight:600;color:#174883;line-height:1.4}.task-equipment-truck .task-driver-count{color:#1c5697}
