@@ -46,6 +46,16 @@
     const legacy=[...new Set((d.assignments||[]).filter(a=>a.kind==="excavator"&&a.vehicleId===trip.excavatorId&&a.workDate===trip.workDate&&a.shiftName===trip.shiftName).map(a=>a.personId))];
     return legacy.length===1?legacy[0]:null;
   }
+  function shiftTripTotal(d,m,r){
+    const rows=(d.trips||[]).filter(t=>{
+      if(t.status!=="completed"||t.mode!=="gps"||t.workDate!==r.workDate||t.shiftName!==r.shiftName)return false;
+      const release=(d.taskReleases||[]).find(v=>v.id===t.releaseId);
+      const assignment=(d.assignments||[]).find(a=>a.id===t.assignmentId);
+      const team=release?.team||assignment?.team||m.people.find(p=>p.id===t.personId)?.team;
+      return team===r.team;
+    });
+    return new Set(rows.map(t=>t.id)).size;
+  }
   function completedCount(d,r,task){
     const rows=(d.trips||[]).filter(t=>t.status==="completed"&&t.mode==="gps"&&t.workDate===r.workDate&&t.shiftName===r.shiftName);
     const own=task.kind==="driver"?rows.filter(t=>t.personId===task.personId):rows.filter(t=>t.excavatorId===task.vehicleId&&excavatorOperator(d,t)===task.personId);
@@ -84,7 +94,7 @@
     }).join("");
     const auxiliary=ownTasks.filter(t=>t.kind==="auxiliary");
     const aux=auxiliary.length?'<section class="task-auxiliary"><h4>辅助车辆 / 人员</h4><div class="task-equipment-row">'+auxiliary.map(t=>'<div class="task-auxiliary-item">'+equipment(d,r,t,"auxiliary",t.vehicleCode,t.personName,person.id)+(t.content?'<div class="task-aux-content"><b>作业内容</b><span>'+esc(t.content)+'</span></div>':"")+'</div>').join("")+'</div></section>':"";
-    return '<section class="task-release"><header><div><h3>'+esc(r.workDate+" · "+r.shiftName+" · "+r.team)+'</h3><p>'+esc(time(r.startAt)+" — "+time(r.endAt))+' <span>第'+esc(r.version)+'版</span></p></div><span class="task-phase task-'+esc(E().phase(r))+'">'+esc(names[E().phase(r)]||"")+'</span></header>'+releaseStats(d,m,r)+rows+aux+'</section>';
+    return '<section class="task-release"><header><div><div class="task-release-title"><h3>'+esc(r.workDate+" · "+r.shiftName+" · "+r.team)+'</h3><span class="task-shift-total" title="该班组本班已完成的真实定位车次；包含非卸载区完成，不含未完成、作废及模拟记录">当班总拉运车数：<b>'+shiftTripTotal(d,m,r)+'</b> 车</span></div><p>'+esc(time(r.startAt)+" — "+time(r.endAt))+' <span>第'+esc(r.version)+'版</span></p></div><span class="task-phase task-'+esc(E().phase(r))+'">'+esc(names[E().phase(r)]||"")+'</span></header>'+releaseStats(d,m,r)+rows+aux+'</section>';
   }
   function render(d,m,person,options={}){
     const dispatch=options.dispatch===true,key=dispatch?"dispatch":person.id+":"+person.applicationRole,mode=modes.get(key)||"current";
