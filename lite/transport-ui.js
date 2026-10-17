@@ -80,9 +80,8 @@
     return '<section class="production-group-section"><div class="actions">'+button("openProductionGroup",g?.id||"",groupTitle(g),"")+'</div>'+(g?'<div class="production-equipment-row"><div class="production-equipment-card" aria-label="'+esc(groupTitle(g))+'挖机">'+button("chooseProductionEquipment",g.id,v?(v.code||v.name||"已选设备"):(g.vehicleId?"设备失效，请重选":"选择设备"),"equipment-choice equipment-label")+button("chooseProductionDriver",g.id,p?(p.name+(driverValid?"":"（需重选）")):(g.personId?"司机失效，请重选":"选择司机"),"equipment-choice driver-label")+button("removeProductionGroup",g.id,"移除","equipment-remove")+'</div>'+(ready?renderFollowingTruck(g):"")+'</div>':"")+'</section>';
   }
   function renderAssignments(){
-    const rows=dispatchShiftLocked?d.assignments.filter(r=>r.shiftName===selectedDispatchShift&&(!dispatchGroups[selectedDispatchShift]||m.people.find(p=>p.id===r.personId)?.team===dispatchGroups[selectedDispatchShift])):d.assignments;
     const group=dispatchGroups[selectedDispatchShift]||"";
-    return renderShiftButtons()+(dispatchShiftLocked&&timeConfiguredShift===selectedDispatchShift?'<div class="actions" style="margin-bottom:20px">'+button("selectDispatchGroup",selectedDispatchShift,group?'选择班组：'+group:'选择班组',"")+'</div>':"")+renderDispatchLower()+assignmentCards(rows);
+    return renderShiftButtons()+(dispatchShiftLocked&&timeConfiguredShift===selectedDispatchShift?'<div class="actions" style="margin-bottom:20px">'+button("selectDispatchGroup",selectedDispatchShift,group?'选择班组：'+group:'选择班组',"")+'</div>':"")+renderDispatchLower();
   }
   function renderDispatchLower(){
     if(!dispatchShiftLocked||timeConfiguredShift!==selectedDispatchShift||!dispatchGroups[selectedDispatchShift])return "";
