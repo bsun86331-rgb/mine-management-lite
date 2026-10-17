@@ -169,3 +169,11 @@
 .haul-crew-month-table tfoot{background:#eaf4ed;font-weight:500}
 .haul-crew-month-table tfoot td{padding-top:10px;padding-bottom:10px}
 @media(max-width:600px){.haul-month-filter{justify-content:flex-start}.haul-month-filter>label{flex:0 1 180px}}
+
+.haul-summary-toolbar{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+.haul-summary-mode-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:0}
+.haul-summary-mode-tabs button{padding:7px 10px;min-height:35px;font-size:12px;white-space:nowrap}
+.haul-summary-toolbar .haul-month-filter{margin:0;gap:8px}
+.haul-summary-toolbar .haul-month-filter>label{flex:0 1 220px;max-width:280px}
+.haul-summary-toolbar select{max-width:100%}
+@media(max-width:600px){.haul-summary-toolbar{align-items:stretch}.haul-summary-toolbar .haul-month-filter{width:100%;justify-content:flex-start}.haul-summary-toolbar .haul-month-filter>label{flex:1 1 140px;max-width:100%}}
