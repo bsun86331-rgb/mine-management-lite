@@ -140,14 +140,13 @@
     }
     return [...rows.values()].sort((a,b)=>a.workDate.localeCompare(b.workDate)||a.personName.localeCompare(b.personName,"zh-CN",{numeric:true})||a.personId.localeCompare(b.personId));
   }
-  function renderCoalRatio(scope){
-    if(scope.mode!=="crew")return "";
+  function renderCoalRatio(scope,entityName){
     const settings=coalRatioSettings,month=settings.month||T.date().slice(0,7),year=Number(month.slice(0,4)),monthIndex=Number(month.slice(5,7))-1;
     const dateAt=(offset,day)=>{const last=new Date(Date.UTC(year,monthIndex+offset+1,0)).getUTCDate();return new Date(Date.UTC(year,monthIndex+offset,Math.min(day,last))).toISOString().slice(0,10);};
     const custom=settings.period==="custom",startDate=dateAt(0,custom?settings.startDay:1),endDate=custom?dateAt(settings.endDay<settings.startDay?1:0,settings.endDay):dateAt(0,31);
-    const ratioScope={...scope,startDate,endDate,error:"",personId:""},context=haulSummaryContext(ratioScope),{totals}=haulSummaryData(ratioScope,context),percent=totals.total?(totals["煤"]/totals.total*100).toFixed(2)+"%":"—";
+    const ratioScope={...scope,startDate,endDate,error:"",personId:scope.personId||"__all_persons__",mode:scope.mode==="equipment"&&!scope.vehicleId?"crew":scope.mode},context=haulSummaryContext(ratioScope),{totals}=haulSummaryData(ratioScope,context),percent=totals.total?(totals["煤"]/totals.total*100).toFixed(2)+"%":"—";
     const dayOptions=Array.from({length:31},(_,i)=>[String(i+1),String(i+1)+"号"]);
-    return '<section class="coal-ratio-panel" aria-label="煤渣比例"><div class="coal-ratio-heading"><h2>煤渣比例</h2><span>'+"班组汇总"+' · '+esc(startDate)+' 至 '+esc(endDate)+'</span></div><div class="coal-ratio-values"><div><span>渣车数</span><strong>'+totals["渣"]+'<small> 车</small></strong></div><div><span>煤车数</span><strong>'+totals["煤"]+'<small> 车</small></strong></div><div><span>煤占总车数</span><strong>'+percent+'</strong></div></div><div class="coal-ratio-controls">'+select("coalRatioPeriod","统计周期",[["natural","自然月"],["custom","自定义每月几号到几号"]],settings.period)+input("coalRatioMonth","统计月份（周期开始月）",month,"month")+(custom?select("coalRatioStartDay","每月开始日",dayOptions,settings.startDay)+select("coalRatioEndDay","每月结束日",dayOptions,settings.endDay):"")+'</div><p class="help">煤占比＝煤车数 ÷ 总车数；总车数含渣、煤、只记车数及历史未分类，每趟只计一次。'+(totals.total?"":"暂无有效车次，比例显示“—”。")+(custom?"结束日小于开始日时跨至次月，月份没有对应日期时取当月最后一天。":"自然月按当月1日至最后一天统计。")+'</p></section>';
+    return '<section class="coal-ratio-panel" aria-label="煤渣比例"><div class="coal-ratio-heading"><h2>煤渣比例</h2><span>'+esc(scope.mode==="crew"?"班组汇总":scope.mode==="person"?(scope.personId?entityName:"全员"):(scope.vehicleId?entityName:"全部设备"))+' · '+esc(startDate)+' 至 '+esc(endDate)+'</span></div><div class="coal-ratio-values"><div><span>渣车数</span><strong>'+totals["渣"]+'<small> 车</small></strong></div><div><span>煤车数</span><strong>'+totals["煤"]+'<small> 车</small></strong></div><div><span>煤占总车数</span><strong>'+percent+'</strong></div></div><div class="coal-ratio-controls">'+select("coalRatioPeriod","统计周期",[["natural","自然月"],["custom","自定义每月几号到几号"]],settings.period)+input("coalRatioMonth","统计月份",month,"month")+(custom?select("coalRatioStartDay","每月开始日",dayOptions,settings.startDay)+select("coalRatioEndDay","每月结束日",dayOptions,settings.endDay):"")+'</div><p class="help">煤占比＝煤车数 ÷ 总车数；总车数含渣、煤、只记车数及历史未分类，每趟只计一次。'+(totals.total?"":"暂无有效车次，比例显示“—”。")+(custom?"结束日小于开始日时跨至次月，月份没有对应日期时取当月最后一天。":"自然月按当月1日至最后一天统计。")+'</p></section>';
   }
   function renderHaulSummary(){
     if(role!=="dispatch")return "";
@@ -158,7 +157,7 @@
     $("subtitle").textContent=scope.startDate+" 至 "+scope.endDate+" · "+modeLabel;
     const tabs='<div class="haul-summary-mode-tabs" role="group" aria-label="逐日统计方式">'+[["crew","班组逐日统计"],["person","按人名逐日统计"],["equipment","按设备逐日统计"]].map(([key,label])=>'<button type="button" data-action="haulSummaryMode" data-id="'+key+'" class="'+(scope.mode===key?"":"soft")+'" aria-pressed="'+(scope.mode===key)+'">'+label+'</button>').join("")+'</div>';
     const subject=scope.mode==="person"?select("haulSummaryPerson","人员",[["","请选择人员（选填）"],["__all_persons__","全员"],["__crew_a_persons__","生产A组"],["__crew_b_persons__","生产B组"],...options],scope.personId):scope.mode==="equipment"?select("haulSummaryVehicle","设备",[["","请选择设备（选填）"],["__all_excavators__","全部挖机"],["__all_trucks__","全部汽车"],...options],scope.vehicleId):"";
-    const ratioPanel=renderCoalRatio(scope);
+    const ratioPanel=renderCoalRatio(scope,entityName);
     const filters='<div class="haul-summary-filters haul-month-filter">'+subject+input("haulSummaryStartDate","开始日期",scope.startDate,"date")+input("haulSummaryEndDate","结束日期",scope.endDate,"date")+'</div>',toolbar='<div class="haul-summary-toolbar">'+tabs+filters+'</div>';
     if(scope.error)return '<section class="haul-summary">'+ratioPanel+toolbar+'<section class="panel"><p class="haul-summary-range-error" role="alert">'+esc(scope.error)+'</p></section></section>';
     if(scope.mode!=="crew"&&!entityId)return '<section class="haul-summary">'+ratioPanel+toolbar+'<section class="panel"><p class="help">请选择'+(scope.mode==="person"?"人员":"设备")+'，查看所选日期范围每天的车数及区间合计。</p></section></section>';
