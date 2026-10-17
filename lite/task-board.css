@@ -58,3 +58,5 @@
 .task-trip-events li{padding:4px 0;line-height:1.6;overflow-wrap:anywhere}
 .task-trip-events time{font-size:11px;color:#687d70}
 @media(max-width:600px){.task-trip-detail{padding:10px}.task-trip-detail .task-detail-fields{grid-template-columns:1fr}}
+
+.task-shift-material{font-size:14px;line-height:1.6;color:#176b4a;white-space:nowrap}.task-shift-material b{font-weight:700;color:#17251e}
