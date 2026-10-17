@@ -45,3 +45,16 @@
 .task-detail-photos img{display:block;max-width:100%;max-height:180px;object-fit:contain;margin-bottom:7px}
 .task-detail-photos a{color:#176b4a}
 @media(max-width:600px){.task-details-dialog>header{padding:12px}.task-details-body{padding:12px}.task-detail-fields{gap:10px}.task-details-dialog h2{font-size:16px}.task-detail-photos figure{flex-basis:100%}}
+
+.task-trip-list{display:flex;flex-direction:column;gap:12px;margin-top:14px}
+.task-trip-detail{border:1px solid #dce5df;border-radius:9px;padding:12px;background:#fbfdfb}
+.task-trip-detail>header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:7px;padding-bottom:9px;border-bottom:1px solid #e0e9e2;margin-bottom:10px}
+.task-trip-detail h3{font-size:14px;margin:0;color:#174883}
+.task-trip-distance{font-size:13px;color:#176b4a;overflow-wrap:anywhere}
+.task-trip-distance-note{font-size:11px;color:#7c724e;line-height:1.6;margin:10px 0 0}
+.task-trip-events{border-top:1px solid #e0e9e2;padding-top:9px;margin-top:10px;font-size:12px}
+.task-trip-events summary{color:#176b4a;cursor:pointer}
+.task-trip-events ol{margin:9px 0 0;padding-left:20px}
+.task-trip-events li{padding:4px 0;line-height:1.6;overflow-wrap:anywhere}
+.task-trip-events time{font-size:11px;color:#687d70}
+@media(max-width:600px){.task-trip-detail{padding:10px}.task-trip-detail .task-detail-fields{grid-template-columns:1fr}}
