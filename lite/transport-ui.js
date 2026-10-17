@@ -50,10 +50,10 @@
     return '<div id="dispatchShiftPicker" class="shift-picker" role="group" aria-label="白夜班选择">'+(dispatchShiftLocked?[selectedDispatchShift]:["白班","夜班"]).map(name=>{const times=d.shiftTimes[name],overnight=times.end<times.start;return '<section class="shift-card'+(name===current?' current-shift':'')+(name===selectedDispatchShift?' selected-shift':'')+'"><button type="button" class="shift-name" data-action="selectDispatchShift" data-id="'+name+'" aria-pressed="'+(name===selectedDispatchShift)+'">'+name+(name===current?' · 当前班':'')+'</button><button type="button" class="shift-hours" data-action="editShiftTimes" data-id="'+name+'" aria-label="设置'+name+'时间">'+esc(times.start)+'—'+esc(times.end)+(overnight?' （次日结束）':'')+'</button></section>';}).join("")+'</div>';
   }
   function productionContext(){return {workDate:dispatchProductionDate||T.date(),shiftName:selectedDispatchShift,team:dispatchGroups[selectedDispatchShift]||""};}
-  function productionGroups(){const c=productionContext();return d.productionGroups.filter(g=>g.workDate===c.workDate&&g.shiftName===c.shiftName&&g.team===c.team&&g.status==="draft").sort((a,b)=>a.number-b.number);}
+  function productionGroups(){const c=productionContext();return d.productionGroups.filter(g=>g.workDate===c.workDate&&g.shiftName===c.shiftName&&g.team===c.team&&g.status==="draft").sort((a,b)=>Number(a.number)-Number(b.number)||String(a.createdAt||"").localeCompare(String(b.createdAt||""))||a.id.localeCompare(b.id)).map((g,index)=>({...g,number:index+1}));}
   function productionGroup(id=null){return productionGroups().find(g=>id?g.id===id:g.number===1);}
   function truckGroup(id){return productionGroups().find(g=>g.id===id||g.followingTrucks.some(t=>t.id===id));}
-  function groupTitle(g){const n=g?.number||1,names=["","一","二","三","四","五","六","七","八","九","十"];return "第"+(names[n]||n)+"组生产设备";}
+  function groupTitle(g){const n=g?.number||1,names=["","一","二","三","四","五","六","七","八","九","十"];const label=n<=10?names[n]:n<100?(n<20?"十":names[Math.floor(n/10)]+"十")+(n%10?names[n%10]:""):String(n);return "第"+label+"组生产设备";}
   function auxiliaryPlan(){const c=productionContext();return d.auxiliaryPlans.find(p=>p.workDate===c.workDate&&p.shiftName===c.shiftName&&p.team===c.team);}
   function draftAvailable(field,id,except){return !T.draftSlots(d,productionContext()).some(slot=>slot.id!==except&&slot[field]===id);}
   const frontLineRoles=["driver","excavator",...T.auxiliaryRoles];
@@ -86,7 +86,7 @@
   function renderDispatchLower(){
     if(!dispatchShiftLocked||timeConfiguredShift!==selectedDispatchShift||!dispatchGroups[selectedDispatchShift])return "";
     const groups=productionGroups();
-    return (groups.length?groups.map(renderProductionGroup).join(""):renderProductionGroup(null))+'<button type="button" class="add-production-group" data-action="addProductionGroup">＋ 添加生产组</button>'+renderAuxiliaryVehicles()+renderUnusedResources();
+    return (groups.length?groups.map(renderProductionGroup).join(""):renderProductionGroup(null))+(groups.length?'<button type="button" class="add-production-group" data-action="addProductionGroup">＋ '+esc(groupTitle({number:groups.length+1}))+'</button>':"")+renderAuxiliaryVehicles()+renderUnusedResources();
   }
   function renderAuxiliaryVehicles(){
     const cards=(auxiliaryPlan()?.cards||[]).filter(c=>c.status==="draft");
