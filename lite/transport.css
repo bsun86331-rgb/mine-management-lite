@@ -177,3 +177,5 @@
 .haul-summary-toolbar .haul-month-filter>label{flex:0 1 220px;max-width:280px}
 .haul-summary-toolbar select{max-width:100%}
 @media(max-width:600px){.haul-summary-toolbar{align-items:stretch}.haul-summary-toolbar .haul-month-filter{width:100%;justify-content:flex-start}.haul-summary-toolbar .haul-month-filter>label{flex:1 1 140px;max-width:100%}}
+
+.haul-summary-range-error{font-size:13px;line-height:1.6;color:var(--red);margin:0}.haul-summary-toolbar input[type="date"]{min-width:0}

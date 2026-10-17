@@ -6,9 +6,9 @@
   const labels={driver:"司机工作台",excavator:"挖机工作台",dispatch:"调度工作台"},states={working:"作业中",paused:"已暂停",repair:"维修暂停",maintenance:"保养暂停",disabled:"设备已停用",missing:"设备未找到",checking:"待使用前检查",checked:"异常已上报",closed:"已收班",loaded:"装载已识别",hauling:"运输中",review:"定位待核对",completed:"已完成",voided:"已作废",draft:"草稿",active:"已启用",cancelled:"已取消"};
   let d,m,person,actor,view=role==="dispatch"?"tasks":"work",modalSave=null,busy=false,signature="",watchId=null,gpsTimer=null,gpsFetching=false,gpsGeneration=0,positionBusy=false,lastQueuedPoint=null,tracking=false,photoUrls=[],modalToken=0,recordSearch="",taskClockSignature="",publishPreviewState=null,selectedDispatchShift=null,dispatchShiftLocked=false,timeConfiguredShift=null,dispatchGroups={},dispatchProductionDate=null,shiftMinute=null,zoneCenterFix=null,zoneFixRequest=0,lastSimulation={lat:"",lng:"",accuracy:"5"};
   const dispatchBindingEdits=new Map();
-  const haulSummaryFilters={month:null,mode:"crew",personId:"",vehicleId:""};
-  const haulSummaryTitles={crew:"班组逐日车数月报",person:"人员逐日车数月报",equipment:"设备逐日车数月报"};
-  let haulSummaryRenderedMonth="";
+  const haulSummaryFilters={startDate:null,endDate:null,mode:"crew",personId:"",vehicleId:""};
+  const haulSummaryTitles={crew:"班组逐日车数统计",person:"人员逐日车数统计",equipment:"设备逐日车数统计"};
+  let haulSummaryRenderedToday="";
   const nameOf=id=>m.people.find(p=>p.id===id)?.name||"未分配",vehicleOf=id=>m.vehicles.find(v=>v.id===id),vehicleName=id=>vehicleOf(id)?.code||"未分配";
   const button=(action,id,label,style="soft")=>'<button type="button" class="'+style+'" data-action="'+action+'" data-id="'+esc(id||"")+'">'+esc(label)+'</button>';
   const pill=(text,warn=false,red=false)=>'<span class="pill'+(red?' red':warn?' warn':'')+'">'+esc(text)+'</span>';
@@ -49,11 +49,16 @@
     const renderers={summary:renderHaulSummary,tasks:()=>MineTaskBoard.render(d,m,person,{dispatch:role==="dispatch",hideTitle:true}),assignments:renderAssignments,zones:renderZones,records:renderRecords,faults:renderFaults,devices:renderDevices,sessions:renderSessions,messages:renderMessages,settings:renderSettings,audit:renderAudit,work:role==="driver"?renderDriver:renderExcavator};
     $("content").innerHTML=(view==="work"?MineTaskBoard.render(d,m,person):"")+renderers[view]();taskClockSignature=MineTaskBoard.clockKey(d);
   }
-  function haulSummaryScope(){return {month:haulSummaryFilters.month||T.date().slice(0,7),mode:haulSummaryFilters.mode,personId:haulSummaryFilters.personId,vehicleId:haulSummaryFilters.vehicleId};}
+  function haulSummaryValidDate(value){return /^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value+"T00:00:00Z"))&&new Date(value+"T00:00:00Z").toISOString().slice(0,10)===value;}
+  function haulSummaryScope(){
+    const today=T.date(),startDate=haulSummaryFilters.startDate||today.slice(0,7)+"-01",endDate=haulSummaryFilters.endDate||today;
+    const error=!haulSummaryValidDate(startDate)||!haulSummaryValidDate(endDate)?"请选择有效的开始日期和结束日期":startDate>endDate?"开始日期不能晚于结束日期，请调整日期范围":"";
+    return {startDate,endDate,error,mode:haulSummaryFilters.mode,personId:haulSummaryFilters.personId,vehicleId:haulSummaryFilters.vehicleId};
+  }
   function haulSummaryContext(scope){
     const blank=()=>({total:0,crewA:0,crewB:0,otherCrew:0,haul:0,load:0,"渣":0,"煤":0,"只记车数":0,unknown:0});
-    const end=new Date(scope.month+"-01T00:00:00Z");end.setUTCMonth(end.getUTCMonth()+1,0);
-    const days=Array.from({length:end.getUTCDate()},(_,index)=>({workDate:scope.month+"-"+String(index+1).padStart(2,"0"),...blank()})),byDate=new Map(days.map(row=>[row.workDate,row]));
+    const start=Date.parse(scope.startDate+"T00:00:00Z"),end=Date.parse(scope.endDate+"T00:00:00Z"),length=scope.error?0:Math.round((end-start)/86400000)+1;
+    const days=Array.from({length},(_,index)=>({workDate:new Date(start+index*86400000).toISOString().slice(0,10),...blank()})),byDate=new Map(days.map(row=>[row.workDate,row]));
     const releases=new Map(d.taskReleases.map(r=>[r.id,r])),assignments=new Map(d.assignments.map(a=>[a.id,a])),people=new Map(m.people.map(p=>[String(p.id),p])),vehicles=new Map(m.vehicles.map(v=>[String(v.id),v]));
     const trips=[...new Map(d.trips.filter(t=>t.status==="completed"&&t.mode==="gps"&&byDate.has(t.workDate)).map(t=>[t.id,t])).values()],operators=new Map();
     const operatorId=t=>{if(!operators.has(t.id))operators.set(t.id,MineTaskBoard.excavatorOperator(d,t));return operators.get(t.id);};
@@ -102,26 +107,27 @@
   function renderHaulSummary(){
     if(role!=="dispatch")return "";
     const scope=haulSummaryScope(),context=haulSummaryContext(scope),options=haulSummaryOptions(scope,context),{days,totals}=haulSummaryData(scope,context),today=T.date(),showOther=totals.otherCrew>0,showUnknown=totals.unknown>0;
-    haulSummaryRenderedMonth=scope.month;
+    haulSummaryRenderedToday=today;
     const entityId=scope.mode==="person"?scope.personId:scope.vehicleId,entityName=scope.mode==="person"?(context.people.get(entityId)?.name||options.find(([id])=>id===entityId)?.[1]||entityId):(context.vehicles.get(entityId)?.code||context.vehicles.get(entityId)?.name||options.find(([id])=>id===entityId)?.[1]||entityId);
     const modeLabel=scope.mode==="crew"?"生产A组 / 生产B组":scope.mode==="person"?(entityId?"人员："+entityName:"按人名逐日统计"):(entityId?"设备："+entityName:"按设备逐日统计");
-    $("subtitle").textContent=scope.month.slice(0,4)+"年"+Number(scope.month.slice(5))+"月 · "+modeLabel;
-    const tabs='<div class="haul-summary-mode-tabs" role="group" aria-label="月报统计方式">'+[["crew","班组逐日统计"],["person","按人名逐日统计"],["equipment","按设备逐日统计"]].map(([key,label])=>'<button type="button" data-action="haulSummaryMode" data-id="'+key+'" class="'+(scope.mode===key?"":"soft")+'" aria-pressed="'+(scope.mode===key)+'">'+label+'</button>').join("")+'</div>';
+    $("subtitle").textContent=scope.startDate+" 至 "+scope.endDate+" · "+modeLabel;
+    const tabs='<div class="haul-summary-mode-tabs" role="group" aria-label="逐日统计方式">'+[["crew","班组逐日统计"],["person","按人名逐日统计"],["equipment","按设备逐日统计"]].map(([key,label])=>'<button type="button" data-action="haulSummaryMode" data-id="'+key+'" class="'+(scope.mode===key?"":"soft")+'" aria-pressed="'+(scope.mode===key)+'">'+label+'</button>').join("")+'</div>';
     const subject=scope.mode==="person"?select("haulSummaryPerson","人员",[["","请选择人员（选填）"],...options],scope.personId):scope.mode==="equipment"?select("haulSummaryVehicle","设备",[["","请选择设备（选填）"],...options],scope.vehicleId):"";
-    const filters='<div class="haul-summary-filters haul-month-filter">'+subject+input("haulSummaryMonth","统计月份",scope.month,"month")+'</div>',toolbar='<div class="haul-summary-toolbar">'+tabs+filters+'</div>';
-    if(scope.mode!=="crew"&&!entityId)return '<section class="haul-summary">'+toolbar+'<section class="panel"><p class="help">请选择'+(scope.mode==="person"?"人员":"设备")+'，查看所选月份每天的车数及整月合计。</p></section></section>';
+    const filters='<div class="haul-summary-filters haul-month-filter">'+subject+input("haulSummaryStartDate","开始日期",scope.startDate,"date")+input("haulSummaryEndDate","结束日期",scope.endDate,"date")+'</div>',toolbar='<div class="haul-summary-toolbar">'+tabs+filters+'</div>';
+    if(scope.error)return '<section class="haul-summary">'+toolbar+'<section class="panel"><p class="haul-summary-range-error" role="alert">'+esc(scope.error)+'</p></section></section>';
+    if(scope.mode!=="crew"&&!entityId)return '<section class="haul-summary">'+toolbar+'<section class="panel"><p class="help">请选择'+(scope.mode==="person"?"人员":"设备")+'，查看所选日期范围每天的车数及区间合计。</p></section></section>';
     let line;
-    if(scope.mode==="crew")line='<span>生产A组 <b>'+totals.crewA+'</b> 车</span><span>生产B组 <b>'+totals.crewB+'</b> 车</span>'+(showOther?'<span>其他/未归属 <b>'+totals.otherCrew+'</b> 车</span>':"")+'<strong>本月合计 <b>'+totals.total+'</b> 车</strong>';
-    else if(scope.mode==="person")line='<span>'+esc(entityName)+'</span><span>拉运 <b>'+totals.haul+'</b> 车</span><span>装车 <b>'+totals.load+'</b> 车</span><strong>本月合计 <b>'+totals.total+'</b> 车</strong>';
-    else line='<span>'+esc(entityName)+'</span>'+T.materialTypes.map(name=>'<span>'+esc(name)+' <b>'+totals[name]+'</b> 车</span>').join("")+'<strong>本月合计 <b>'+totals.total+'</b> 车</strong>';
+    if(scope.mode==="crew")line='<span>生产A组 <b>'+totals.crewA+'</b> 车</span><span>生产B组 <b>'+totals.crewB+'</b> 车</span>'+(showOther?'<span>其他/未归属 <b>'+totals.otherCrew+'</b> 车</span>':"")+'<strong>区间合计 <b>'+totals.total+'</b> 车</strong>';
+    else if(scope.mode==="person")line='<span>'+esc(entityName)+'</span><span>拉运 <b>'+totals.haul+'</b> 车</span><span>装车 <b>'+totals.load+'</b> 车</span><strong>区间合计 <b>'+totals.total+'</b> 车</strong>';
+    else line='<span>'+esc(entityName)+'</span>'+T.materialTypes.map(name=>'<span>'+esc(name)+' <b>'+totals[name]+'</b> 车</span>').join("")+'<strong>区间合计 <b>'+totals.total+'</b> 车</strong>';
     const roleColumns=scope.mode==="crew"?[["crewA","生产A组"],["crewB","生产B组"],...(showOther?[["otherCrew","其他/未归属"]]:[])]:scope.mode==="person"?[["haul","拉运车数"],["load","装车车数"]]:[];
     const columns=[...roleColumns,...T.materialTypes.map(name=>[name,name]),...(showUnknown?[["unknown","历史未分类"]]:[])];
     const head='<th>日期</th>'+columns.map(([key,label])=>'<th class="haul-summary-number'+(["crewA","crewB"].includes(key)?' haul-crew-heading':'')+'">'+esc(label)+'</th>').join("")+'<th class="haul-summary-number">当日合计</th>';
     const body=days.map(row=>{
       const future=row.workDate>today&&row.total===0,value=n=>future?"—":n;
-      return '<tr class="'+(future?"haul-summary-future":row.workDate===today?"haul-summary-today":"")+'"><td>'+esc(row.workDate.slice(5))+'</td>'+columns.map(([key])=>'<td class="haul-summary-number">'+value(row[key])+'</td>').join("")+'<td class="haul-summary-number haul-summary-total">'+value(row.total)+'</td></tr>';
+      return '<tr class="'+(future?"haul-summary-future":row.workDate===today?"haul-summary-today":"")+'"><td>'+esc(row.workDate)+'</td>'+columns.map(([key])=>'<td class="haul-summary-number">'+value(row[key])+'</td>').join("")+'<td class="haul-summary-number haul-summary-total">'+value(row.total)+'</td></tr>';
     }).join("");
-    const footer='<tr><td>本月合计</td>'+columns.map(([key])=>'<td class="haul-summary-number">'+totals[key]+'</td>').join("")+'<td class="haul-summary-number">'+totals.total+'</td></tr>';
+    const footer='<tr><td>区间合计</td>'+columns.map(([key])=>'<td class="haul-summary-number">'+totals[key]+'</td>').join("")+'<td class="haul-summary-number">'+totals.total+'</td></tr>';
     return '<section class="haul-summary">'+toolbar+'<div class="haul-summary-line haul-crew-strip">'+line+'</div><section class="panel"><div class="table-wrap"><table class="haul-summary-table haul-crew-month-table" aria-label="'+esc(haulSummaryTitles[scope.mode])+'"><thead><tr>'+head+'</tr></thead><tbody>'+body+'</tbody><tfoot>'+footer+'</tfoot></table></div></section><p class="help">单位：车。夜班按开始日归属，跨月仍计入开始日所在月份。仅统计已完成的真实定位车次，非卸载区完成同样计入；每趟在合计中只计一次。未来日期暂无记录时显示“—”。'+(scope.mode==="person"?' 拉运按实际汽车驾驶员统计，装车按实际装载挖机及其对应司机统计，包含临时挖机装载。':scope.mode==="equipment"?' 按车次记录中的实际汽车或实际装载挖机统计，包含临时挖机装载。':"")+(scope.mode==="crew"&&showOther?' 旧记录的其他或未归属班组车次单独列出。':"")+(showUnknown?' 旧物料未归入统一三类时单独显示“历史未分类”。':"")+'</p></section>';
   }
   function assignmentCards(rows,own=false){return rows.length?rows.map(r=>'<section class="panel"><div class="panel-head"><h2>'+esc(r.workDate||"日期未设置")+' · '+esc(r.shiftName)+'</h2>'+pill(states[r.status]||r.status,r.status==="draft")+'</div><p><strong>'+esc(nameOf(r.personId))+'</strong> · '+esc(vehicleName(r.vehicleId))+'</p><p class="muted">'+(r.kind==="driver"?'绑定挖机：'+esc(vehicleName(r.excavatorId)):'挖机操作人员排班')+'</p>'+(r.note?'<p class="muted">'+esc(r.note)+'</p>':'')+'<div class="actions">'+(own&&r.status==="active"&&!session()?button("openShift",r.id,"接班并检查设备",""):"")+(role==="dispatch"&&!d.shifts.some(s=>s.assignmentId===r.id)?button("assignment",r.id,"编辑"):'')+(role==="dispatch"&&r.status==="draft"?button("activateAssignment",r.id,"启用排班",""):'')+(role==="dispatch"&&["draft","active"].includes(r.status)?button("cancelAssignment",r.id,"取消排班","danger"):'')+'</div></section>').join(""):(own?empty("尚无可用排班，请等待调度分配车辆和班次"):"");}
@@ -417,16 +423,17 @@
   $("logisticsDialog").addEventListener("close",()=>{$("logisticsFrame").src="about:blank";});
   window.addEventListener("message",event=>{if(event.origin===location.origin&&event.source===$("logisticsFrame").contentWindow&&event.data?.type==="mine-close-logistics")$("logisticsDialog").close();});
   document.addEventListener("change",event=>{
-    if(["haulSummaryMonth","haulSummaryPerson","haulSummaryVehicle"].includes(event.target.name)){
+    if(["haulSummaryStartDate","haulSummaryEndDate","haulSummaryPerson","haulSummaryVehicle"].includes(event.target.name)){
       if(role!=="dispatch")return;
       const value=event.target.value;
-      if(event.target.name==="haulSummaryMonth")haulSummaryFilters.month=/^\d{4}-(0[1-9]|1[0-2])$/.test(value)?value:null;
+      if(event.target.name==="haulSummaryStartDate")haulSummaryFilters.startDate=haulSummaryValidDate(value)?value:null;
+      if(event.target.name==="haulSummaryEndDate")haulSummaryFilters.endDate=haulSummaryValidDate(value)?value:null;
       if(event.target.name==="haulSummaryPerson")haulSummaryFilters.personId=String(value||"");
       if(event.target.name==="haulSummaryVehicle")haulSummaryFilters.vehicleId=String(value||"");
       refresh();return;
     }if(event.target.name==="taskDate")updatePublishPreview();invalidateZoneFix(event.target);if(event.target.name==="kind")syncAssignmentFields();if(event.target.name==="zoneKind")syncZoneFields();if(event.target.id==="inspectionPhotos")previewSelected(event.target.files||[]);if(event.target.name==="simulationZone"){const z=simulationZones.find(z=>z.id===event.target.value);if(z){$("editForm").querySelector('[name="lat"]').value=z.lat;$("editForm").querySelector('[name="lng"]').value=z.lng;}}});
   document.addEventListener("input",event=>{invalidateZoneFix(event.target);if(event.target.id==="recordSearch"){recordSearch=event.target.value;const start=event.target.selectionStart;$("content").innerHTML=renderRecords();const field=$("recordSearch");field.focus();field.setSelectionRange(start,start);}});
-  async function externalChange(){try{await T.sync();T.context(role);const latest=T.stamp()+localStorage.getItem(L.PEOPLE)+localStorage.getItem(L.KEY);if(latest!==signature||MineTaskBoard.clockKey(d)!==taskClockSignature||(role==="dispatch"&&view==="summary"&&!haulSummaryFilters.month&&haulSummaryRenderedMonth!==T.date().slice(0,7))||(role==="dispatch"&&view==="assignments"&&shiftMinute!==Math.floor(Date.now()/60000)))refresh();}catch(error){block(error);}}
+  async function externalChange(){try{await T.sync();T.context(role);const latest=T.stamp()+localStorage.getItem(L.PEOPLE)+localStorage.getItem(L.KEY);if(latest!==signature||MineTaskBoard.clockKey(d)!==taskClockSignature||(role==="dispatch"&&view==="summary"&&haulSummaryRenderedToday!==T.date())||(role==="dispatch"&&view==="assignments"&&shiftMinute!==Math.floor(Date.now()/60000)))refresh();}catch(error){block(error);}}
   document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")stopGPS(true);else externalChange();});
   window.addEventListener("pagehide",()=>{stopGPS(true);releasePhotos();});window.addEventListener("storage",externalChange);window.addEventListener("focus",externalChange);setInterval(externalChange,1000);T.ready().then(()=>refresh()).catch(block);
 })();
