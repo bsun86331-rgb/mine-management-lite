@@ -236,5 +236,5 @@
     const mode=button.dataset.taskBoardView;if(!["current","next"].includes(mode))return;
     modes.set(key,mode);board.outerHTML=render(context.d,context.m,context.person,context.options);
   });
-  window.MineTaskBoard=Object.freeze({render,clockKey,slots});
+  window.MineTaskBoard=Object.freeze({render,clockKey,slots,excavatorOperator});
 })();
