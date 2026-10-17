@@ -55,9 +55,9 @@
   function cell(value,reference,kind,header=false) {
     if(header) return '<c r="'+reference+'" s="1" t="inlineStr"><is><t xml:space="preserve">'+xml(value)+'</t></is></c>';
     if(value===null || value===undefined || value==="") return '<c r="'+reference+'" s="0"/>';
-    if(kind==="number"){
+    if(kind==="number"||kind==="integer"){
       if(typeof value!=="number"||!Number.isFinite(value))throw new Error("导出数值无效，请核实库存数据");
-      return '<c r="'+reference+'" s="5"><v>'+value+'</v></c>';
+      return '<c r="'+reference+'" s="'+(kind==="integer"?6:5)+'"><v>'+value+'</v></c>';
     }
     const numeric = kind==="date" ? asDate(value) : kind==="datetime" ? asDateTime(value) : null;
     if(numeric!==null) return '<c r="'+reference+'" s="'+(kind==="date" ? 2 : 3)+'"><v>'+numeric+'</v></c>';
@@ -65,16 +65,18 @@
     if(text.length>32767) throw new Error("有文字字段超过 Excel 单元格长度限制，请缩短后重试。");
     return '<c r="'+reference+'" s="0" t="inlineStr"><is><t xml:space="preserve">'+xml(text)+'</t></is></c>';
   }
-  function worksheet(columns,records,title) {
-    if(records.length>1048574) throw new Error("记录数量超过 Excel 单个工作表上限。");
-    const lastCol=colName(columns.length-1),end=lastCol+(records.length+2);
+  function worksheet(columns,records,title,notes=[]) {
+    if(records.length+notes.length>1048574) throw new Error("记录数量超过 Excel 单个工作表上限。");
+    const lastCol=colName(columns.length-1),dataEnd=lastCol+(records.length+2),end=lastCol+(records.length+2+notes.length);
     const titleRow='<row r="1" ht="38" customHeight="1"><c r="A1" s="4" t="inlineStr"><is><t>'+xml(title)+'</t></is></c></row>';
     const header='<row r="2" ht="28" customHeight="1">'+columns.map((field,i)=>cell(field[0],colName(i)+"2",null,true)).join("")+'</row>';
     const rows=records.map((record,row)=>'<row r="'+(row+3)+'">'+columns.map((field,col)=>cell(field[1](record),colName(col)+(row+3),field[3])).join("")+'</row>').join("");
+    const noteRows=notes.map((note,index)=>{const row=records.length+3+index;return '<row r="'+row+'" ht="48" customHeight="1">'+cell(note,"A"+row)+'</row>';}).join("");
+    const noteMerges=notes.map((note,index)=>{const row=records.length+3+index;return '<mergeCell ref="A'+row+':'+lastCol+row+'"/>';}).join("");
     const widths=columns.map((field,i)=>'<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+field[2]+'" customWidth="1"/>').join("");
-    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:'+end+'"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="2" topLeftCell="A3" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A3" sqref="A3"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="21"/><cols>'+widths+'</cols><sheetData>'+titleRow+header+rows+'</sheetData><autoFilter ref="A2:'+end+'"/><mergeCells count="1"><mergeCell ref="A1:'+lastCol+'1"/></mergeCells></worksheet>';
+    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:'+end+'"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="2" topLeftCell="A3" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A3" sqref="A3"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="21"/><cols>'+widths+'</cols><sheetData>'+titleRow+header+rows+noteRows+'</sheetData><autoFilter ref="A2:'+dataEnd+'"/><mergeCells count="'+(1+notes.length)+'"><mergeCell ref="A1:'+lastCol+'1"/>'+noteMerges+'</mergeCells></worksheet>';
   }
-  const styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="2"><numFmt numFmtId="164" formatCode="yyyy-mm-dd"/><numFmt numFmtId="165" formatCode="yyyy-mm-dd hh:mm:ss"/></numFmts><fonts count="3"><font><sz val="11"/><name val="Microsoft YaHei"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Microsoft YaHei"/></font><font><b/><sz val="18"/><color rgb="FF173D31"/><name val="Microsoft YaHei"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF176B4A"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="6"><xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyAlignment="1" applyFill="1" applyFont="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyAlignment="1" applyFont="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="2" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment vertical="top"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+  const styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="2"><numFmt numFmtId="164" formatCode="yyyy-mm-dd"/><numFmt numFmtId="165" formatCode="yyyy-mm-dd hh:mm:ss"/></numFmts><fonts count="3"><font><sz val="11"/><name val="Microsoft YaHei"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Microsoft YaHei"/></font><font><b/><sz val="18"/><color rgb="FF173D31"/><name val="Microsoft YaHei"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF176B4A"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="7"><xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyAlignment="1" applyFill="1" applyFont="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyAlignment="1" applyFont="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="2" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment vertical="top"/></xf><xf numFmtId="3" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment vertical="top"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
   const crcTable = Array.from({length:256},(_,index)=>{let value=index;for(let bit=0;bit<8;bit++)value=(value&1) ? 0xedb88320^(value>>>1) : value>>>1;return value>>>0;});
   const crc32 = bytes => {let crc=0xffffffff;for(const byte of bytes)crc=crcTable[(crc^byte)&255]^(crc>>>8);return (crc^0xffffffff)>>>0;};
   function zip(files) {
@@ -124,7 +126,7 @@
     try{link.click();}finally{link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);}
     return filename;
   }
-  window.MineTableExport={download:(columns,records,title)=>{if(!records.length)throw new Error("暂无记录可导出");return downloadFile(createWorkbook([[title.slice(0,31),worksheet(columns,records,title)]]),title);}};
+  window.MineTableExport={download:(columns,records,title,options={})=>{if(!records.length)throw new Error("暂无记录可导出");return downloadFile(createWorkbook([[title.slice(0,31),worksheet(columns,records,title,options.notes||[])]]),title);}};
   window.MinePersonnelExport={buildWorkbook,download};
   window.MineVehicleExport={buildWorkbook:buildVehicleWorkbook,download:downloadVehicles};
 })();

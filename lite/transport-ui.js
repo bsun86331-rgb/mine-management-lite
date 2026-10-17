@@ -8,7 +8,7 @@
   const dispatchBindingEdits=new Map();
   const haulSummaryFilters={startDate:null,endDate:null,mode:"crew",personId:"",vehicleId:""};
   const haulSummaryTitles={crew:"班组逐日车数统计",person:"人员逐日车数统计",equipment:"设备逐日车数统计"};
-  let haulSummaryRenderedToday="";
+  let haulSummaryRenderedToday="",haulSummaryExportData=null;
   const nameOf=id=>m.people.find(p=>p.id===id)?.name||"未分配",vehicleOf=id=>m.vehicles.find(v=>v.id===id),vehicleName=id=>vehicleOf(id)?.code||"未分配";
   const button=(action,id,label,style="soft")=>'<button type="button" class="'+style+'" data-action="'+action+'" data-id="'+esc(id||"")+'">'+esc(label)+'</button>';
   const pill=(text,warn=false,red=false)=>'<span class="pill'+(red?' red':warn?' warn':'')+'">'+esc(text)+'</span>';
@@ -40,6 +40,7 @@
   function render(){
     $("transportFooter").hidden=role==="dispatch";
     $("workspaceRefresh").hidden=role==="dispatch";
+    haulSummaryExportData=null;$("exportHaulSummary").hidden=role!=="dispatch"||view!=="summary";$("exportHaulSummary").disabled=true;
     const entries=role==="dispatch"?[["tasks","任务看板"],["summary","月报汇总"],["assignments","白夜班排班"],["zones","GPS作业区域"],["faults","检查与异常责任"],["devices","设备暂停与恢复"],["sessions","实际班次"],["messages","消息中心"],["settings","定位规则"],["audit","操作记录"]]:[["work",role==="driver"?"本班驾驶作业":"本班装载作业"],["tasks","我的任务看板"],["records","运输车次"],["faults","检查与责任关联"],["sessions","我的班次"],["messages","消息中心"]];
     if(!entries.some(e=>e[0]===view))view=entries[0][0];const unread=T.visibleMessages(d,person).filter(v=>!v.readBy.includes(person.id)).length;
     $("roleLabel").textContent=labels[role];$("identity").textContent=person.name+" · "+person.status;$("nav").innerHTML=entries.map(([id,label])=>'<button type="button" data-view="'+id+'" class="'+(id===view?'selected':'')+'">'+label+(id==="messages"&&unread?' ('+unread+')':'')+'</button>').join("");
@@ -144,6 +145,8 @@
     const roleColumns=scope.mode==="crew"?[["crewA","生产A组"],["crewB","生产B组"],...(showOther?[["otherCrew","其他/未归属"]]:[])]:scope.mode==="person"?[["haul","拉运车数"],["load","装车车数"]]:[];
     const columns=[...roleColumns,...T.materialTypes.map(name=>[name,name]),...(showUnknown?[["unknown","历史未分类"]]:[])];
     const allPeople=scope.mode==="person"&&scope.personId==="__all_persons__",displayRows=allPeople?haulSummaryPeopleRows(context,options):days;
+    haulSummaryExportData={scope,modeLabel,allPeople,totals,columns,rows:displayRows.map(row=>({...row,future:row.workDate>today&&row.total===0}))};
+    $("exportHaulSummary").disabled=false;
     const head='<th>日期</th>'+(allPeople?'<th>姓名</th>':"")+columns.map(([key,label])=>'<th class="haul-summary-number'+(["crewA","crewB"].includes(key)?' haul-crew-heading':'')+'">'+esc(label)+'</th>').join("")+'<th class="haul-summary-number">当日合计</th>';
     const body=displayRows.map(row=>{
       const future=row.workDate>today&&row.total===0,value=n=>future?"—":n;
@@ -277,7 +280,21 @@
       return operate("publishTasks",{sourceDate:state.context.workDate,shiftName:state.context.shiftName,team:state.context.team,taskDate,expectedSignature:state.signature},"任务已发布，各岗位看板已更新",()=>{dispatchBindingEdits.delete(JSON.stringify([state.context.workDate,state.context.shiftName,state.context.team]));view="assignments";});
     },"发布任务");updatePublishPreview();
   }
+  function exportHaulSummary(){
+    if(role!=="dispatch"||view!=="summary")return;
+    haulSummaryExportData=null;refresh();
+    const report=haulSummaryExportData;
+    if(!report)return toast("请先选择有效的日期范围和统计对象");
+    if(!window.MineTableExport)return toast("导出组件尚未加载，请刷新页面");
+    const {scope,modeLabel,allPeople,totals,columns}=report;
+    const fields=[["日期",r=>r.workDate,26,"date"],...(allPeople?[["姓名",r=>r.personName,24]]:[]),...columns.map(([key,label])=>[label,r=>r.future?null:r[key],18,"integer"]),["当日合计",r=>r.future?null:r.total,18,"integer"]];
+    const rows=[...report.rows,{...totals,workDate:allPeople?"区间合计（车次去重）":"区间合计",personName:""}];
+    const notes=["单位：车。仅统计已完成的真实定位车次，按班次开始日归属；未来日期暂无记录的数值留空。",...(scope.mode==="person"?["拉运按实际汽车司机、装车按实际装载挖机对应司机归属，包含临时挖机。"]:[]),...(allPeople?["全员按日期和姓名列出，含零车数人员；同一趟分别归属汽车和挖机司机，个人行不能相加作为总车数，区间合计按实际车次去重。"]:[]),...(scope.mode==="equipment"?["按车次实际汽车或实际装载挖机归集，包含临时挖机。"]:[]),...(totals.unknown?["历史未分类车次保留在单独分类和合计中。"]:[])];
+    const title=(haulSummaryTitles[scope.mode]+"_"+scope.startDate+"至"+scope.endDate+"_"+modeLabel).replace(/[\\/:*?"<>|\[\]]/g,"_");
+    try{window.MineTableExport.download(fields,rows,title,{notes});toast("Excel 已导出");}catch(error){toast("导出失败："+error.message);}
+  }
   function openAction(action,key){const s=session();
+    if(action==="exportHaulSummary")return exportHaulSummary();
     if(action==="haulSummaryMode"){if(role!=="dispatch"||!["crew","person","equipment"].includes(key))return;haulSummaryFilters.mode=key;refresh();return;}
     if(action==="changeTaskBinding"){if(role!=="dispatch")return;const release=publishedDispatchTask();if(!release)return refresh();dispatchBindingEdits.set(dispatchBindingKey(),release.id);refresh();return toast("请调整绑定，完成后点击发布任务");}
     if(action==="publishTasks")return openPublishTasks();
