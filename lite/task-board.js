@@ -174,12 +174,36 @@
     const files=p?.attachments?.selfie?[{...p.attachments.selfie,label:"本人照片"}]:[];
     const token=openDetails("人员信息 · "+(p?.name||task.personName),info(fields)+photoMarkup(files));return loadDetailPhotos(files,token);
   }
-  function tripsDetails(d,r,task){
-    const trips=completedTrips(d,r,task),materials={};
+  const distanceText=metres=>metres>=1000?(metres/1000).toFixed(3)+" 公里":Math.round(metres)+" 米";
+  function tripDistance(t){
+    const h=t.haulDistance;
+    if(h?.version===1&&Number.isFinite(h.metres)&&h.metres>=0){
+      const gapReasons=[...new Set((h.gaps||[]).map(g=>g.reason))].join("；");
+      return {label:h.complete?distanceText(h.metres):"已记录 "+distanceText(h.metres)+"（轨迹不完整）",basis:"GPS有效轨迹估算，已过滤定位抖动",note:(gapReasons?"定位缺失原因："+gapReasons+"。":"")+(h.endSource==="outside-last-fix"?"非卸载区卸料：距离截至最后有效定位。":"")+"不含空车返程。",samples:h.samples||0};
+    }
+    const usable=p=>p&&Number.isFinite(p.lat)&&Number.isFinite(p.lng)&&Number.isFinite(p.accuracy)&&p.accuracy<=(t.settings?.maxAccuracy??50);
+    if(usable(t.loadPoint)&&usable(t.unloadPoint)){
+      const metres=window.MineTransport.distance(t.loadPoint,t.unloadPoint);
+      return {label:distanceText(metres)+"（直线距离）",basis:"起终点直线距离，并非实际行驶运距",note:"此旧车次未保存完整轨迹，不能还原实际行驶距离。"};
+    }
+    return {label:"未记录运距",basis:"缺少完整轨迹或有效起终点定位",note:"不按区域中心或当前地图位置补算历史运距。"};
+  }
+  function tripDuration(t){
+    const start=Date.parse(t.loadedAt),end=Date.parse(t.completedAt);if(!Number.isFinite(start)||!Number.isFinite(end)||end<start)return "未记录";
+    const seconds=Math.round((end-start)/1000),hours=Math.floor(seconds/3600),minutes=Math.floor(seconds%3600/60);
+    return (hours?hours+"小时 ":"")+(minutes?minutes+"分 ":"")+(seconds%60)+"秒";
+  }
+  function tripsDetails(d,m,r,task){
+    const trips=completedTrips(d,r,task).slice().sort((a,b)=>Date.parse(a.loadedAt)-Date.parse(b.loadedAt)||String(a.id).localeCompare(String(b.id))),materials={};
     for(const t of trips){const name=t.material||"未分类";materials[name]=(materials[name]||0)+1;}
     const summary=info([["任务班次",r.workDate+" "+r.shiftName],["人员",task.personName],["有效车数",trips.length+"车"],["物料分类",Object.entries(materials).map(([name,n])=>name+" "+n+"车").join("、")||"暂无"]]);
-    const rows=trips.length?'<div class="task-detail-table"><table><thead><tr><th>装载 / 完成时间</th><th>汽车 / 司机</th><th>实际挖机</th><th>物料 / 卸料</th></tr></thead><tbody>'+trips.map(t=>'<tr><td>'+esc(when(t.loadedAt))+'<small>'+esc(when(t.completedAt))+'</small></td><td>'+esc(t.vehicleCode)+'<small>'+esc(t.personName)+'</small></td><td>'+esc(t.excavatorCode)+(t.isTemporary?'<small>临时装载</small>':"")+'</td><td>'+esc(t.material||"未分类")+'<small>'+esc(t.method==="outside"?"非卸载区卸料":t.unloadZone?.name||"—")+'</small><details><summary>车次详情</summary>'+info([["车次编号",t.id],["装载区",t.loadZone?.name],["卸料说明",t.outsideNote],["完成方式",t.method==="outside"?"非卸载区卸料":"GPS区域自动识别"],["记录来源","真实定位"]])+'</details></td></tr>').join("")+'</tbody></table></div>':'<p class="task-detail-note">本班暂无计入该人员数量的已完成车次。</p>';
-    openDetails((task.kind==="excavator"?"装车信息":"拉运车次信息")+" · "+task.personName,summary+rows);
+    const rows=trips.length?'<div class="task-trip-list">'+trips.map((t,index)=>{
+      const haul=tripDistance(t),source=(d.taskReleases||[]).find(v=>v.id===t.releaseId),operatorId=excavatorOperator(d,t),operator=m.people.find(p=>p.id===operatorId)?.name||source?.groups?.find(g=>g.excavatorId===t.excavatorId)?.excavatorDriverName||"未记录";
+      const fields=[["汽车编号",t.vehicleCode],["汽车司机",t.personName],["实际装载挖机",t.excavatorCode],["挖机司机",operator],["装载类型",t.isTemporary?"临时非绑定挖机装车":"绑定挖机装车"],["物料类型",t.material||"未分类"],["装载区",t.loadZone?.name],["卸载位置",t.method==="outside"?"非卸载区卸料":t.unloadZone?.name],["装载时间",when(t.loadedAt)],["离开装载区时间",when(t.departedAt)],["卸料完成时间",when(t.completedAt)],["本趟用时（含等待）",tripDuration(t)],["运距",haul.label],["距离口径",haul.basis],...(haul.samples?[["有效定位采样",haul.samples+"次"]]:[]),["卸料方式",t.method==="outside"?"非卸载区卸料":"GPS卸载区自动识别"],["卸料说明",t.outsideNote||"未填写"],["车次编号",t.id]];
+      const events=(t.events||[]).length?'<details class="task-trip-events"><summary>查看本趟过程记录</summary><ol>'+t.events.map(event=>'<li><time>'+esc(when(event.at))+'</time> '+esc(event.type)+(event.reason?' · '+esc(event.reason):"")+'</li>').join("")+'</ol></details>':"";
+      return '<article class="task-trip-detail"><header><h3>第'+(index+1)+'趟 · '+esc(t.vehicleCode)+'</h3><strong class="task-trip-distance">'+esc(haul.label)+'</strong></header>'+info(fields)+'<p class="task-trip-distance-note">'+esc(haul.note)+'</p>'+events+'</article>';
+    }).join("")+'</div>':'<p class="task-detail-note">本班暂无计入该人员数量的已完成车次。</p>';
+    openDetails((task.kind==="excavator"?"逐趟装车明细":"逐趟拉运明细")+" · "+task.personName,summary+rows);
   }
   function inspectionDetails(d,r,task){
     const result=inspectionData(d,task),files=[];
@@ -199,7 +223,7 @@
     if(!r||!task)throw new Error("任务记录已变化，请刷新看板后重试");
     if(type==="equipment")return deviceDetails(d,m,task);
     if(type==="person")return personDetails(d,m,task);
-    if(type==="trips"&&["driver","excavator"].includes(task.kind))return tripsDetails(d,r,task);
+    if(type==="trips"&&["driver","excavator"].includes(task.kind))return tripsDetails(d,m,r,task);
     if(type==="inspection"&&["driver","excavator"].includes(task.kind))return inspectionDetails(d,r,task);
   }
   if(typeof document!=="undefined")document.addEventListener("click",async event=>{
