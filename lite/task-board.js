@@ -34,8 +34,25 @@
     const own=(d.shifts||[]).find(s=>s.personId===person.id&&s.status!=="closed");
     return own?'<button type="button" data-action="go-work" class="task-work-button">进入本班作业 / 检查</button>':'<button type="button" data-action="taskInspection" data-id="'+esc(task.assignmentId)+'" class="task-work-button">进行使用前检查</button>';
   }
-  function equipment(d,task,kind,code,name,ownId){
-    return '<article class="task-equipment task-equipment-'+kind+(task?.personId===ownId?' task-own-equipment':'')+'"><strong>'+esc(code||"未绑定设备")+'</strong><span>'+esc(name||"未分配人员")+'</span>'+(task?'<small>'+esc(inspection(d,task))+'</small>':"")+'</article>';
+  function excavatorOperator(d,trip){
+    const at=Date.parse(trip.loadedAt);
+    const actual=(d.shifts||[]).filter(s=>s.kind==="excavator"&&s.vehicleId===trip.excavatorId&&s.workDate===trip.workDate&&s.shiftName===trip.shiftName&&s.startedWorkAt&&Date.parse(s.startedWorkAt)<=at&&(!s.closedAt||at<=Date.parse(s.closedAt))).sort((a,b)=>Date.parse(b.startedWorkAt)-Date.parse(a.startedWorkAt))[0];
+    if(actual)return actual.personId;
+    // Use the release recorded on the trip, including its actual temporary excavator.
+    const published=(d.taskReleases||[]).find(r=>r.id===trip.releaseId);
+    const group=published?.groups?.find(g=>g.excavatorId===trip.excavatorId);
+    if(group?.excavatorDriverId)return group.excavatorDriverId;
+    if(published)return null;
+    const legacy=[...new Set((d.assignments||[]).filter(a=>a.kind==="excavator"&&a.vehicleId===trip.excavatorId&&a.workDate===trip.workDate&&a.shiftName===trip.shiftName).map(a=>a.personId))];
+    return legacy.length===1?legacy[0]:null;
+  }
+  function completedCount(d,r,task){
+    const rows=(d.trips||[]).filter(t=>t.status==="completed"&&t.mode==="gps"&&t.workDate===r.workDate&&t.shiftName===r.shiftName);
+    const own=task.kind==="driver"?rows.filter(t=>t.personId===task.personId):rows.filter(t=>t.excavatorId===task.vehicleId&&excavatorOperator(d,t)===task.personId);
+    return new Set(own.map(t=>t.id)).size;
+  }
+  function equipment(d,r,task,kind,code,name,ownId){
+    return '<article class="task-equipment task-equipment-'+kind+(task?.personId===ownId?' task-own-equipment':'')+'"><strong>'+esc(code||"未绑定设备")+'</strong><span>'+esc(name||"未分配人员")+(task&&["driver","excavator"].includes(task.kind)?'<b class="task-driver-count" title="本班已完成的真实定位车次；不含未完成、作废与模拟记录"> · '+(task.kind==="excavator"?'装车 ':'车数 ')+completedCount(d,r,task)+'车</b>':"")+'</span>'+(task?'<small>'+esc(inspection(d,task))+'</small>':"")+'</article>';
   }
   function groupTitle(n){const v=["","一","二","三","四","五","六","七","八","九","十"];return "第"+(v[n]||n)+"组生产设备";}
   function releaseStats(d,m,r){
@@ -63,10 +80,10 @@
       const excavator=r.tasks.find(t=>t.kind==="excavator"&&t.group?.sourceGroupId===g.sourceGroupId);
       const trucks=r.tasks.filter(t=>t.kind==="driver"&&t.group?.sourceGroupId===g.sourceGroupId&&(dispatch||taskIds.has(t.id)||ownTasks.some(t=>t.id===excavator?.id)));
       const regions=g.regions||{load:null,unloads:[]};
-      return '<section class="task-production-group"><h4>'+esc(groupTitle(g.number))+'</h4><div class="task-equipment-row">'+equipment(d,excavator,"excavator",g.excavatorCode,g.excavatorDriverName,person.id)+trucks.map(t=>equipment(d,t,"truck",t.vehicleCode,t.personName,person.id)).join("")+'<article class="task-region"><strong>装卸区域</strong><span>装载区：'+esc(regions.load?.name||"未设置")+'</span><span>卸载区：'+esc((regions.unloads||[]).map(z=>z.name+(z.material?" · "+z.material:"")).join("、")||"未设置")+'</span></article></div>'+ownTasks.filter(t=>t.group?.sourceGroupId===g.sourceGroupId).map(t=>workAction(d,r,t,person,dispatch)).join("")+'</section>';
+      return '<section class="task-production-group"><h4>'+esc(groupTitle(g.number))+'</h4><div class="task-equipment-row">'+equipment(d,r,excavator,"excavator",g.excavatorCode,g.excavatorDriverName,person.id)+trucks.map(t=>equipment(d,r,t,"truck",t.vehicleCode,t.personName,person.id)).join("")+'<article class="task-region"><strong>装卸区域</strong><span>装载区：'+esc(regions.load?.name||"未设置")+'</span><span>卸载区：'+esc((regions.unloads||[]).map(z=>z.name+(z.material?" · "+z.material:"")).join("、")||"未设置")+'</span></article></div>'+ownTasks.filter(t=>t.group?.sourceGroupId===g.sourceGroupId).map(t=>workAction(d,r,t,person,dispatch)).join("")+'</section>';
     }).join("");
     const auxiliary=ownTasks.filter(t=>t.kind==="auxiliary");
-    const aux=auxiliary.length?'<section class="task-auxiliary"><h4>辅助车辆 / 人员</h4><div class="task-equipment-row">'+auxiliary.map(t=>'<div class="task-auxiliary-item">'+equipment(d,t,"auxiliary",t.vehicleCode,t.personName,person.id)+(t.content?'<div class="task-aux-content"><b>作业内容</b><span>'+esc(t.content)+'</span></div>':"")+'</div>').join("")+'</div></section>':"";
+    const aux=auxiliary.length?'<section class="task-auxiliary"><h4>辅助车辆 / 人员</h4><div class="task-equipment-row">'+auxiliary.map(t=>'<div class="task-auxiliary-item">'+equipment(d,r,t,"auxiliary",t.vehicleCode,t.personName,person.id)+(t.content?'<div class="task-aux-content"><b>作业内容</b><span>'+esc(t.content)+'</span></div>':"")+'</div>').join("")+'</div></section>':"";
     return '<section class="task-release"><header><div><h3>'+esc(r.workDate+" · "+r.shiftName+" · "+r.team)+'</h3><p>'+esc(time(r.startAt)+" — "+time(r.endAt))+' <span>第'+esc(r.version)+'版</span></p></div><span class="task-phase task-'+esc(E().phase(r))+'">'+esc(names[E().phase(r)]||"")+'</span></header>'+releaseStats(d,m,r)+rows+aux+'</section>';
   }
   function render(d,m,person,options={}){
