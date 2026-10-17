@@ -82,7 +82,7 @@
         add(t.vehicleId,truck?.code||t.vehicleCode,truck?.category||truck?.model||"汽车");
         add(t.excavatorId,exc?.code||t.excavatorCode,exc?.category||exc?.model||"挖机");
       }
-      if(scope.vehicleId&&!entries.has(scope.vehicleId)){const v=context.vehicles.get(scope.vehicleId);add(scope.vehicleId,v?.code||v?.name,v?.category||v?.model||"原设备");}
+      if(scope.vehicleId&&!["__all_excavators__","__all_trucks__"].includes(scope.vehicleId)&&!entries.has(scope.vehicleId)){const v=context.vehicles.get(scope.vehicleId);add(scope.vehicleId,v?.code||v?.name,v?.category||v?.model||"原设备");}
     }
     return [...entries.entries()].sort((a,b)=>a[1].name.localeCompare(b[1].name,"zh-CN",{numeric:true})||a[0].localeCompare(b[0])).map(([id,value])=>[id,value.label]);
   }
@@ -95,7 +95,7 @@
         hauling=all?(t.personId!=null&&t.personId!==""):String(t.personId)===scope.personId;loading=all?(operatorId!=null&&operatorId!==""):operatorId!=null&&String(operatorId)===scope.personId;
         if(!scope.personId||(!all&&!hauling&&!loading))continue;
       }else if(scope.mode==="equipment"){
-        hauling=String(t.vehicleId)===scope.vehicleId;loading=String(t.excavatorId)===scope.vehicleId;
+        hauling=scope.vehicleId==="__all_trucks__"?(t.vehicleId!=null&&t.vehicleId!==""):scope.vehicleId==="__all_excavators__"?false:String(t.vehicleId)===scope.vehicleId;loading=scope.vehicleId==="__all_excavators__"?(t.excavatorId!=null&&t.excavatorId!==""):scope.vehicleId==="__all_trucks__"?false:String(t.excavatorId)===scope.vehicleId;
         if(!scope.vehicleId||(!hauling&&!loading))continue;
       }
       const team=context.releases.get(t.releaseId)?.team||context.assignments.get(t.assignmentId)?.team||context.people.get(String(t.personId))?.team;
@@ -109,11 +109,11 @@
     if(role!=="dispatch")return "";
     const scope=haulSummaryScope(),context=haulSummaryContext(scope),options=haulSummaryOptions(scope,context),{days,totals}=haulSummaryData(scope,context),today=T.date(),showOther=totals.otherCrew>0,showUnknown=totals.unknown>0;
     haulSummaryRenderedToday=today;
-    const entityId=scope.mode==="person"?scope.personId:scope.vehicleId,entityName=scope.mode==="person"?(entityId==="__all_persons__"?"全员":context.people.get(entityId)?.name||options.find(([id])=>id===entityId)?.[1]||entityId):(context.vehicles.get(entityId)?.code||context.vehicles.get(entityId)?.name||options.find(([id])=>id===entityId)?.[1]||entityId);
+    const entityId=scope.mode==="person"?scope.personId:scope.vehicleId,entityName=scope.mode==="person"?(entityId==="__all_persons__"?"全员":context.people.get(entityId)?.name||options.find(([id])=>id===entityId)?.[1]||entityId):(entityId==="__all_excavators__"?"全部挖机":entityId==="__all_trucks__"?"全部汽车":context.vehicles.get(entityId)?.code||context.vehicles.get(entityId)?.name||options.find(([id])=>id===entityId)?.[1]||entityId);
     const modeLabel=scope.mode==="crew"?"生产A组 / 生产B组":scope.mode==="person"?(entityId?"人员："+entityName:"按人名逐日统计"):(entityId?"设备："+entityName:"按设备逐日统计");
     $("subtitle").textContent=scope.startDate+" 至 "+scope.endDate+" · "+modeLabel;
     const tabs='<div class="haul-summary-mode-tabs" role="group" aria-label="逐日统计方式">'+[["crew","班组逐日统计"],["person","按人名逐日统计"],["equipment","按设备逐日统计"]].map(([key,label])=>'<button type="button" data-action="haulSummaryMode" data-id="'+key+'" class="'+(scope.mode===key?"":"soft")+'" aria-pressed="'+(scope.mode===key)+'">'+label+'</button>').join("")+'</div>';
-    const subject=scope.mode==="person"?select("haulSummaryPerson","人员",[["","请选择人员（选填）"],["__all_persons__","全员"],...options],scope.personId):scope.mode==="equipment"?select("haulSummaryVehicle","设备",[["","请选择设备（选填）"],...options],scope.vehicleId):"";
+    const subject=scope.mode==="person"?select("haulSummaryPerson","人员",[["","请选择人员（选填）"],["__all_persons__","全员"],...options],scope.personId):scope.mode==="equipment"?select("haulSummaryVehicle","设备",[["","请选择设备（选填）"],["__all_excavators__","全部挖机"],["__all_trucks__","全部汽车"],...options],scope.vehicleId):"";
     const filters='<div class="haul-summary-filters haul-month-filter">'+subject+input("haulSummaryStartDate","开始日期",scope.startDate,"date")+input("haulSummaryEndDate","结束日期",scope.endDate,"date")+'</div>',toolbar='<div class="haul-summary-toolbar">'+tabs+filters+'</div>';
     if(scope.error)return '<section class="haul-summary">'+toolbar+'<section class="panel"><p class="haul-summary-range-error" role="alert">'+esc(scope.error)+'</p></section></section>';
     if(scope.mode!=="crew"&&!entityId)return '<section class="haul-summary">'+toolbar+'<section class="panel"><p class="help">请选择'+(scope.mode==="person"?"人员":"设备")+'，查看所选日期范围每天的车数及区间合计。</p></section></section>';
