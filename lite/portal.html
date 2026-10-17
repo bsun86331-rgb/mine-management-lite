@@ -9,6 +9,7 @@
 *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:20px;background:#f3f6f2;color:#17251e;font:15px/1.55 Inter,"PingFang SC","Microsoft YaHei",sans-serif}.card{width:min(520px,100%);padding:34px;border:1px solid #e2e9e3;border-radius:22px;background:#fff;box-shadow:0 18px 50px #173d3112}.brand{color:#176b4a;font-size:12px;font-weight:800;letter-spacing:.1em}.icon{display:grid;place-items:center;width:58px;height:58px;margin-top:25px;border-radius:17px;background:#edf5ef;color:#176b4a;font-size:28px}.tag{display:inline-block;margin-top:24px;padding:6px 10px;border-radius:99px;background:#f4f6ee;color:#64723e;font-size:11px;font-weight:800}.card h1{margin:10px 0 5px;font-size:28px;letter-spacing:-.04em}.card p{color:#738078;font-size:13px}.note{margin:22px 0;padding:14px;border-radius:12px;background:#f5f8f4;color:#526057;font-size:12px}.actions{display:flex;gap:9px}.btn{display:inline-flex;align-items:center;justify-content:center;min-height:43px;padding:10px 15px;border:1px solid #e2e9e3;border-radius:11px;background:#fff;color:#17251e;text-decoration:none;font-weight:750}.primary{border-color:#176b4a;background:#176b4a;color:#fff}
 dialog#logisticsDialog{width:min(1180px,96vw);height:92vh;max-height:92vh;border:0;border-radius:18px;padding:0;box-shadow:0 20px 70px #0004}dialog#logisticsDialog::backdrop{background:#10201999}.logistics-dialog-head{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid #dce5df;background:white}.logistics-dialog-head button{border:0;border-radius:8px;padding:7px 13px;background:#edf5ef;color:#173d31;font:inherit;cursor:pointer}#logisticsFrame{width:100%;height:calc(100% - 54px);border:0}
 </style>
+<link rel="stylesheet" href="task-board.css?v=20261017-1">
 </head>
 <body>
 <main class="card" hidden>
@@ -18,28 +19,30 @@ dialog#logisticsDialog{width:min(1180px,96vw);height:92vh;max-height:92vh;border
   <h1 id="roleTitle">业务端口</h1>
   <p id="roleDesc">该端口将在后续步骤中逐个完成。</p>
   <div class="note" id="accessNote">端口访问已开通。当前业务功能仍在逐步建设中。</div>
+  <div id="portalTaskBoard" class="portal-task-host" hidden></div>
   <div class="actions" style="flex-wrap:wrap"><a class="btn primary" id="logisticsLink">后勤物资申请</a><a class="btn" href="index.html">返回首页</a></div><p id="logisticsMessages"></p>
 </main>
 <dialog id="logisticsDialog"><div class="logistics-dialog-head"><strong>后勤物资申请与个人领用</strong><button id="closeLogistics" type="button">关闭</button></div><iframe id="logisticsFrame" title="后勤库存、申请与领用确认"></iframe></dialog>
-<script src="logistics-store.js?v=20261016-1"></script>
+<script src="logistics-store.js?v=20261016-7"></script><script src="transport-store.js?v=20261017-8"></script><script src="task-engine.js?v=20261017-1"></script><script src="task-board.js?v=20261017-1"></script>
 <script>
 const roles={
  driver:["司机端","🚚","司机查看当班任务并记录运输作业。"],
  excavator:["挖机端","🚜","挖机操作人员查看作业安排并记录装载情况。"],
  assistant:["辅助司机端","🦺","辅助司机查看协作事项并记录现场作业。"],
- assistant_loader:["铲车司机","▰","铲车岗位工作入口，具体功能将逐步建设。"],
- assistant_fuel:["加油车司机","▣","加油车岗位工作入口，具体功能将逐步建设。"],
- assistant_water:["水车司机","≈","水车岗位工作入口，具体功能将逐步建设。"],
- assistant_grader:["平地机司机","▱","平地机岗位工作入口，具体功能将逐步建设。"],
- assistant_dump:["排土管理员","⚑","排土现场管理岗位工作入口，具体功能将逐步建设。"],
+ assistant_loader:["铲车司机","▰","铲车岗位工作入口，查看当班任务、设备和作业内容。"],
+ assistant_fuel:["加油车司机","▣","加油车岗位工作入口，查看当班任务、设备和作业内容。"],
+ assistant_water:["水车司机","≈","水车岗位工作入口，查看当班任务、设备和作业内容。"],
+ assistant_grader:["平地机司机","▱","平地机岗位工作入口，查看当班任务、设备和作业内容。"],
+ assistant_dump:["排土管理员","⚑","排土现场管理岗位工作入口，查看当班任务、设备和作业内容。"],
  dispatch:["调度端","🗺","调度人员查看车辆、人员和作业安排。"],
  middle:["中层管理端","⚙","中层管理人员跟进现场班组和日常管理。"],
  middle_finance:["财务","¥","复核后勤物资赔偿并导出待扣款清单。"],
- middle_survey:["测绘","⌖","测绘岗位工作入口，具体功能将逐步建设。"],
+ middle_survey:["测绘","⌖","测绘岗位工作入口，查看当班任务、设备和作业内容。"],
  middle_store:["后勤库管","▣","管理后勤库存、物资申请、发放、归还与离职清算。"],
- middle_statistics:["统计","▥","统计岗位工作入口，具体功能将逐步建设。"],
- middle_logistics:["其他后勤人员","⚙","其他后勤岗位工作入口，具体功能将逐步建设。"]
+ middle_statistics:["统计","▥","统计岗位工作入口，查看当班任务、设备和作业内容。"],
+ middle_logistics:["其他后勤人员","⚙","其他后勤岗位工作入口，查看当班任务、设备和作业内容。"]
 };
+let portalBoardSignature="";
 const key=new URLSearchParams(location.search).get("role");
 const knownRole=Object.prototype.hasOwnProperty.call(roles,key);
 const item=(knownRole ? roles[key] : null)||["业务端口","◇","该端口将在后续步骤中逐个完成。"];
@@ -58,7 +61,15 @@ function checkWorkAccess(){
   if(key==="middle_store"){location.replace("logistics.html?role=middle_store");return;}
   if(["driver","excavator","dispatch"].includes(key)){location.replace("transport.html?role="+encodeURIComponent(key));return;}
   document.querySelector(".card").hidden=false;
+  const board=document.getElementById("portalTaskBoard");
+  if(MineTransport.auxiliaryRoles.includes(key)){
+    board.hidden=false;
+    try{const data=MineTransport.get(),signature=localStorage.getItem(MineTransport.KEY)+MineTaskEngine.clockKey(data)+applicant.id;
+      if(signature!==portalBoardSignature){board.innerHTML=MineTaskBoard.render(data,db,applicant);portalBoardSignature=signature;}
+    }catch(error){board.textContent=error.message;}
+  }
   document.getElementById("accessNote").textContent=key==="middle_store"?"后勤库存、申请发放、归还及清算功能已开放。":"后勤物资申请、本人领用确认及归还清算已开放，其他岗位业务逐步建设。";
+  if(MineTransport.auxiliaryRoles.includes(key))document.getElementById("accessNote").textContent="查看本人当班任务、设备和作业内容；到班次开始时间任务自动执行。";
   const link=document.getElementById("logisticsLink");link.href="logistics.html?role="+encodeURIComponent(key);
   link.textContent=key==="middle_store"?"进入后勤库管工作台":key==="middle_finance"?"后勤申请 / 赔偿复核":"后勤物资申请";
   try{
@@ -80,7 +91,7 @@ window.addEventListener("message",event=>{if(event.origin===location.origin&&eve
 window.addEventListener("storage",checkWorkAccess);
 window.addEventListener("focus",checkWorkAccess);
 window.addEventListener("pageshow",checkWorkAccess);
-setInterval(checkWorkAccess,2500);
+setInterval(checkWorkAccess,1000);
 document.title=item[0]+" · 矿山简版";
 document.getElementById("roleTitle").textContent=item[0];
 document.getElementById("roleIcon").textContent=item[1];
