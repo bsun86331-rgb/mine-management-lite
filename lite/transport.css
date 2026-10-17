@@ -153,3 +153,9 @@
 .haul-summary-table tfoot td{border-bottom:0}
 .haul-summary-table .haul-summary-empty{padding:20px 10px;text-align:center;color:var(--muted);font-size:13px}
 @media(max-width:600px){.haul-summary-filters{gap:8px}.haul-summary-filters>label{flex:1 1 130px}.haul-summary-line{gap:7px 16px}}
+
+.haul-monthly-table{min-width:490px}
+.haul-monthly-table td:first-child{white-space:nowrap;font-variant-numeric:tabular-nums}
+.haul-monthly-table .haul-summary-today{background:#f0f8f2}
+.haul-summary-today-label{color:var(--green);font-size:11px;margin-left:5px}
+.haul-monthly-table .haul-summary-future td{color:#8a968e}
