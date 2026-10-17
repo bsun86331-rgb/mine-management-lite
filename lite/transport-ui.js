@@ -9,6 +9,8 @@
   const haulSummaryFilters={startDate:null,endDate:null,mode:"crew",personId:"",vehicleId:""};
   const haulSummaryTitles={crew:"班组逐日车数统计",person:"人员逐日车数统计",equipment:"设备逐日车数统计"};
   let haulSummaryRenderedToday="",haulSummaryExportData=null;
+  const coalRatioSettings={period:"natural",startDay:1,endDay:31,month:null};
+  try{const saved=JSON.parse(localStorage.getItem("mine-transport-coal-ratio-settings-v1")||"{}");if(saved.period==="custom")coalRatioSettings.period="custom";for(const key of ["startDay","endDay"])if(Number.isInteger(saved[key])&&saved[key]>=1&&saved[key]<=31)coalRatioSettings[key]=saved[key];}catch{}
   const nameOf=id=>m.people.find(p=>p.id===id)?.name||"未分配",vehicleOf=id=>m.vehicles.find(v=>v.id===id),vehicleName=id=>vehicleOf(id)?.code||"未分配";
   const button=(action,id,label,style="soft")=>'<button type="button" class="'+style+'" data-action="'+action+'" data-id="'+esc(id||"")+'">'+esc(label)+'</button>';
   const pill=(text,warn=false,red=false)=>'<span class="pill'+(red?' red':warn?' warn':'')+'">'+esc(text)+'</span>';
@@ -138,6 +140,15 @@
     }
     return [...rows.values()].sort((a,b)=>a.workDate.localeCompare(b.workDate)||a.personName.localeCompare(b.personName,"zh-CN",{numeric:true})||a.personId.localeCompare(b.personId));
   }
+  function renderCoalRatio(scope,entityName){
+    if(scope.mode!=="person")return "";
+    const settings=coalRatioSettings,month=settings.month||T.date().slice(0,7),year=Number(month.slice(0,4)),monthIndex=Number(month.slice(5,7))-1;
+    const dateAt=(offset,day)=>{const last=new Date(Date.UTC(year,monthIndex+offset+1,0)).getUTCDate();return new Date(Date.UTC(year,monthIndex+offset,Math.min(day,last))).toISOString().slice(0,10);};
+    const custom=settings.period==="custom",startDate=dateAt(0,custom?settings.startDay:1),endDate=custom?dateAt(settings.endDay<settings.startDay?1:0,settings.endDay):dateAt(0,31);
+    const ratioScope={...scope,startDate,endDate,error:"",personId:scope.personId||"__all_persons__"},context=haulSummaryContext(ratioScope),{totals}=haulSummaryData(ratioScope,context),percent=totals.total?(totals["煤"]/totals.total*100).toFixed(2)+"%":"—";
+    const dayOptions=Array.from({length:31},(_,i)=>[String(i+1),String(i+1)+"号"]);
+    return '<section class="coal-ratio-panel" aria-label="煤渣比例"><div class="coal-ratio-heading"><h2>煤渣比例</h2><span>'+esc(scope.personId?entityName:"全员")+' · '+esc(startDate)+' 至 '+esc(endDate)+'</span></div><div class="coal-ratio-values"><div><span>渣车数</span><strong>'+totals["渣"]+'<small> 车</small></strong></div><div><span>煤车数</span><strong>'+totals["煤"]+'<small> 车</small></strong></div><div><span>煤占总车数</span><strong>'+percent+'</strong></div></div><div class="coal-ratio-controls">'+select("coalRatioPeriod","统计周期",[["natural","自然月"],["custom","自定义每月几号到几号"]],settings.period)+input("coalRatioMonth","统计月份（周期开始月）",month,"month")+(custom?select("coalRatioStartDay","每月开始日",dayOptions,settings.startDay)+select("coalRatioEndDay","每月结束日",dayOptions,settings.endDay):"")+'</div><p class="help">煤占比＝煤车数 ÷ 总车数；总车数含渣、煤、只记车数及历史未分类，每趟只计一次。'+(totals.total?"":"暂无有效车次，比例显示“—”。")+(custom?"结束日小于开始日时跨至次月，月份没有对应日期时取当月最后一天。":"自然月按当月1日至最后一天统计。")+'</p></section>';
+  }
   function renderHaulSummary(){
     if(role!=="dispatch")return "";
     const scope=haulSummaryScope(),context=haulSummaryContext(scope),options=haulSummaryOptions(scope,context),{days,totals}=haulSummaryData(scope,context),today=T.date(),showOther=totals.otherCrew>0,showUnknown=totals.unknown>0;
@@ -147,9 +158,10 @@
     $("subtitle").textContent=scope.startDate+" 至 "+scope.endDate+" · "+modeLabel;
     const tabs='<div class="haul-summary-mode-tabs" role="group" aria-label="逐日统计方式">'+[["crew","班组逐日统计"],["person","按人名逐日统计"],["equipment","按设备逐日统计"]].map(([key,label])=>'<button type="button" data-action="haulSummaryMode" data-id="'+key+'" class="'+(scope.mode===key?"":"soft")+'" aria-pressed="'+(scope.mode===key)+'">'+label+'</button>').join("")+'</div>';
     const subject=scope.mode==="person"?select("haulSummaryPerson","人员",[["","请选择人员（选填）"],["__all_persons__","全员"],["__crew_a_persons__","生产A组"],["__crew_b_persons__","生产B组"],...options],scope.personId):scope.mode==="equipment"?select("haulSummaryVehicle","设备",[["","请选择设备（选填）"],["__all_excavators__","全部挖机"],["__all_trucks__","全部汽车"],...options],scope.vehicleId):"";
+    const ratioPanel=renderCoalRatio(scope,entityName);
     const filters='<div class="haul-summary-filters haul-month-filter">'+subject+input("haulSummaryStartDate","开始日期",scope.startDate,"date")+input("haulSummaryEndDate","结束日期",scope.endDate,"date")+'</div>',toolbar='<div class="haul-summary-toolbar">'+tabs+filters+'</div>';
-    if(scope.error)return '<section class="haul-summary">'+toolbar+'<section class="panel"><p class="haul-summary-range-error" role="alert">'+esc(scope.error)+'</p></section></section>';
-    if(scope.mode!=="crew"&&!entityId)return '<section class="haul-summary">'+toolbar+'<section class="panel"><p class="help">请选择'+(scope.mode==="person"?"人员":"设备")+'，查看所选日期范围每天的车数及区间合计。</p></section></section>';
+    if(scope.error)return '<section class="haul-summary">'+ratioPanel+toolbar+'<section class="panel"><p class="haul-summary-range-error" role="alert">'+esc(scope.error)+'</p></section></section>';
+    if(scope.mode!=="crew"&&!entityId)return '<section class="haul-summary">'+ratioPanel+toolbar+'<section class="panel"><p class="help">请选择'+(scope.mode==="person"?"人员":"设备")+'，查看所选日期范围每天的车数及区间合计。</p></section></section>';
     let line;
     if(scope.mode==="crew")line='<span>生产A组 <b>'+totals.crewA+'</b> 车</span><span>生产B组 <b>'+totals.crewB+'</b> 车</span>'+(showOther?'<span>其他/未归属 <b>'+totals.otherCrew+'</b> 车</span>':"")+'<strong>区间合计 <b>'+totals.total+'</b> 车</strong>';
     else if(scope.mode==="person")line='<span>'+esc(entityName)+'</span><span>拉运 <b>'+totals.haul+'</b> 车</span><span>装车 <b>'+totals.load+'</b> 车</span><strong>区间合计 <b>'+totals.total+'</b> 车</strong>';
@@ -165,7 +177,7 @@
       return '<tr class="'+(future?"haul-summary-future":row.workDate===today?"haul-summary-today":"")+'"><td>'+esc(row.workDate)+'</td>'+(allPeople?'<td>'+esc(row.personName)+'</td>':"")+columns.map(([key])=>'<td class="haul-summary-number">'+value(row[key])+'</td>').join("")+'<td class="haul-summary-number haul-summary-total">'+value(row.total)+'</td></tr>';
     }).join("");
     const footer='<tr><td'+(allPeople?' colspan="2"':"")+'>'+(allPeople?'区间合计（车次去重）':'区间合计')+'</td>'+columns.map(([key])=>'<td class="haul-summary-number">'+totals[key]+'</td>').join("")+'<td class="haul-summary-number">'+totals.total+'</td></tr>';
-    return '<section class="haul-summary">'+toolbar+'<div class="haul-summary-line haul-crew-strip">'+line+'</div><section class="panel"><div class="table-wrap"><table class="haul-summary-table haul-crew-month-table" aria-label="'+esc(haulSummaryTitles[scope.mode])+'"><thead><tr>'+head+'</tr></thead><tbody>'+body+'</tbody><tfoot>'+footer+'</tfoot></table></div></section><p class="help">单位：车。夜班按开始日归属，跨月仍计入开始日所在月份。仅统计已完成的真实定位车次，非卸载区完成同样计入；每趟在合计中只计一次。未来日期暂无记录时显示“—”。'+(scope.mode==="person"?' 拉运按实际汽车驾驶员统计，装车按实际装载挖机及其对应司机统计，包含临时挖机装载。':scope.mode==="equipment"?' 按车次记录中的实际汽车或实际装载挖机统计，包含临时挖机装载。':"")+(allPeople?' 所选范围人员按日期和姓名逐行展示，含零车数司机；同一趟分别归属汽车司机和挖机司机，个人行不可相加作为总车数，底部合计按实际车次去重。':"")+(scope.mode==="crew"&&showOther?' 旧记录的其他或未归属班组车次单独列出。':"")+(showUnknown?' 旧物料未归入统一三类时单独显示“历史未分类”。':"")+'</p></section>';
+    return '<section class="haul-summary">'+ratioPanel+toolbar+'<div class="haul-summary-line haul-crew-strip">'+line+'</div><section class="panel"><div class="table-wrap"><table class="haul-summary-table haul-crew-month-table" aria-label="'+esc(haulSummaryTitles[scope.mode])+'"><thead><tr>'+head+'</tr></thead><tbody>'+body+'</tbody><tfoot>'+footer+'</tfoot></table></div></section><p class="help">单位：车。夜班按开始日归属，跨月仍计入开始日所在月份。仅统计已完成的真实定位车次，非卸载区完成同样计入；每趟在合计中只计一次。未来日期暂无记录时显示“—”。'+(scope.mode==="person"?' 拉运按实际汽车驾驶员统计，装车按实际装载挖机及其对应司机统计，包含临时挖机装载。':scope.mode==="equipment"?' 按车次记录中的实际汽车或实际装载挖机统计，包含临时挖机装载。':"")+(allPeople?' 所选范围人员按日期和姓名逐行展示，含零车数司机；同一趟分别归属汽车司机和挖机司机，个人行不可相加作为总车数，底部合计按实际车次去重。':"")+(scope.mode==="crew"&&showOther?' 旧记录的其他或未归属班组车次单独列出。':"")+(showUnknown?' 旧物料未归入统一三类时单独显示“历史未分类”。':"")+'</p></section>';
   }
   function assignmentCards(rows,own=false){return rows.length?rows.map(r=>'<section class="panel"><div class="panel-head"><h2>'+esc(r.workDate||"日期未设置")+' · '+esc(r.shiftName)+'</h2>'+pill(states[r.status]||r.status,r.status==="draft")+'</div><p><strong>'+esc(nameOf(r.personId))+'</strong> · '+esc(vehicleName(r.vehicleId))+'</p><p class="muted">'+(r.kind==="driver"?'绑定挖机：'+esc(vehicleName(r.excavatorId)):'挖机操作人员排班')+'</p>'+(r.note?'<p class="muted">'+esc(r.note)+'</p>':'')+'<div class="actions">'+(own&&r.status==="active"&&!session()?button("openShift",r.id,"接班并检查设备",""):"")+(role==="dispatch"&&!d.shifts.some(s=>s.assignmentId===r.id)?button("assignment",r.id,"编辑"):'')+(role==="dispatch"&&r.status==="draft"?button("activateAssignment",r.id,"启用排班",""):'')+(role==="dispatch"&&["draft","active"].includes(r.status)?button("cancelAssignment",r.id,"取消排班","danger"):'')+'</div></section>').join(""):(own?empty("尚无可用排班，请等待调度分配车辆和班次"):"");}
 
@@ -494,6 +506,15 @@
   $("logisticsDialog").addEventListener("close",()=>{$("logisticsFrame").src="about:blank";});
   window.addEventListener("message",event=>{if(event.origin===location.origin&&event.source===$("logisticsFrame").contentWindow&&event.data?.type==="mine-close-logistics")$("logisticsDialog").close();});
   document.addEventListener("change",event=>{
+    if(["coalRatioPeriod","coalRatioMonth","coalRatioStartDay","coalRatioEndDay"].includes(event.target.name)){
+      if(role!=="dispatch")return;
+      const name=event.target.name,value=event.target.value;
+      if(name==="coalRatioPeriod")coalRatioSettings.period=value==="custom"?"custom":"natural";
+      if(name==="coalRatioMonth")coalRatioSettings.month=haulSummaryValidDate(value+"-01")?value:null;
+      if(name==="coalRatioStartDay"||name==="coalRatioEndDay"){const day=Number(value);if(Number.isInteger(day)&&day>=1&&day<=31)coalRatioSettings[name==="coalRatioStartDay"?"startDay":"endDay"]=day;}
+      try{localStorage.setItem("mine-transport-coal-ratio-settings-v1",JSON.stringify({period:coalRatioSettings.period,startDay:coalRatioSettings.startDay,endDay:coalRatioSettings.endDay}));}catch{}
+      refresh();return;
+    }
     if(["haulSummaryStartDate","haulSummaryEndDate","haulSummaryPerson","haulSummaryVehicle"].includes(event.target.name)){
       if(role!=="dispatch")return;
       const value=event.target.value;
