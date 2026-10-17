@@ -35,6 +35,7 @@
   }
   function render(){
     $("transportFooter").hidden=role==="dispatch";
+    $("workspaceRefresh").hidden=role==="dispatch";
     const entries=role==="dispatch"?[["overview","调度总览"],["assignments","白夜班排班"],["zones","GPS作业区域"],["records","运输车次"],["faults","检查与异常责任"],["devices","设备暂停与恢复"],["sessions","实际班次"],["messages","消息中心"],["settings","定位规则"],["audit","操作记录"]]:[["work",role==="driver"?"本班驾驶作业":"本班装载作业"],["records","运输车次"],["faults","检查与责任关联"],["sessions","我的班次"],["messages","消息中心"]];
     if(!entries.some(e=>e[0]===view))view=entries[0][0];const unread=T.visibleMessages(d,person).filter(v=>!v.readBy.includes(person.id)).length;
     $("roleLabel").textContent=labels[role];$("identity").textContent=person.name+" · "+person.status;$("nav").innerHTML=entries.map(([id,label])=>'<button type="button" data-view="'+id+'" class="'+(id===view?'selected':'')+'">'+label+(id==="messages"&&unread?' ('+unread+')':'')+'</button>').join("");
