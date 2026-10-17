@@ -179,7 +179,7 @@
     const h=t.haulDistance;
     if(h?.version===1&&Number.isFinite(h.metres)&&h.metres>=0){
       const gapReasons=[...new Set((h.gaps||[]).map(g=>g.reason))].join("；");
-      return {label:h.complete?distanceText(h.metres):"已记录 "+distanceText(h.metres)+"（轨迹不完整）",basis:"GPS有效轨迹估算，已过滤定位抖动",note:(gapReasons?"定位缺失原因："+gapReasons+"。":"")+(h.endSource==="outside-last-fix"?"非卸载区卸料：距离截至最后有效定位。":"")+"不含空车返程。",samples:h.samples||0};
+      return {label:h.complete&&h.finishedAt?distanceText(h.metres):"已记录 "+distanceText(h.metres)+"（轨迹不完整）",basis:"GPS有效轨迹估算，已过滤定位抖动",note:(!h.finishedAt?"未记录完整的卸料终点。":"")+(gapReasons?"定位缺失原因："+gapReasons+"。":"")+(h.endSource==="outside-last-fix"?"非卸载区卸料：距离截至最后有效定位。":"")+"不含空车返程。",samples:h.samples||0};
     }
     const usable=p=>p&&Number.isFinite(p.lat)&&Number.isFinite(p.lng)&&Number.isFinite(p.accuracy)&&p.accuracy<=(t.settings?.maxAccuracy??50);
     if(usable(t.loadPoint)&&usable(t.unloadPoint)){
