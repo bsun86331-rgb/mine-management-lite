@@ -41,7 +41,7 @@
     if(!entries.some(e=>e[0]===view))view=entries[0][0];const unread=T.visibleMessages(d,person).filter(v=>!v.readBy.includes(person.id)).length;
     $("roleLabel").textContent=labels[role];$("identity").textContent=person.name+" · "+person.status;$("nav").innerHTML=entries.map(([id,label])=>'<button type="button" data-view="'+id+'" class="'+(id===view?'selected':'')+'">'+label+(id==="messages"&&unread?' ('+unread+')':'')+'</button>').join("");
     $("title").textContent=entries.find(v=>v[0]===view)[1];$("subtitle").textContent=role==="dispatch"?"排班、区域、设备与车次共用同一台账":role==="driver"?"先检查设备，再按装载与卸载区域完成运输":"按实际装载挖机汇总跟随车辆的已完成车次";document.title=labels[role]+" · 矿山管理系统";
-    const overviewOnly=role==="dispatch"&&view==="overview";$("eyebrow").hidden=overviewOnly;$("subtitle").hidden=overviewOnly;$("notice").hidden=overviewOnly;
+    const overviewOnly=role==="dispatch"&&view==="overview";$("eyebrow").hidden=false;$("subtitle").hidden=false;$("notice").hidden=overviewOnly;
     $("notice").innerHTML=(unread?'<div class="banner">你有 '+unread+' 条未读作业消息。'+button("go-messages","","查看")+'</div>':'');
     const renderers={tasks:()=>MineTaskBoard.render(d,m,person,{dispatch:role==="dispatch",hideTitle:true}),overview:renderOverview,assignments:renderAssignments,zones:renderZones,records:renderRecords,faults:renderFaults,devices:renderDevices,sessions:renderSessions,messages:renderMessages,settings:renderSettings,audit:renderAudit,work:role==="driver"?renderDriver:renderExcavator};
     $("content").innerHTML=(view==="work"?MineTaskBoard.render(d,m,person):"")+renderers[view]();taskClockSignature=MineTaskBoard.clockKey(d);
