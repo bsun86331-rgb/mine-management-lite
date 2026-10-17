@@ -23,7 +23,7 @@ dialog#logisticsDialog{width:min(1180px,96vw);height:92vh;max-height:92vh;border
   <div class="actions" style="flex-wrap:wrap"><a class="btn primary" id="logisticsLink">后勤物资申请</a><a class="btn" href="index.html">返回首页</a></div><p id="logisticsMessages"></p>
 </main>
 <dialog id="logisticsDialog"><div class="logistics-dialog-head"><strong>后勤物资申请与个人领用</strong><button id="closeLogistics" type="button">关闭</button></div><iframe id="logisticsFrame" title="后勤库存、申请与领用确认"></iframe></dialog>
-<script src="logistics-store.js?v=20261016-7"></script><script src="transport-store.js?v=20261017-8"></script><script src="task-engine.js?v=20261017-1"></script><script src="task-board.js?v=20261017-4"></script>
+<script src="logistics-store.js?v=20261016-7"></script><script src="transport-store.js?v=20261017-9"></script><script src="task-engine.js?v=20261017-1"></script><script src="task-board.js?v=20261017-4"></script>
 <script>
 const roles={
  driver:["司机端","🚚","司机查看当班任务并记录运输作业。"],
@@ -46,7 +46,7 @@ let portalBoardSignature="";
 const key=new URLSearchParams(location.search).get("role");
 const knownRole=Object.prototype.hasOwnProperty.call(roles,key);
 const item=(knownRole ? roles[key] : null)||["业务端口","◇","该端口将在后续步骤中逐个完成。"];
-function checkWorkAccess(){
+async function checkWorkAccess(){
   if(!knownRole){document.querySelector(".card").hidden=true;location.replace("index.html");return;}
   let db={people:[]};
   try{const saved=JSON.parse(localStorage.getItem("mine-management-lite-records-v1")||"{}");db.people=Array.isArray(saved.people)?saved.people:[]}catch{}
@@ -64,7 +64,7 @@ function checkWorkAccess(){
   const board=document.getElementById("portalTaskBoard");
   if(MineTransport.auxiliaryRoles.includes(key)){
     board.hidden=false;
-    try{const data=MineTransport.get(),signature=localStorage.getItem(MineTransport.KEY)+MineTaskBoard.clockKey(data)+applicant.id;
+    try{await MineTransport.sync();const data=MineTransport.get(),signature=MineTransport.stamp()+MineTaskBoard.clockKey(data)+applicant.id;
       if(signature!==portalBoardSignature){board.innerHTML=MineTaskBoard.render(data,db,applicant);portalBoardSignature=signature;}
     }catch(error){board.textContent=error.message;}
   }
