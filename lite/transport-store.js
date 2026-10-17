@@ -10,7 +10,82 @@
   const shiftContains=(times,minute)=>{const start=clockMinutes(times.start),end=clockMinutes(times.end);return start<end?minute>=start&&minute<end:minute>=start||minute<end;};
   function currentShift(times,at=new Date()){const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Ulaanbaatar",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(at),values=Object.fromEntries(parts.map(p=>[p.type,p.value])),minute=Number(values.hour)*60+Number(values.minute);const matches=["白班","夜班"].filter(name=>shiftContains(times[name],minute));return matches.length===1?matches[0]:null;}
   const defaults={dwellSeconds:20,maxAccuracy:50,gapSeconds:90,exitMargin:15,maxSpeedKmh:150};
-  function get(){let d;try{d=JSON.parse(localStorage.getItem(KEY)||"null");}catch{fail("运输台账无法读取，请保留浏览器数据并联系管理员");}if(!d)d={version:1,revision:0,settings:{...defaults},assignments:[],zones:[],shifts:[],inspections:[],faults:[],trips:[],devices:[],messages:[],audit:[]};for(const key of ["assignments","zones","shifts","inspections","faults","trips","devices","messages","audit"])if(!Array.isArray(d[key]))fail("运输台账格式异常");if(d.productionGroups==null)d.productionGroups=[];if(!Array.isArray(d.productionGroups))fail("生产设备组草稿格式异常");for(const group of d.productionGroups){if(group.followingTrucks==null)group.followingTrucks=group.followingTruck?[{...group.followingTruck}]:(group.vehicleId&&group.personId?[{id:group.id+"-truck-1",status:"draft",vehicleId:"",personId:"",createdAt:group.updatedAt||group.createdAt}]:[]);if(!Array.isArray(group.followingTrucks))fail("跟随汽车草稿格式异常");}if(d.auxiliaryPlans==null)d.auxiliaryPlans=[];if(!Array.isArray(d.auxiliaryPlans)||d.auxiliaryPlans.some(p=>!Array.isArray(p.cards)))fail("辅助车辆草稿格式异常");if(d.taskReleases==null)d.taskReleases=[];if(!Array.isArray(d.taskReleases))fail("任务发布记录格式异常");d.settings={...defaults,...d.settings};d.shiftTimes=Object.fromEntries(["白班","夜班"].map(name=>[name,{...shiftTimeDefaults[name],...d.shiftTimes?.[name]}]));return d;}
+  function parseLedger(raw){let d;try{d=JSON.parse(raw||"null");}catch{fail("运输台账无法读取，请保留浏览器数据并联系管理员");}if(!d)d={version:1,revision:0,settings:{...defaults},assignments:[],zones:[],shifts:[],inspections:[],faults:[],trips:[],devices:[],messages:[],audit:[]};for(const key of ["assignments","zones","shifts","inspections","faults","trips","devices","messages","audit"])if(!Array.isArray(d[key]))fail("运输台账格式异常");if(d.productionGroups==null)d.productionGroups=[];if(!Array.isArray(d.productionGroups))fail("生产设备组草稿格式异常");for(const group of d.productionGroups){if(group.followingTrucks==null)group.followingTrucks=group.followingTruck?[{...group.followingTruck}]:(group.vehicleId&&group.personId?[{id:group.id+"-truck-1",status:"draft",vehicleId:"",personId:"",createdAt:group.updatedAt||group.createdAt}]:[]);if(!Array.isArray(group.followingTrucks))fail("跟随汽车草稿格式异常");}if(d.auxiliaryPlans==null)d.auxiliaryPlans=[];if(!Array.isArray(d.auxiliaryPlans)||d.auxiliaryPlans.some(p=>!Array.isArray(p.cards)))fail("辅助车辆草稿格式异常");if(d.taskReleases==null)d.taskReleases=[];if(!Array.isArray(d.taskReleases))fail("任务发布记录格式异常");d.settings={...defaults,...d.settings};d.shiftTimes=Object.fromEntries(["白班","夜班"].map(name=>[name,{...shiftTimeDefaults[name],...d.shiftTimes?.[name]}]));return d;}
+  const DATABASE="mine-management-lite-transport-data-v1",STORE="ledger";
+  let storageConnection=null,storageReady=null,cachedRaw=null,cachedToken="empty",loaded=false,syncing=null;
+  function storageFailure(error){
+    return new Error(error?.name==="QuotaExceededError"?"浏览器可用存储空间不足，未提交本次更改，原记录保留。请释放设备磁盘空间后重试。":"运输台账保存不可用，原记录保留："+(error?.message||"请重新打开工作台"));
+  }
+  function database(){
+    if(storageConnection)return Promise.resolve(storageConnection);
+    return new Promise((resolve,reject)=>{
+      if(!window.indexedDB)return reject(new Error("当前浏览器不支持运输台账存储，请使用新版浏览器"));
+      const request=indexedDB.open(DATABASE,1);let cancelled=false;
+      request.onupgradeneeded=()=>{if(!request.result.objectStoreNames.contains(STORE))request.result.createObjectStore(STORE);};
+      request.onerror=()=>reject(storageFailure(request.error));
+      request.onblocked=()=>{cancelled=true;reject(new Error("运输存储升级被其他页签占用，请关闭旧工作台页签后重试"));};
+      request.onsuccess=()=>{if(cancelled){request.result.close();return;}storageConnection=request.result;storageConnection.onversionchange=()=>{storageConnection?.close();storageConnection=null;};resolve(storageConnection);};
+    });
+  }
+  async function readStorage(knownToken=null){
+    const db=await database();
+    return new Promise((resolve,reject)=>{
+      const tx=db.transaction(STORE,"readonly"),store=tx.objectStore(STORE);let result=null;
+      const meta=store.get("revision");
+      meta.onsuccess=()=>{
+        if(knownToken!==null&&(meta.result||"empty")===knownToken){result={unchanged:true};return;}
+        const request=store.get("current");request.onsuccess=()=>{result=request.result||null;};
+      };
+      tx.oncomplete=()=>resolve(result);
+      tx.onabort=tx.onerror=()=>reject(storageFailure(tx.error));
+    });
+  }
+  async function writeStorage(record){
+    const db=await database();
+    return new Promise((resolve,reject)=>{
+      const tx=db.transaction(STORE,"readwrite"),store=tx.objectStore(STORE);
+      store.put(record,"current");store.put(record.token,"revision");
+      tx.oncomplete=()=>resolve();tx.onabort=tx.onerror=()=>reject(storageFailure(tx.error));
+    });
+  }
+  function cacheRecord(record){
+    if(record&&(typeof record.raw!=="string"||!record.raw||typeof record.token!=="string"||!record.token))fail("运输存储记录格式异常，请保留浏览器数据");
+    if(record)parseLedger(record.raw);
+    cachedRaw=record?.raw||null;cachedToken=record?.token||"empty";loaded=true;
+  }
+  function signalStorage(){
+    // A tiny optional notification replaces the large old localStorage value only after commit.
+    try{localStorage.setItem(KEY,JSON.stringify({storage:"indexeddb",token:cachedToken}));}catch{}
+    window.dispatchEvent(new CustomEvent("mine-transport-change"));
+  }
+  async function initializeStorage(){
+    const record=await readStorage();
+    if(record){cacheRecord(record);signalStorage();return;}
+    const legacy=localStorage.getItem(KEY);
+    if(legacy){
+      let marker;try{marker=JSON.parse(legacy);}catch{fail("旧运输台账无法读取，请保留浏览器数据");}
+      if(marker?.storage==="indexeddb")fail("运输台账存储记录缺失，请保留浏览器数据并联系管理员");
+      parseLedger(legacy);
+      const migrated={raw:legacy,token:uid()};
+      await writeStorage(migrated);cacheRecord(migrated);signalStorage();return;
+    }
+    cacheRecord(null);
+  }
+  function ready(){
+    if(!storageReady)storageReady=(navigator.locks?.request?navigator.locks.request(KEY,initializeStorage):initializeStorage()).catch(error=>{storageReady=null;throw error;});
+    return storageReady;
+  }
+  async function sync(){
+    await ready();
+    if(!syncing){
+      const reload=async()=>{const record=await readStorage(cachedToken);if(!record?.unchanged){if(!record&&cachedToken!=="empty")fail("运输台账存储记录缺失，请保留浏览器数据");cacheRecord(record);}};
+      syncing=(navigator.locks?.request?navigator.locks.request(KEY,{mode:"shared"},reload):reload()).finally(()=>{syncing=null;});
+    }
+    return syncing;
+  }
+  function get(){if(!loaded)fail("运输台账正在载入，请稍后重试");return parseLedger(cachedRaw);}
+  const stamp=()=>cachedToken;
+
   function context(role){if(!roles.includes(role))fail("无效工作端口");const p=L.context(role);if(!L.active(p))fail("当前人员状态不能进入运输工作台，请返回登记状态页");return p;}
   const date=()=>new Date().toLocaleDateString("sv-SE",{timeZone:"Asia/Ulaanbaatar"});
   const isExcavator=v=>/挖/.test(String(v?.category||v?.model||""));
@@ -225,7 +300,7 @@
     fail("未知运输操作");
   }
   function visibleMessages(d,a){const equipment=new Set(d.assignments.filter(r=>r.personId===a.id&&r.kind==="excavator").map(r=>"exc:"+r.vehicleId));return d.messages.filter(msg=>msg.target===a.id||(a.applicationRole==="dispatch"&&msg.target==="dispatch")||(a.applicationRole==="excavator"&&equipment.has(msg.target)));}
-  async function act(type,args,actor){if(!navigator.locks?.request)fail("请使用支持事务锁的新版浏览器");return navigator.locks.request(KEY,async()=>{const d=get(),m=L.main(),a=actorFrom(m,actor),result=execute(d,m,a,type,args||{});try{localStorage.setItem(KEY,JSON.stringify(d));}catch(error){fail("保存失败，未新增车次或计数："+error.message);}window.dispatchEvent(new CustomEvent("mine-transport-change"));return result;});}
-  window.MineTransport={KEY,get,context,act,defaults,materialTypes,shiftTimeDefaults,currentShift,date,distance,inside,validZone,ownShift,shiftTrip,liveTrip,equipmentState,working,isExcavator,isHaulTruck,isAuxiliaryVehicle,auxiliaryRoles,draftSlots,visibleMessages};
+  async function act(type,args,actor){if(!navigator.locks?.request)fail("请使用支持事务锁的新版浏览器");await ready();return navigator.locks.request(KEY,async()=>{const record=await readStorage();if(!record&&cachedToken!=="empty")fail("运输台账存储记录缺失，请保留浏览器数据");cacheRecord(record);const d=get(),m=L.main(),a=actorFrom(m,actor),result=execute(d,m,a,type,args||{}),next={raw:JSON.stringify(d),token:uid()};await writeStorage(next);cacheRecord(next);signalStorage();return result;});}
+  window.MineTransport={KEY,get,ready,sync,stamp,context,act,defaults,materialTypes,shiftTimeDefaults,currentShift,date,distance,inside,validZone,ownShift,shiftTrip,liveTrip,equipmentState,working,isExcavator,isHaulTruck,isAuxiliaryVehicle,auxiliaryRoles,draftSlots,visibleMessages};
 })();
 
