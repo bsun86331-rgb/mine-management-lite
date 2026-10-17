@@ -169,8 +169,8 @@
     const token=openDetails("设备信息 · "+(v?.code||task.vehicleCode),info(fields)+photoMarkup(files));return loadDetailPhotos(files,token);
   }
   function personDetails(d,m,task){
-    const p=m.people.find(p=>p.id===task.personId),actual=(d.shifts||[]).find(s=>s.personId===task.personId&&s.status!=="closed");
-    const fields=[["姓名",p?.name||task.personName],["人员编号",task.personId],["申请岗位",p?.role||task.role],["所属班组",p?.team||task.personTeam],["人员状态",p?.status],["手机号码",p?.phone],["入职日期",p?.joinDate],["当前实际班次",actual?actual.workDate+" "+actual.shiftName+" · "+actual.vehicleCode:"无设备班次占用"]];
+    const p=m.people.find(p=>p.id===task.personId);
+    const fields=[["姓名",p?.name||task.personName],["人员编号",task.personId],["申请岗位",p?.role||task.role],["所属班组",p?.team||task.personTeam],["人员状态",p?.status],["手机号码",p?.phone],["入职日期",p?.joinDate]];
     const files=p?.attachments?.selfie?[{...p.attachments.selfie,label:"本人照片"}]:[];
     const token=openDetails("人员信息 · "+(p?.name||task.personName),info(fields)+photoMarkup(files));return loadDetailPhotos(files,token);
   }
