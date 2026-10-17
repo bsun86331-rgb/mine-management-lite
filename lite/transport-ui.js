@@ -145,7 +145,7 @@
     const roleColumns=scope.mode==="crew"?[["crewA","生产A组"],["crewB","生产B组"],...(showOther?[["otherCrew","其他/未归属"]]:[])]:scope.mode==="person"?[["haul","拉运车数"],["load","装车车数"]]:[];
     const columns=[...roleColumns,...T.materialTypes.map(name=>[name,name]),...(showUnknown?[["unknown","历史未分类"]]:[])];
     const allPeople=scope.mode==="person"&&scope.personId==="__all_persons__",displayRows=allPeople?haulSummaryPeopleRows(context,options):days;
-    haulSummaryExportData={scope,modeLabel,allPeople,totals,columns,rows:displayRows.map(row=>({...row,future:row.workDate>today&&row.total===0}))};
+    haulSummaryExportData={scope,modeLabel,allPeople,totals,columns,context,options,rows:displayRows.map(row=>({...row,future:row.workDate>today&&row.total===0}))};
     $("exportHaulSummary").disabled=false;
     const head='<th>日期</th>'+(allPeople?'<th>姓名</th>':"")+columns.map(([key,label])=>'<th class="haul-summary-number'+(["crewA","crewB"].includes(key)?' haul-crew-heading':'')+'">'+esc(label)+'</th>').join("")+'<th class="haul-summary-number">当日合计</th>';
     const body=displayRows.map(row=>{
@@ -280,6 +280,26 @@
       return operate("publishTasks",{sourceDate:state.context.workDate,shiftName:state.context.shiftName,team:state.context.team,taskDate,expectedSignature:state.signature},"任务已发布，各岗位看板已更新",()=>{dispatchBindingEdits.delete(JSON.stringify([state.context.workDate,state.context.shiftName,state.context.team]));view="assignments";});
     },"发布任务");updatePublishPreview();
   }
+  function personnelMatrixSheets(report){
+    const {scope,context,options}=report,all=scope.personId==="__all_persons__",today=T.date();
+    return [["driver","汽车司机汇总","汽车拉运车数统计表","haul"],["excavator","挖机司机汇总","挖机装车数统计表","load"]].map(([roleCode,name,heading,kind])=>{
+      const people=new Map(),add=(id,label)=>{if(id==null||id===""||(!all&&String(id)!==scope.personId))return;id=String(id);if(!people.has(id))people.set(id,{id,name:context.people.get(id)?.name||label||id,counts:new Map()});};
+      for(const p of m.people)if(p.applicationRole===roleCode)add(p.id,p.name);
+      for(const t of context.trips){
+        const id=kind==="haul"?t.personId:context.operatorId(t),hasEquipment=kind==="haul"?t.vehicleId:t.excavatorId;
+        if(!hasEquipment)continue;
+        if(id==null||id===""){if(all)add("__unassigned_"+kind+"__","历史未归属");}
+        else add(id,options.find(([key])=>key===String(id))?.[1]);
+        const row=people.get(id==null||id===""?"__unassigned_"+kind+"__":String(id));
+        if(row)row.counts.set(t.workDate,(row.counts.get(t.workDate)||0)+1);
+      }
+      const duplicateNames=new Map();for(const p of people.values())duplicateNames.set(p.name,(duplicateNames.get(p.name)||0)+1);
+      const records=[...people.values()].sort((a,b)=>a.name.localeCompare(b.name,"zh-CN",{numeric:true})||a.id.localeCompare(b.id)).map(p=>({name:p.name+(duplicateNames.get(p.name)>1?"（"+p.id+"）":""),values:context.days.map(day=>day.workDate>today&&!p.counts.has(day.workDate)?null:p.counts.get(day.workDate)||0)}));
+      const crossYear=scope.startDate.slice(0,4)!==scope.endDate.slice(0,4);
+      const dates=context.days.map(day=>crossYear?day.workDate:Number(day.workDate.slice(5,7))+"月"+Number(day.workDate.slice(8,10))+"日");
+      return {name,title:scope.startDate+"至"+scope.endDate+" "+heading,dates,records,matrix:true,notes:["单位：车。"+(all?"全部人员":"当前所选人员")+"；按班次开始日归属，仅统计已完成真实定位车次。",kind==="haul"?"汽车司机按每趟实际驾驶员统计。":"挖机司机按实际装载设备对应司机统计，包含临时挖机。","无车数显示0，未来暂无记录留空；汽车与挖机分别统计，同一趟不能将两张表相加作为总拉运数。"]};
+    });
+  }
   function exportHaulSummary(){
     if(role!=="dispatch"||view!=="summary")return;
     haulSummaryExportData=null;refresh();
@@ -291,7 +311,7 @@
     const rows=[...report.rows,{...totals,workDate:allPeople?"区间合计（车次去重）":"区间合计",personName:""}];
     const notes=["单位：车。仅统计已完成的真实定位车次，按班次开始日归属；未来日期暂无记录的数值留空。",...(scope.mode==="person"?["拉运按实际汽车司机、装车按实际装载挖机对应司机归属，包含临时挖机。"]:[]),...(allPeople?["全员按日期和姓名列出，含零车数人员；同一趟分别归属汽车和挖机司机，个人行不能相加作为总车数，区间合计按实际车次去重。"]:[]),...(scope.mode==="equipment"?["按车次实际汽车或实际装载挖机归集，包含临时挖机。"]:[]),...(totals.unknown?["历史未分类车次保留在单独分类和合计中。"]:[])];
     const title=(haulSummaryTitles[scope.mode]+"_"+scope.startDate+"至"+scope.endDate+"_"+modeLabel).replace(/[\\/:*?"<>|\[\]]/g,"_");
-    try{window.MineTableExport.download(fields,rows,title,{notes});toast("Excel 已导出");}catch(error){toast("导出失败："+error.message);}
+    try{if(scope.mode==="person")window.MineTableExport.downloadSheets([{name:"人员逐日明细",columns:fields,records:rows,title,notes},...personnelMatrixSheets(report)],title);else window.MineTableExport.download(fields,rows,title,{notes});toast("Excel 已导出");}catch(error){toast("导出失败："+error.message);}
   }
   function openAction(action,key){const s=session();
     if(action==="exportHaulSummary")return exportHaulSummary();
