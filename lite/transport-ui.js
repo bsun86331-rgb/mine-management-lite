@@ -105,6 +105,26 @@
     }
     return {days:context.days,totals};
   }
+  function haulSummaryPeopleRows(context,options){
+    const nameCounts=new Map();
+    for(const [id,label] of options){const name=context.people.get(id)?.name||label;nameCounts.set(name,(nameCounts.get(name)||0)+1);}
+    const people=new Map(options.map(([id,label])=>{const name=context.people.get(id)?.name||label;return [id,{id,name:name+(nameCounts.get(name)>1?"（"+id+"）":"")}];}));
+    const rows=new Map(),key=(date,id)=>JSON.stringify([date,id]);
+    for(const day of context.days)for(const person of people.values())rows.set(key(day.workDate,person.id),{workDate:day.workDate,personId:person.id,personName:person.name,...context.blank()});
+    for(const trip of context.trips){
+      const operator=context.operatorId(trip),driver=trip.personId,ids=[...new Set([driver,operator].filter(id=>id!=null&&id!=="").map(String))];
+      if(!ids.length)ids.push("__unassigned_person__");
+      for(const id of ids){
+        const rowKey=key(trip.workDate,id);
+        if(!rows.has(rowKey))rows.set(rowKey,{workDate:trip.workDate,personId:id,personName:people.get(id)?.name||"历史未归属",...context.blank()});
+        const row=rows.get(rowKey),material=T.materialTypes.includes(trip.material)?trip.material:"unknown";
+        row.total++;row[material]++;
+        if(driver!=null&&driver!==""&&String(driver)===id)row.haul++;
+        if(operator!=null&&operator!==""&&String(operator)===id)row.load++;
+      }
+    }
+    return [...rows.values()].sort((a,b)=>a.workDate.localeCompare(b.workDate)||a.personName.localeCompare(b.personName,"zh-CN",{numeric:true})||a.personId.localeCompare(b.personId));
+  }
   function renderHaulSummary(){
     if(role!=="dispatch")return "";
     const scope=haulSummaryScope(),context=haulSummaryContext(scope),options=haulSummaryOptions(scope,context),{days,totals}=haulSummaryData(scope,context),today=T.date(),showOther=totals.otherCrew>0,showUnknown=totals.unknown>0;
@@ -123,13 +143,14 @@
     else line='<span>'+esc(entityName)+'</span>'+T.materialTypes.map(name=>'<span>'+esc(name)+' <b>'+totals[name]+'</b> 车</span>').join("")+'<strong>区间合计 <b>'+totals.total+'</b> 车</strong>';
     const roleColumns=scope.mode==="crew"?[["crewA","生产A组"],["crewB","生产B组"],...(showOther?[["otherCrew","其他/未归属"]]:[])]:scope.mode==="person"?[["haul","拉运车数"],["load","装车车数"]]:[];
     const columns=[...roleColumns,...T.materialTypes.map(name=>[name,name]),...(showUnknown?[["unknown","历史未分类"]]:[])];
-    const head='<th>日期</th>'+columns.map(([key,label])=>'<th class="haul-summary-number'+(["crewA","crewB"].includes(key)?' haul-crew-heading':'')+'">'+esc(label)+'</th>').join("")+'<th class="haul-summary-number">当日合计</th>';
-    const body=days.map(row=>{
+    const allPeople=scope.mode==="person"&&scope.personId==="__all_persons__",displayRows=allPeople?haulSummaryPeopleRows(context,options):days;
+    const head='<th>日期</th>'+(allPeople?'<th>姓名</th>':"")+columns.map(([key,label])=>'<th class="haul-summary-number'+(["crewA","crewB"].includes(key)?' haul-crew-heading':'')+'">'+esc(label)+'</th>').join("")+'<th class="haul-summary-number">当日合计</th>';
+    const body=displayRows.map(row=>{
       const future=row.workDate>today&&row.total===0,value=n=>future?"—":n;
-      return '<tr class="'+(future?"haul-summary-future":row.workDate===today?"haul-summary-today":"")+'"><td>'+esc(row.workDate)+'</td>'+columns.map(([key])=>'<td class="haul-summary-number">'+value(row[key])+'</td>').join("")+'<td class="haul-summary-number haul-summary-total">'+value(row.total)+'</td></tr>';
+      return '<tr class="'+(future?"haul-summary-future":row.workDate===today?"haul-summary-today":"")+'"><td>'+esc(row.workDate)+'</td>'+(allPeople?'<td>'+esc(row.personName)+'</td>':"")+columns.map(([key])=>'<td class="haul-summary-number">'+value(row[key])+'</td>').join("")+'<td class="haul-summary-number haul-summary-total">'+value(row.total)+'</td></tr>';
     }).join("");
-    const footer='<tr><td>区间合计</td>'+columns.map(([key])=>'<td class="haul-summary-number">'+totals[key]+'</td>').join("")+'<td class="haul-summary-number">'+totals.total+'</td></tr>';
-    return '<section class="haul-summary">'+toolbar+'<div class="haul-summary-line haul-crew-strip">'+line+'</div><section class="panel"><div class="table-wrap"><table class="haul-summary-table haul-crew-month-table" aria-label="'+esc(haulSummaryTitles[scope.mode])+'"><thead><tr>'+head+'</tr></thead><tbody>'+body+'</tbody><tfoot>'+footer+'</tfoot></table></div></section><p class="help">单位：车。夜班按开始日归属，跨月仍计入开始日所在月份。仅统计已完成的真实定位车次，非卸载区完成同样计入；每趟在合计中只计一次。未来日期暂无记录时显示“—”。'+(scope.mode==="person"?' 拉运按实际汽车驾驶员统计，装车按实际装载挖机及其对应司机统计，包含临时挖机装载。':scope.mode==="equipment"?' 按车次记录中的实际汽车或实际装载挖机统计，包含临时挖机装载。':"")+(scope.mode==="crew"&&showOther?' 旧记录的其他或未归属班组车次单独列出。':"")+(showUnknown?' 旧物料未归入统一三类时单独显示“历史未分类”。':"")+'</p></section>';
+    const footer='<tr><td'+(allPeople?' colspan="2"':"")+'>'+(allPeople?'区间合计（车次去重）':'区间合计')+'</td>'+columns.map(([key])=>'<td class="haul-summary-number">'+totals[key]+'</td>').join("")+'<td class="haul-summary-number">'+totals.total+'</td></tr>';
+    return '<section class="haul-summary">'+toolbar+'<div class="haul-summary-line haul-crew-strip">'+line+'</div><section class="panel"><div class="table-wrap"><table class="haul-summary-table haul-crew-month-table" aria-label="'+esc(haulSummaryTitles[scope.mode])+'"><thead><tr>'+head+'</tr></thead><tbody>'+body+'</tbody><tfoot>'+footer+'</tfoot></table></div></section><p class="help">单位：车。夜班按开始日归属，跨月仍计入开始日所在月份。仅统计已完成的真实定位车次，非卸载区完成同样计入；每趟在合计中只计一次。未来日期暂无记录时显示“—”。'+(scope.mode==="person"?' 拉运按实际汽车驾驶员统计，装车按实际装载挖机及其对应司机统计，包含临时挖机装载。':scope.mode==="equipment"?' 按车次记录中的实际汽车或实际装载挖机统计，包含临时挖机装载。':"")+(allPeople?' 全员按日期和姓名逐行展示，含零车数司机；同一趟分别归属汽车司机和挖机司机，个人行不可相加作为总车数，底部合计按实际车次去重。':"")+(scope.mode==="crew"&&showOther?' 旧记录的其他或未归属班组车次单独列出。':"")+(showUnknown?' 旧物料未归入统一三类时单独显示“历史未分类”。':"")+'</p></section>';
   }
   function assignmentCards(rows,own=false){return rows.length?rows.map(r=>'<section class="panel"><div class="panel-head"><h2>'+esc(r.workDate||"日期未设置")+' · '+esc(r.shiftName)+'</h2>'+pill(states[r.status]||r.status,r.status==="draft")+'</div><p><strong>'+esc(nameOf(r.personId))+'</strong> · '+esc(vehicleName(r.vehicleId))+'</p><p class="muted">'+(r.kind==="driver"?'绑定挖机：'+esc(vehicleName(r.excavatorId)):'挖机操作人员排班')+'</p>'+(r.note?'<p class="muted">'+esc(r.note)+'</p>':'')+'<div class="actions">'+(own&&r.status==="active"&&!session()?button("openShift",r.id,"接班并检查设备",""):"")+(role==="dispatch"&&!d.shifts.some(s=>s.assignmentId===r.id)?button("assignment",r.id,"编辑"):'')+(role==="dispatch"&&r.status==="draft"?button("activateAssignment",r.id,"启用排班",""):'')+(role==="dispatch"&&["draft","active"].includes(r.status)?button("cancelAssignment",r.id,"取消排班","danger"):'')+'</div></section>').join(""):(own?empty("尚无可用排班，请等待调度分配车辆和班次"):"");}
 
