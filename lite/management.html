@@ -43,6 +43,19 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
 .actions{flex-wrap:wrap}.action-depart{min-height:32px;padding:6px 9px;border-radius:8px;font-size:12px}.actions button:disabled{opacity:.45;cursor:not-allowed}.departure-backdrop{position:fixed;z-index:35;inset:0;display:none;place-items:center;padding:16px;background:#1020199c}.departure-backdrop.open{display:grid}.departure-dialog{width:min(500px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:22px;border-radius:16px;background:#fff}.departure-dialog h2{margin:0;font-size:20px}.departure-dialog p{color:var(--muted);font-size:12px}.departure-dialog textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:9px;font:inherit;resize:vertical}.employment-history-item{padding:8px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}.employment-history-item:last-child{border-bottom:0}.employment-history-item small{color:var(--muted)}
 .people-title-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.people-title-row .btn{min-height:33px;padding:6px 12px;font-size:12px}.people-title-row .btn:disabled{opacity:.6;cursor:wait}
 .archive-modal-heading{display:flex;justify-content:space-between;align-items:center;gap:12px}.modal-close{display:grid;place-items:center;width:34px;height:34px;border:0;border-radius:50%;background:#f1f5f3;color:#516359;font-size:23px}.modal-close[hidden]{display:none}.vehicle-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 14px}.vehicle-form-grid .field{margin:10px 0}.vehicle-full-row{grid-column:1/-1}.vehicle-file-preview:empty{display:none}.vehicle-file-preview{margin-bottom:10px;font-size:11px;color:var(--muted)}.vehicle-file-preview img{display:block;max-width:100%;max-height:130px;margin-bottom:5px;object-fit:contain;border-radius:8px}.vehicle-file-preview a{color:var(--green)}#archiveSave:disabled{opacity:.6;cursor:wait}@media(max-width:600px){.vehicle-form-grid{grid-template-columns:1fr}.vehicle-full-row{grid-column:auto}}
+
+.rotation-leave-panel{padding:13px;margin:14px 0;border:1px solid #d1e2f4;border-radius:12px;background:#f7fbff}
+.rotation-leave-panel h3{margin:0 0 5px;font-size:14px}
+.rotation-leave-panel>p{margin:0 0 8px;color:#5e758e;font-size:11px}
+.rotation-leave-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.rotation-leave-grid .field{margin:4px 0 8px}
+.rotation-leave-grid label{font-size:11px;color:#385672;font-weight:650}
+.rotation-leave-grid input,.rotation-leave-grid select{width:100%;height:37px;padding:7px 9px;border:1px solid #cbdbea;border-radius:8px;background:#fff;font:inherit}
+.rotation-leave-grid input:disabled{background:#f0f4f8;color:#8797a6}
+.rotation-leave-status{padding:8px 10px;border-radius:7px;background:#eaf3ff;color:#235d9c;font-size:12px}
+.rotation-leave-actions{display:flex;justify-content:flex-end;margin-top:9px}
+.rotation-leave-actions .btn{background:#2865d8;min-height:34px;padding:6px 12px;font-size:12px}
+@media(max-width:600px){.rotation-leave-grid{grid-template-columns:1fr}.rotation-leave-grid .field{margin:2px 0 5px}}
 </style>
 </head>
 <body>
@@ -105,7 +118,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
   </main>
 </div>
 <div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true"><div class="modal"><div class="archive-modal-heading"><h2 id="modalTitle"></h2><button class="modal-close" id="vehicleModalClose" type="button" aria-label="关闭车辆档案" hidden>×</button></div><p id="modalDesc"></p><form id="archiveForm"><div id="modalFields"></div></form><div class="modal-fixed-actions" id="archiveFixedActions"><div class="archive-review-actions" id="archiveReviewActions"><button class="btn review-pass" type="button" id="archiveApprove">审核通过</button><button class="btn review-reject" type="button" id="archiveReject">驳回资料</button><button class="btn review-print" type="button" id="archivePrintData">打印资料</button><button class="btn review-print" type="button" id="archivePrintPhotos">打印照片</button><button class="btn btn-soft" type="button" id="archiveClose">关闭</button></div><div class="modal-actions"><button class="btn btn-soft" type="button" id="modalCancel">取消</button><button class="btn" id="archiveSave" type="submit" form="archiveForm">保存档案</button></div></div></div></div>
-<div class="review-backdrop" id="reviewBackdrop"><section class="review-dialog" role="dialog" aria-modal="true" aria-labelledby="reviewTitle"><div class="review-head"><div><h2 id="reviewTitle">入职资料审核</h2><p id="reviewSubtitle">核对提交信息和附件后确认。</p></div></div><div class="review-grid" id="reviewFields"></div><h3>提交的附件</h3><div class="review-files" id="reviewFiles"></div><label class="review-check"><input type="checkbox" id="reviewCheck"><span>我已逐项核对以上登记资料及提交附件</span></label><div class="review-progress" id="reviewProgress" role="status"></div><div class="review-actions"><button class="btn review-pass" type="button" id="reviewApprove" disabled>审核通过</button><button class="btn review-reject" type="button" id="reviewReject">驳回资料</button><button class="btn review-print" type="button" id="printReviewData">打印资料</button><button class="btn review-print" type="button" id="printReviewPhotos">打印照片</button><button class="btn btn-soft" type="button" id="reviewClose">关闭</button></div></section></div>
+<div class="review-backdrop" id="reviewBackdrop"><section class="review-dialog" role="dialog" aria-modal="true" aria-labelledby="reviewTitle"><div class="review-head"><div><h2 id="reviewTitle">入职资料审核</h2><p id="reviewSubtitle">核对提交信息和附件后确认。</p></div></div><div class="review-grid" id="reviewFields"></div><div id="reviewRotationLeave"></div><h3>提交的附件</h3><div class="review-files" id="reviewFiles"></div><label class="review-check"><input type="checkbox" id="reviewCheck"><span>我已逐项核对以上登记资料及提交附件</span></label><div class="review-progress" id="reviewProgress" role="status"></div><div class="review-actions"><button class="btn review-pass" type="button" id="reviewApprove" disabled>审核通过</button><button class="btn review-reject" type="button" id="reviewReject">驳回资料</button><button class="btn review-print" type="button" id="printReviewData">打印资料</button><button class="btn review-print" type="button" id="printReviewPhotos">打印照片</button><button class="btn btn-soft" type="button" id="reviewClose">关闭</button></div></section></div>
 <div class="departure-backdrop" id="departureBackdrop"><section class="departure-dialog" role="dialog" aria-modal="true" aria-labelledby="departureTitle"><h2 id="departureTitle">办理离职</h2><p id="departurePerson"></p><p>先核对可回收物资、待确认发放及赔偿记录；清算完成后才能正式离职，资料与历史记录保留。</p><form id="departureForm"><div class="field"><label for="departureDate">离职日期 *</label><input id="departureDate" type="date" required></div><div class="field"><label for="departureReason">离职原因 *</label><textarea id="departureReason" required maxlength="500" rows="3"></textarea></div><div id="departureClearance"></div><div class="modal-actions"><button class="btn btn-soft" id="departureCancel" type="button">取消</button><button class="btn btn-soft" id="cancelClearance" type="button" hidden>取消清算</button><button class="btn review-reject" id="departureSubmit" type="submit">发起物资清算</button></div></form></section></div>
 <div class="photo-select-backdrop" id="photoSelectBackdrop"><section class="photo-select-dialog" role="dialog" aria-modal="true" aria-labelledby="photoSelectTitle"><div class="photo-select-head"><div><h2 id="photoSelectTitle">选择要打印的照片</h2><p>默认勾选所有已提交图片，可取消不需要的照片。</p></div></div><div class="photo-select-tools"><button class="btn btn-soft" type="button" id="photoSelectAll">全选</button><button class="btn btn-soft" type="button" id="photoSelectNone">全不选</button></div><div class="photo-select-list" id="photoSelectList"></div><div class="photo-select-actions"><button class="btn btn-soft" type="button" id="photoSelectCancel">取消</button><button class="btn" type="button" id="photoSelectPrint" disabled>打印所选照片</button></div></section></div>
 <div id="printout"></div>
@@ -318,6 +331,53 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
       : '<input id="' + id + '" type="' + type + '" value="' + esc(value) + '"' + requiredAttr + ' maxlength="100">';
     return '<div class="field"><label for="' + id + '">' + label + (required ? ' <span style="color:var(--red)">*</span>' : '') + '</label>' + control + '</div>';
   }
+  function rotationLeaveSummary(value){
+    if(!value?.enabled)return "当前员工未启用轮休假。";
+    const period=value.cycleMonths,quota=value.quotaDays;
+    if(period==null||quota==null)return "已选择享有轮休假，周期或额度待补充；暂不计算轮休额度。";
+    return "每"+period+"个月享有"+quota+"天轮休假，额度不跨周期结转。";
+  }
+  function rotationLeaveFields(prefix,person,canSave=false){
+    const value=person.rotationLeave||{},enabled=value.enabled===true;
+    return '<section class="rotation-leave-panel" data-rotation-prefix="'+prefix+'" data-rotation-version="'+esc(value.updatedAt||"")+'"><h3>轮休假规则</h3><p>由管理员按员工实际制度设置，周期和额度不写死，例如：1个月4天、3个月12天。轮休额度不跨周期结转。</p><div class="rotation-leave-grid"><div class="field"><label for="'+prefix+'Enabled">是否享有轮休假</label><select id="'+prefix+'Enabled"><option value="no"'+(!enabled?' selected':'')+'>否</option><option value="yes"'+(enabled?' selected':'')+'>是</option></select></div><div class="field"><label for="'+prefix+'Months">轮休周期（月）</label><input id="'+prefix+'Months" type="number" min="1" step="1" value="'+esc(value.cycleMonths??"")+'"'+(!enabled?' disabled':'')+'></div><div class="field"><label for="'+prefix+'Days">每周期轮休额度（天）</label><input id="'+prefix+'Days" type="number" min="0" step="any" value="'+esc(value.quotaDays??"")+'"'+(!enabled?' disabled':'')+'></div></div><div class="rotation-leave-status" id="'+prefix+'Status" aria-live="polite">'+esc(rotationLeaveSummary(value))+'</div>'+(canSave?'<div class="rotation-leave-actions"><button class="btn" type="button" data-save-rotation="'+prefix+'">保存轮休设置</button></div>':'<p class="file-help">选填，随人员资料保存。</p>')+'</section>';
+  }
+  function readRotationLeave(prefix){
+    const enabled=$(prefix+"Enabled").value==="yes",months=$(prefix+"Months").value.trim(),days=$(prefix+"Days").value.trim();
+    const cycleMonths=months===""?null:Number(months),quotaDays=days===""?null:Number(days);
+    if(months!==""&&(!Number.isSafeInteger(cycleMonths)||cycleMonths<=0))throw new Error("轮休周期请填写大于0的整数月份，或留空");
+    if(days!==""&&(!Number.isFinite(quotaDays)||quotaDays<=0))throw new Error("轮休额度请填写大于0的天数，或留空");
+    return {enabled,cycleMonths,quotaDays,carryOver:false};
+  }
+  function syncRotationLeave(prefix){
+    const enabled=$(prefix+"Enabled").value==="yes";$(prefix+"Months").disabled=!enabled;$(prefix+"Days").disabled=!enabled;
+    try{$(prefix+"Status").textContent=rotationLeaveSummary(readRotationLeave(prefix));}
+    catch(error){$(prefix+"Status").textContent=error.message;}
+  }
+  function applyRotationLeave(person,prefix){
+    const value=readRotationLeave(prefix),previous=person.rotationLeave||{},panel=document.querySelector('[data-rotation-prefix="'+prefix+'"]');
+    if((previous.updatedAt||"")!==panel.dataset.rotationVersion)throw new Error("轮休设置已在其他页面变更，请重新打开人员资料后保存");
+    if(previous.enabled===value.enabled&&(previous.cycleMonths??null)===value.cycleMonths&&(previous.quotaDays??null)===value.quotaDays&&previous.carryOver===false)return;
+    const at=new Date().toISOString();
+    person.rotationLeaveHistory=[...(Array.isArray(person.rotationLeaveHistory)?person.rotationLeaveHistory:[]),{at,by:"管理员",previous:person.rotationLeave?{...previous}:null,next:{...value}}];
+    person.rotationLeave={...value,updatedAt:at,updatedBy:"管理员"};
+  }
+  function updateRotationPanelVersion(person,prefix){
+    const panel=document.querySelector('[data-rotation-prefix="'+prefix+'"]');if(panel)panel.dataset.rotationVersion=person.rotationLeave?.updatedAt||"";
+  }
+  document.addEventListener("change",event=>{
+    const panel=event.target.closest("[data-rotation-prefix]");if(panel)syncRotationLeave(panel.dataset.rotationPrefix);
+  });
+  document.addEventListener("input",event=>{
+    const panel=event.target.closest("[data-rotation-prefix]");if(panel)syncRotationLeave(panel.dataset.rotationPrefix);
+  });
+  document.addEventListener("click",event=>{
+    const control=event.target.closest("[data-save-rotation]");if(!control)return;
+    const prefix=control.dataset.saveRotation,person=db.people.find(p=>p.id===reviewPersonId);
+    if(!window.MineLogisticsAdmin||!person)return toast("请先打开需要审核的人员资料");
+    const before=JSON.stringify(db);
+    try{applyRotationLeave(person,prefix);persist();updateRotationPanelVersion(person,prefix);renderStats();renderPeople();toast("轮休设置已保存");}
+    catch(error){db=JSON.parse(before);toast(error.message||"轮休设置保存失败");}
+  });
   function section(title,fields) { return '<section class="form-section"><h3>' + title + '</h3>' + fields + '</section>'; }
   function registrationFile(label,id,attachment,required=false) {
     const isRequired = required && !attachment && !(editState && editState.id);
@@ -439,7 +499,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
           formField("紧急联系人","fEmergencyName",row.emergencyName || "","text",true) +
           formField("联系电话","fEmergencyPhone",row.emergencyPhone || "","tel",true) +
         '</div>') +
-        section("其他信息",'<div class="field"><label for="fNote">备注</label><textarea id="fNote" maxlength="500">' + esc(row.note || "") + '</textarea></div>') + employmentDetails(row);
+        section("其他信息",'<div class="field"><label for="fNote">备注</label><textarea id="fNote" maxlength="500">' + esc(row.note || "") + '</textarea></div>') + rotationLeaveFields("archiveRotation",row) + employmentDetails(row);
     } else {
       fields = vehicleFormFields(row,id);
     }
@@ -526,6 +586,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
       reviewField("开户银行",person.bankName),reviewField("紧急联系人",person.emergencyName),
       reviewField("紧急联系人电话",person.emergencyPhone),reviewField("当前审核状态",person.status),reviewField("备注",person.note)
     ].join("");
+    $("reviewRotationLeave").innerHTML = rotationLeaveFields("reviewRotation",person,true);
     $("reviewFiles").innerHTML = '<div class="empty">正在读取附件…</div>';
     $("reviewBackdrop").classList.add("open");
     $("reviewCheck").checked = person.reviewed === true;
@@ -556,8 +617,9 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
   $("reviewApprove").addEventListener("click",() => {
     const person = db.people.find(item => item.id === reviewPersonId);
     if (!person || person.status !== "待审核" || person.reviewed !== true) { toast("请先确认已核对资料"); return; }
-    person.status = "在岗";
-    render(); closeReview(); toast("审核通过，人员可进入对应工作端口");
+    const before=JSON.stringify(db);
+    try{applyRotationLeave(person,"reviewRotation");person.status = "在岗";render();closeReview();toast("审核通过，人员可进入对应工作端口");}
+    catch(error){db=JSON.parse(before);toast(error.message||"审核保存失败");}
   });
   $("reviewReject").addEventListener("click",() => {
     const person = db.people.find(item => item.id === reviewPersonId);
@@ -572,7 +634,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     ["入职日期",person.joinDate],["身份证号",person.idNumber],["护照号",person.passport],
     ["银行卡号",person.bankNumber],["开户行",person.bankName],
     ["紧急联系人",person.emergencyName],["紧急联系人电话",person.emergencyPhone],
-    ["审核状态",person.status],["备注",person.note]
+    ["审核状态",person.status],["轮休假规则",rotationLeaveSummary(person.rotationLeave)],["备注",person.note]
   ];
   const attachmentLabels = [["selfie","本人近期照片"],["idPhoto","身份证照片"],["passportPhoto","护照照片"],["license","驾驶证 / 操作证"],["bankCard","银行卡照片"]];
   let printObjectUrls = [];
@@ -772,6 +834,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
           attachments,
           status:$("fStatus").value
         };
+        const rotationDraft={...old,rotationLeaveHistory:[...(old.rotationLeaveHistory||[])]};applyRotationLeave(rotationDraft,"archiveRotation");value.rotationLeave=rotationDraft.rotationLeave;value.rotationLeaveHistory=rotationDraft.rotationLeaveHistory;
       } else {
         const previous = id ? sourceRows.find(row => String(row.id) === String(id)) : {};
         if (id && !previous) throw new Error("车辆档案未找到，请刷新后重试");
