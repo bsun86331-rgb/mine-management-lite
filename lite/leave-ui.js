@@ -12,6 +12,7 @@ function refreshQuota(){
  if(person.boss)return;
  const q=S.quota(person,$("startDate").value||today(),ledger);
  const enabled=person.rotationLeave?.enabled===true,rule=person.rotationLeave||{};
+ $("quota").closest(".quota-panel").hidden=!enabled;
  $("quota").innerHTML=[["是否享有轮休假",enabled?"是":"否"],["当前轮休周期",q.startDate?q.startDate+" 至 "+q.endDate:"—"],["周期总额度",rule.quotaDays!=null?rule.quotaDays+"天":"—"],["本周期已批准使用",q.used!=null?dayText(q.used)+"天":"—"],["待审批预留",q.reserved!=null?dayText(q.reserved)+"天":"—"],["本周期剩余",q.remaining!=null?dayText(q.remaining)+"天":"—"]].map(([label,value])=>'<div><small>'+esc(label)+'</small><strong>'+esc(value)+'</strong></div>').join("");
  $("quotaMessage").textContent=(q.error?q.error+"。":"")+"周期按入职日期起算，到期重新计算，不跨周期结转。";
  try{$("days").value=S.span({startDate:$("startDate").value,endDate:$("endDate").value,startPart:$("startPart").value,endPart:$("endPart").value}).days;}catch{$("days").value="";}
