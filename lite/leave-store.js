@@ -25,7 +25,7 @@ function leaveWindow(r){
 function effectiveSpan(r){
  const original=span(r);if(r.status!=="approved"||r.returnRequest?.status!=="approved")return original;
  const end=Date.parse(r.returnRequest.effectiveReturnAt);if(!Number.isFinite(end))return original;
- const to=Math.min(original.to,Math.ceil((end+8*3600000)/43200000)-1);return {...original,to,days:Math.max(0,to-original.from+1)/2};
+ const w=leaveWindow(r),to=(w.endAt+8*3600000)/43200000-1;return {...original,to,days:Math.max(0,w.endAt-w.startAt)/86400000};
 }
 function stamp(){return loaded?JSON.stringify(cache.requests.map(r=>[r.id,r.updatedAt])):"loading";}
 function schedulingConflict(p,startAt,endAt){
@@ -48,7 +48,7 @@ function cycleAt(p,day){
 }
 function quota(p,day,ledger=cache,excludeId=""){
  let cycle;try{cycle=cycleAt(p,day);}catch{return {error:"轮休周期超出可计算日期范围，请管理员调整"};}if(cycle.error)return cycle;let used=0,reserved=0;
- for(const r of ledger.requests.filter(r=>r.personId===p.id&&r.type==="轮休假"&&r.id!==excludeId&&["pending","approved"].includes(r.status))){let period;try{period=effectiveSpan(r);}catch{continue;}const amount=Math.max(0,Math.min(period.to,cycle.to)-Math.max(period.from,cycle.from)+1)/2;if(r.status==="approved")used+=amount;else reserved+=amount;}
+ for(const r of ledger.requests.filter(r=>r.personId===p.id&&r.type==="轮休假"&&r.id!==excludeId&&["pending","approved"].includes(r.status))){let w;try{w=leaveWindow(r);}catch{continue;}const cycleStart=cycle.from*43200000-8*3600000,cycleEnd=(cycle.to+1)*43200000-8*3600000,amount=Math.max(0,Math.min(w.endAt,cycleEnd)-Math.max(w.startAt,cycleStart))/86400000;if(r.status==="approved")used+=amount;else reserved+=amount;}
  return {...cycle,used,reserved,remaining:Math.max(0,cycle.quota-used-reserved)};
 }
 function checkQuota(p,input,ledger,excludeId){const period=span(input);let cursor=period.from;while(cursor<=period.to){const day=new Date(Math.floor(cursor/2)*86400000).toISOString().slice(0,10),q=quota(p,day,ledger,excludeId);if(q.error)fail(q.error);const end=Math.min(period.to,q.to),needed=(end-cursor+1)/2;if(needed>q.remaining+1e-9)fail(q.startDate+"至"+q.endDate+"轮休余额不足（含待审批预留）");cursor=end+1;}}
@@ -60,7 +60,7 @@ async function act(type,x,role){
   const approverId=["dispatch","repair"].includes(routing.kind)?String(x.approverId||""):"";if(approverId&&!candidates(p,m).some(v=>v.id===approverId))fail("审批人不属于本路线的在岗审批人员，请重新选择");
   if(["dispatch","repair"].includes(routing.kind)&&!candidates(p,m).length)fail("当前班组没有可审批的在岗管理人员，请先由管理员配置");
   if(x.type==="轮休假")checkQuota(p,x,ledger,"");
-  const conflict=ledger.requests.some(r=>r.personId===p.id&&["pending","approved"].includes(r.status)&&(()=>{try{const other=effectiveSpan(r);return period.from<=other.to&&other.from<=period.to;}catch{return false;}})());if(conflict)fail("该时段与本人待审批或已批准的请假重复");
+  const conflict=ledger.requests.some(r=>r.personId===p.id&&["pending","approved"].includes(r.status)&&(()=>{try{const other=leaveWindow(r),requested=leaveWindow({startDate:x.startDate,endDate:x.endDate,startPart:x.startPart,endPart:x.endPart});return requested.startAt<other.endAt&&other.startAt<requested.endAt;}catch{return false;}})());if(conflict)fail("该时段与本人待审批或已批准的请假重复");
   
   record={id:uid(),clientId,personId:p.id,personName:p.name,personRole:p.applicationRole,team:p.team||"",route:routing,approverId,type:x.type,startDate:x.startDate,endDate:x.endDate,startPart:x.startPart,endPart:x.endPart,days:period.days,phone:String(x.phone||"").trim(),reason:String(x.reason||"").trim(),status:"pending",createdAt:at,updatedAt:at,history:[{at,by:p.id,action:"提交申请"}]};
   ledger.requests.unshift(record);
