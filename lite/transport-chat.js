@@ -11,7 +11,7 @@
   const unread=msg=>!(msg.readBy||[]).includes(ctx.person.id);
   const messages=()=>T.visibleMessages(ctx.d,ctx.person);
   const title=()=>"公共聊天";
-  function html(){return '<section class="transport-chat" data-chat-root><div class="chat-main"><header class="chat-header"><div><strong data-chat="title"></strong><small>当前仅在同一浏览器内联动，跨手机聊天尚未接入共享服务。</small></div><button type="button" class="soft" data-chat-action="read-all">本会话已读</button></header><div class="chat-log" data-chat="log" role="log" aria-label="聊天记录" aria-live="polite" tabindex="0"></div><div class="chat-composer" data-chat="composer"><div class="chat-tools"><button type="button" class="soft" data-chat-action="photo">照片</button><button type="button" class="soft" data-chat-action="record" data-chat="record">录语音</button><button type="button" class="soft" data-chat-action="audio">语音文件</button><button type="button" class="soft" data-chat-action="emoji" aria-expanded="false">表情</button><span data-chat="record-status" role="status"></span></div><div class="chat-emoji" data-chat="emojis" hidden>'+emojis.map(emoji=>'<button type="button" data-chat-action="insert-emoji" data-emoji="'+esc(emoji)+'">'+esc(emoji)+'</button>').join("")+'</div><div class="chat-pending" data-chat="pending"></div><textarea data-chat="text" maxlength="4000" rows="2" placeholder="输入消息，Enter发送，Shift+Enter换行" aria-label="消息内容"></textarea><div class="chat-send-row"><small>每条最多6个附件，单个不超过10 MB；录音最长60秒。</small><button type="button" data-chat-action="send" data-chat="send">发送</button></div><input data-chat="photo-input" type="file" accept="image/*" multiple hidden><input data-chat="audio-input" type="file" accept="audio/*" hidden></div></div></section>';}
+  function html(){return '<section class="transport-chat" data-chat-root><div class="chat-main"><header class="chat-header"><div><strong data-chat="title"></strong><small>当前仅在同一浏览器内联动，跨手机聊天尚未接入共享服务。</small></div><button type="button" class="soft" data-chat-action="read-all">本会话已读</button></header><div class="chat-log" data-chat="log" role="log" aria-label="聊天记录" aria-live="polite" tabindex="0"></div><div class="chat-composer" data-chat="composer"><label class="chat-input-label">文字消息<textarea data-chat="text" maxlength="4000" rows="2" placeholder="输入消息，Enter发送，Shift+Enter换行" aria-label="消息内容"></textarea></label><div class="chat-tools"><button type="button" class="soft" data-chat-action="photo">照片</button><button type="button" class="soft" data-chat-action="record" data-chat="record">录语音</button><button type="button" class="soft" data-chat-action="emoji" aria-expanded="false">表情</button><span data-chat="record-status" role="status"></span></div><div class="chat-emoji" data-chat="emojis" hidden>'+emojis.map(emoji=>'<button type="button" data-chat-action="insert-emoji" data-emoji="'+esc(emoji)+'">'+esc(emoji)+'</button>').join("")+'</div><div class="chat-pending" data-chat="pending"></div><div class="chat-send-row"><small>每条最多6个附件，单个不超过10 MB；录音最长60秒。</small><button type="button" data-chat-action="send" data-chat="send">发送</button></div><input data-chat="photo-input" type="file" accept="image/*" multiple hidden></div></div></section>';}
   function releaseUrls(){for(const url of urls.values())URL.revokeObjectURL(url);urls.clear();}
   function clearObserver(){observer?.disconnect();observer=null;if(readTimer)clearTimeout(readTimer);readTimer=null;readIds.clear();}
   async function flushRead(){
@@ -56,7 +56,7 @@
     node("record").textContent=recording?"停止录音":"录语音";
     node("record-status").textContent=requesting?"等待麦克风授权…":recording?"正在录音 "+recordSeconds+"秒":"";
     node("text").disabled=sending;
-    for(const b of host.querySelectorAll('[data-chat-action="photo"],[data-chat-action="audio"],[data-chat-action="remove-file"]'))b.disabled=sending;
+    for(const b of host.querySelectorAll('[data-chat-action="photo"],[data-chat-action="remove-file"]'))b.disabled=sending;
   }
   function draw(){
     if(!host?.isConnected||!ctx)return;
@@ -91,7 +91,7 @@
   async function record(){
     if(recorder?.state==="recording"){stopRecording();return;}
     if(draft().files.length>=6)return ctx.toast("请先发送或移除部分附件");
-    if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder)return ctx.toast("当前浏览器不支持录音，可使用“语音文件”发送");
+    if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder)return ctx.toast("当前浏览器不支持录音，请使用支持麦克风录音的浏览器");
     const generation=++requestGeneration,currentOwner=owner,currentThread=active,currentCtx=ctx;
     requesting=true;updateControls();
     try{
@@ -101,7 +101,7 @@
       recorder=new MediaRecorder(stream,mime?{mimeType:mime}:undefined);const chunks=[],thisRecorder=recorder;
       recordCancel=false;recordSeconds=0;
       recorder.ondataavailable=event=>{if(event.data.size)chunks.push(event.data);};
-      recorder.onerror=()=>{recordCancel=true;currentCtx.toast("录音失败，请使用语音文件重试");stopRecording(true);};
+      recorder.onerror=()=>{recordCancel=true;currentCtx.toast("录音失败，请重新录音");stopRecording(true);};
       recorder.onstop=()=>{
         const canceled=thisRecorder.chatCanceled===true;thisRecorder.stream.getTracks().forEach(track=>track.stop());if(recorder===thisRecorder)recorder=null;
         if(!canceled&&owner===currentOwner&&active===currentThread&&host?.isConnected){const type=thisRecorder.mimeType||chunks[0]?.type||"audio/webm",blob=new Blob(chunks,{type}),ext=type.includes("mp4")?"m4a":type.includes("ogg")?"ogg":"webm";if(blob.size)filesAdded([new File([blob],"语音_"+Date.now()+"."+ext,{type})]);else currentCtx.toast("未录到声音，请重试");}
@@ -109,7 +109,7 @@
       };
       recorder.start();requesting=false;
       recordTimer=setInterval(()=>{recordSeconds++;updateControls();if(recordSeconds>=60)stopRecording();},1000);
-    }catch(error){if(generation!==requestGeneration)return;currentCtx.toast(error.name==="NotAllowedError"?"未获得麦克风权限，可发送语音文件":"无法开始录音："+error.message);stopRecording(true);}
+    }catch(error){if(generation!==requestGeneration)return;currentCtx.toast(error.name==="NotAllowedError"?"未获得麦克风权限，请允许后重新录音":"无法开始录音："+error.message);stopRecording(true);}
     finally{if(generation===requestGeneration){requesting=false;updateControls();}}
   }
   async function send(){
@@ -134,7 +134,6 @@
     const action=b.dataset.chatAction;
     if(action==="send")return send();
     if(action==="photo")return node("photo-input").click();
-    if(action==="audio")return node("audio-input").click();
     if(action==="record")return record();
     if(action==="emoji"){node("emojis").hidden=!node("emojis").hidden;b.setAttribute("aria-expanded",String(!node("emojis").hidden));return;}
     if(action==="insert-emoji"){const input=node("text"),start=input.selectionStart||0,end=input.selectionEnd||start,value=input.value.slice(0,start)+b.dataset.emoji+input.value.slice(end);if(value.length>4000)return ctx.toast("消息最多4000字");draft().text=value;input.value=value;input.focus();input.setSelectionRange(start+b.dataset.emoji.length,start+b.dataset.emoji.length);return;}
