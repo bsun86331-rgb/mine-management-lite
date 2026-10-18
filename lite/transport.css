@@ -249,3 +249,19 @@
 .chat-pending{max-height:58px;overflow:auto}
 
 .haul-summary-table .haul-summary-day-link{display:inline-block;min-width:34px;padding:1px 7px;border:1px solid #c4dfcf;border-radius:5px;background:#eef7f1;color:var(--green);font-size:inherit;font-weight:650;font-variant-numeric:tabular-nums;line-height:1.6;text-decoration:underline;text-underline-offset:3px;cursor:pointer}.haul-summary-table .haul-summary-day-link:hover{background:#dcefe3;border-color:#85b99a}
+
+.attendance-filters{display:flex;gap:8px 12px;flex-wrap:wrap;margin:0 0 12px}
+.attendance-filters>label{flex:0 1 200px;margin:0;font-weight:500;color:var(--muted)}
+.attendance-filters input,.attendance-filters select{padding:7px 9px;min-height:36px}
+.attendance-strip{display:flex;gap:8px 24px;flex-wrap:wrap;padding:10px 12px;background:#eaf4ed;border-radius:8px;color:var(--green);font-size:14px;margin-bottom:12px}
+.attendance-strip b{font-size:18px;color:var(--ink);font-variant-numeric:tabular-nums}
+.attendance-summary .panel{padding:12px;margin:0}
+.attendance-table{min-width:680px}
+.attendance-table th:not(:first-child):not(:last-child){text-align:right}
+.attendance-table th,.attendance-table td{padding:9px 8px}
+.attendance-table td strong{font-size:13px;font-weight:650}
+.attendance-number{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.attendance-table td button{font-size:11px;padding:5px 8px;white-space:nowrap}
+.attendance-table tfoot{background:#eaf4ed;color:var(--green);font-weight:650}
+.attendance-error{color:var(--red);font-size:13px}
+@media(max-width:600px){.attendance-filters>label{flex:1 1 130px}.attendance-strip{gap:6px 16px}}

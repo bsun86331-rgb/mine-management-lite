@@ -10,7 +10,7 @@
   const shiftContains=(times,minute)=>{const start=clockMinutes(times.start),end=clockMinutes(times.end);return start<end?minute>=start&&minute<end:minute>=start||minute<end;};
   function currentShift(times,at=new Date()){const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Ulaanbaatar",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(at),values=Object.fromEntries(parts.map(p=>[p.type,p.value])),minute=Number(values.hour)*60+Number(values.minute);const matches=["白班","夜班"].filter(name=>shiftContains(times[name],minute));return matches.length===1?matches[0]:null;}
   const defaults={dwellSeconds:20,maxAccuracy:50,gapSeconds:90,exitMargin:15,maxSpeedKmh:150};
-  function parseLedger(raw){let d;try{d=JSON.parse(raw||"null");}catch{fail("运输台账无法读取，请保留浏览器数据并联系管理员");}if(!d)d={version:1,revision:0,settings:{...defaults},assignments:[],zones:[],shifts:[],inspections:[],faults:[],trips:[],devices:[],messages:[],audit:[]};for(const key of ["assignments","zones","shifts","inspections","faults","trips","devices","messages","audit"])if(!Array.isArray(d[key]))fail("运输台账格式异常");if(d.productionGroups==null)d.productionGroups=[];if(!Array.isArray(d.productionGroups))fail("生产设备组草稿格式异常");for(const group of d.productionGroups){if(group.followingTrucks==null)group.followingTrucks=group.followingTruck?[{...group.followingTruck}]:(group.vehicleId&&group.personId?[{id:group.id+"-truck-1",status:"draft",vehicleId:"",personId:"",createdAt:group.updatedAt||group.createdAt}]:[]);if(!Array.isArray(group.followingTrucks))fail("跟随汽车草稿格式异常");}if(d.auxiliaryPlans==null)d.auxiliaryPlans=[];if(!Array.isArray(d.auxiliaryPlans)||d.auxiliaryPlans.some(p=>!Array.isArray(p.cards)))fail("辅助车辆草稿格式异常");if(d.taskReleases==null)d.taskReleases=[];if(!Array.isArray(d.taskReleases))fail("任务发布记录格式异常");d.settings={...defaults,...d.settings};d.shiftTimes=Object.fromEntries(["白班","夜班"].map(name=>[name,{...shiftTimeDefaults[name],...d.shiftTimes?.[name]}]));return d;}
+  function parseLedger(raw){let d;try{d=JSON.parse(raw||"null");}catch{fail("运输台账无法读取，请保留浏览器数据并联系管理员");}if(!d)d={version:1,revision:0,settings:{...defaults},assignments:[],zones:[],shifts:[],inspections:[],faults:[],trips:[],devices:[],messages:[],audit:[]};for(const key of ["assignments","zones","shifts","inspections","faults","trips","devices","messages","audit"])if(!Array.isArray(d[key]))fail("运输台账格式异常");if(d.productionGroups==null)d.productionGroups=[];if(!Array.isArray(d.productionGroups))fail("生产设备组草稿格式异常");for(const group of d.productionGroups){if(group.followingTrucks==null)group.followingTrucks=group.followingTruck?[{...group.followingTruck}]:(group.vehicleId&&group.personId?[{id:group.id+"-truck-1",status:"draft",vehicleId:"",personId:"",createdAt:group.updatedAt||group.createdAt}]:[]);if(!Array.isArray(group.followingTrucks))fail("跟随汽车草稿格式异常");}if(d.auxiliaryPlans==null)d.auxiliaryPlans=[];if(!Array.isArray(d.auxiliaryPlans)||d.auxiliaryPlans.some(p=>!Array.isArray(p.cards)))fail("辅助车辆草稿格式异常");if(d.attendanceRecords==null)d.attendanceRecords=[];if(!Array.isArray(d.attendanceRecords))fail("考勤记录格式异常");if(d.taskReleases==null)d.taskReleases=[];if(!Array.isArray(d.taskReleases))fail("任务发布记录格式异常");d.settings={...defaults,...d.settings};d.shiftTimes=Object.fromEntries(["白班","夜班"].map(name=>[name,{...shiftTimeDefaults[name],...d.shiftTimes?.[name]}]));return d;}
   const DATABASE="mine-management-lite-transport-data-v1",STORE="ledger";
   let storageConnection=null,storageReady=null,cachedRaw=null,cachedToken="empty",loaded=false,syncing=null;
   function storageFailure(error){
@@ -330,6 +330,25 @@
       if(t.status==="voided")fail("该车次已经作废");t.previousStatus=t.status;t.status="voided";t.voidedBy=a.id;t.voidedAt=now();t.voidNote=named(x.note,"作废说明");const s=d.shifts.find(s=>s.id===t.shiftId);if(s&&!shiftTrip(d,s)){resetCandidate(s);s.tempExcavatorId=null;}notify(d,t.personId,"车次已作废/冲销，汽车和实际挖机统计同步更新",t.id);notify(d,"exc:"+t.excavatorId,"车次已作废/冲销："+t.vehicleCode,t.id);audit(d,a,"车次作废/冲销",t.voidNote,{tripId:t.id});return;
     }
     if(type==="correctMaterial"){dispatchOnly(a);const t=find("trips",x.id);t.corrections=[...(t.corrections||[]),{at:now(),by:a.id,from:t.material||"未分类",to:materialValue(x.material)||"未分类",note:named(x.note,"调整说明")}];t.material=materialValue(x.material)||"未分类";t.materialSource="调度修正";audit(d,a,"修正物料分类",t.material,{tripId:t.id});return;}
+    if(type==="attendance"){
+      dispatchOnly(a);
+      const personId=String(x.personId||""),workDate=String(x.workDate||""),status=String(x.status||""),note=String(x.note||"").trim();
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(workDate)||!Number.isFinite(Date.parse(workDate+"T00:00:00Z"))||new Date(workDate+"T00:00:00Z").toISOString().slice(0,10)!==workDate)fail("请选择有效考勤日期");
+      if(!["","出勤","请假","休息","缺勤"].includes(status))fail("请选择统一的考勤状态");
+      if(note.length>500)fail("考勤备注最多500字");
+      let record=d.attendanceRecords.find(r=>r.personId===personId&&r.workDate===workDate);
+      const person=m.people.find(p=>p.id===personId);
+      if(!person&&!record)fail("人员档案不存在，请刷新后重试");
+      if(!record&&!status&&!note)return;
+      if(!record){record={id:uid(),personId,personName:person.name,team:person.team||"",workDate,status:"",note:"",createdAt:now(),history:[]};d.attendanceRecords.push(record);}
+      if(x.expectedUpdatedAt!==undefined&&x.expectedUpdatedAt!==(record.updatedAt||""))fail("此人的当天考勤已被其他页面修改，请重新打开后保存");
+      if(record.status===status&&record.note===note)return;
+      record.history=Array.isArray(record.history)?record.history:[];
+      record.history.push({at:now(),by:a.id,fromStatus:record.status,fromNote:record.note,toStatus:status,toNote:note});
+      Object.assign(record,{status,note,personName:person?.name||record.personName,team:person?.team||record.team||"",updatedAt:now(),updatedBy:a.id});
+      audit(d,a,"登记考勤",record.personName+"；"+workDate+"；"+(status||"未登记"),{attendanceId:record.id});
+      return record.id;
+    }
     if(type==="sendChat"){
       const target=String(x.target||"chat:all"),body=String(x.body||"").trim(),clientId=String(x.clientId||"");
       if(!clientId||clientId.length>100)fail("消息标识无效，请重试");

@@ -6,6 +6,8 @@
   const labels={driver:"司机工作台",excavator:"挖机工作台",dispatch:"调度工作台"},states={working:"作业中",paused:"已暂停",repair:"维修暂停",maintenance:"保养暂停",disabled:"设备已停用",missing:"设备未找到",checking:"待使用前检查",checked:"异常已上报",closed:"已收班",loaded:"装载已识别",hauling:"运输中",review:"定位待核对",completed:"已完成",voided:"已作废",draft:"草稿",active:"已启用",cancelled:"已取消"};
   let d,m,person,actor,view=role==="dispatch"?"tasks":"work",modalSave=null,busy=false,signature="",watchId=null,gpsTimer=null,gpsFetching=false,gpsGeneration=0,positionBusy=false,lastQueuedPoint=null,tracking=false,photoUrls=[],modalToken=0,recordSearch="",taskClockSignature="",publishPreviewState=null,selectedDispatchShift=null,dispatchShiftLocked=false,timeConfiguredShift=null,dispatchGroups={},dispatchProductionDate=null,shiftMinute=null,zoneCenterFix=null,zoneFixRequest=0,lastSimulation={lat:"",lng:"",accuracy:"5"};
   const dispatchBindingEdits=new Map();
+  const attendanceFilters={startDate:null,endDate:null,team:""};
+  let attendanceEditorVersion="",attendanceRenderedToday="";
   const haulSummaryFilters={startDate:null,endDate:null,mode:"crew",personId:"",vehicleId:""};
   const haulSummaryTitles={crew:"班组逐日车数统计",person:"人员逐日车数统计",equipment:"设备逐日车数统计"};
   let haulSummaryRenderedToday="",haulSummaryExportData=null,haulSummaryTaskHistory=null;
@@ -43,19 +45,63 @@
     $("transportFooter").hidden=role==="dispatch";
     $("workspaceRefresh").hidden=role==="dispatch";
     haulSummaryExportData=null;$("exportHaulSummary").hidden=role!=="dispatch"||view!=="summary";$("exportHaulSummary").disabled=true;
-    const entries=role==="dispatch"?[["tasks","任务看板"],["summary","月报汇总"],["assignments","白夜班排班"],["zones","GPS作业区域"],["faults","检查与异常责任"],["messages","消息中心"],["settings","定位规则"],["audit","操作记录"]]:[["work",role==="driver"?"本班驾驶作业":"本班装载作业"],["tasks","我的任务看板"],["records","运输车次"],["faults","检查与责任关联"],["sessions","我的班次"],["messages","消息中心"]];
+    const entries=role==="dispatch"?[["tasks","任务看板"],["summary","月报汇总"],["attendance","考勤汇总"],["assignments","白夜班排班"],["zones","GPS作业区域"],["faults","检查与异常责任"],["messages","消息中心"],["settings","定位规则"],["audit","操作记录"]]:[["work",role==="driver"?"本班驾驶作业":"本班装载作业"],["tasks","我的任务看板"],["records","运输车次"],["faults","检查与责任关联"],["sessions","我的班次"],["messages","消息中心"]];
     if(!entries.some(e=>e[0]===view))view=entries[0][0];const unread=T.visibleMessages(d,person).filter(v=>!v.readBy.includes(person.id)).length;
     $("roleLabel").textContent=labels[role];$("identity").textContent=person.name+" · "+person.status;$("nav").innerHTML=entries.map(([id,label])=>'<button type="button" data-view="'+id+'" class="'+(id===view?'selected':'')+(id==="messages"&&unread?' message-unread':'')+'">'+label+(id==="messages"&&unread?'<span class="message-unread-badge" aria-label="'+unread+'条未读">'+unread+'</span>':'')+'</button>').join("");
     $("title").textContent=view==="summary"?haulSummaryTitles[haulSummaryFilters.mode]:entries.find(v=>v[0]===view)[1];$("subtitle").textContent=view==="summary"?"生产A组 / 生产B组":role==="dispatch"?"排班、区域、设备与车次共用同一台账":role==="driver"?"先检查设备，再按装载与卸载区域完成运输":"按实际装载挖机汇总跟随车辆的已完成车次";document.title=labels[role]+" · 矿山管理系统";
     if(role==="dispatch"&&view==="tasks"&&haulSummaryTaskHistory){$("title").textContent=haulSummaryTaskHistory.workDate+" · "+haulSummaryTaskHistory.team+"任务看板";$("subtitle").textContent="查看当天白夜班任务及逐趟拉运明细";}
     $("eyebrow").hidden=false;$("subtitle").hidden=false;$("notice").hidden=false;
     $("notice").innerHTML=(unread?'<div class="banner">你有 '+unread+' 条未读消息。'+button("go-messages","","查看")+'</div>':'');
-    const renderers={summary:renderHaulSummary,tasks:()=>MineTaskBoard.render(d,m,person,{dispatch:role==="dispatch",hideTitle:true,history:role==="dispatch"?haulSummaryTaskHistory:null}),assignments:renderAssignments,zones:renderZones,records:renderRecords,faults:renderFaults,devices:renderDevices,sessions:renderSessions,messages:renderMessages,settings:renderSettings,audit:renderAudit,work:role==="driver"?renderDriver:renderExcavator};
+    const renderers={attendance:renderAttendance,summary:renderHaulSummary,tasks:()=>MineTaskBoard.render(d,m,person,{dispatch:role==="dispatch",hideTitle:true,history:role==="dispatch"?haulSummaryTaskHistory:null}),assignments:renderAssignments,zones:renderZones,records:renderRecords,faults:renderFaults,devices:renderDevices,sessions:renderSessions,messages:renderMessages,settings:renderSettings,audit:renderAudit,work:role==="driver"?renderDriver:renderExcavator};
     if(view==="messages"&&window.MineTransportChat){
       if(!$("content").querySelector("[data-chat-root]"))$("content").innerHTML=MineTransportChat.html();
       MineTransportChat.update({d,m,person,role,onChanged:()=>refresh(),toast});
     }else{window.MineTransportChat?.dispose();$("content").innerHTML=(view==="work"?MineTaskBoard.render(d,m,person):"")+renderers[view]();}
     taskClockSignature=MineTaskBoard.clockKey(d);
+  }
+  function attendanceScope(){
+    const today=T.date(),startDate=attendanceFilters.startDate||today.slice(0,7)+"-01",endDate=attendanceFilters.endDate||today;
+    const error=!haulSummaryValidDate(startDate)||!haulSummaryValidDate(endDate)?"请选择有效日期":startDate>endDate?"开始日期不能晚于结束日期":"";
+    return {startDate,endDate,team:attendanceFilters.team,error};
+  }
+  function attendanceData(scope){
+    const records=[...new Map((d.attendanceRecords||[]).filter(r=>r.workDate>=scope.startDate&&r.workDate<=scope.endDate).slice().sort((a,b)=>String(a.updatedAt||a.createdAt||"").localeCompare(String(b.updatedAt||b.createdAt||""))).map(r=>[JSON.stringify([r.personId,r.workDate]),r])).values()];
+    const people=new Map(m.people.filter(p=>L.active(p)&&["生产A组","生产B组"].includes(p.team)).map(p=>[p.id,{id:p.id,name:p.name,team:p.team}]));
+    for(const r of records){const p=m.people.find(p=>p.id===r.personId);if(!people.has(r.personId))people.set(r.personId,{id:r.personId,name:p?.name||r.personName,team:p?.team||r.team||""});}
+    const rows=[...people.values()].filter(p=>!scope.team||p.team===scope.team).map(p=>{
+      const own=records.filter(r=>r.personId===p.id),row={...p,present:0,leave:0,rest:0,absent:0,due:0};
+      for(const r of own){const key={"出勤":"present","请假":"leave","休息":"rest","缺勤":"absent"}[r.status];if(key)row[key]++;}
+      row.due=row.present+row.leave+row.absent;return row;
+    }).sort((a,b)=>a.team.localeCompare(b.team,"zh-CN")||a.name.localeCompare(b.name,"zh-CN")||String(a.id).localeCompare(String(b.id)));
+    const totals={present:0,leave:0,rest:0,absent:0,due:0};for(const row of rows)for(const key of Object.keys(totals))totals[key]+=row[key];
+    return {rows,totals};
+  }
+  const attendanceRate=row=>row.due?(row.present/row.due*100).toFixed(1)+"%":"—";
+  function renderAttendance(){
+    if(role!=="dispatch")return "";
+    attendanceRenderedToday=T.date();const scope=attendanceScope();$("subtitle").textContent=scope.startDate+" 至 "+scope.endDate+" · "+(scope.team||"全部生产班组");
+    const controls='<div class="attendance-filters">'+input("attendanceStartDate","开始日期",scope.startDate,"date")+input("attendanceEndDate","结束日期",scope.endDate,"date")+select("attendanceTeam","班组",[["","全部生产班组"],["生产A组","生产A组"],["生产B组","生产B组"]],scope.team)+'</div>';
+    if(scope.error)return controls+'<p class="attendance-error" role="alert">'+esc(scope.error)+'</p>';
+    const {rows,totals}=attendanceData(scope),numberCells=row=>["due","present","leave","rest","absent"].map(key=>'<td class="attendance-number">'+row[key]+'</td>').join("")+'<td class="attendance-number">'+attendanceRate(row)+'</td>';
+    const strip='<div class="attendance-strip"><span>人员 <b>'+rows.length+'</b> 人</span><span>实出勤 <b>'+totals.present+'</b> 人天</span><span>请假 <b>'+totals.leave+'</b> 人天</span><span>出勤率 <b>'+attendanceRate(totals)+'</b></span></div>';
+    return '<section class="attendance-summary">'+controls+strip+'<section class="panel"><div class="table-wrap"><table class="attendance-table"><thead><tr><th>姓名 / 班组</th><th>应出勤</th><th>实出勤</th><th>请假</th><th>休息</th><th>缺勤</th><th>出勤率</th><th>登记</th></tr></thead><tbody>'+(rows.length?rows.map(row=>'<tr><td><strong>'+esc(row.name)+'</strong><small>'+esc(row.team)+' · '+esc(row.id)+'</small></td>'+numberCells(row)+'<td>'+button("attendanceEdit",row.id,"登记 / 查看")+'</td></tr>').join(""):'<tr><td colspan="8" class="empty">暂无对应班组人员或考勤记录</td></tr>')+'</tbody><tfoot><tr><td>合计</td>'+numberCells(totals)+'<td></td></tr></tfoot></table></div></section><p class="help">单位：天。按每天登记状态汇总，同一人员同一天只计一次。应出勤＝实出勤＋请假＋缺勤；休息不计入应出勤。未登记日期不自动计为出勤或缺勤，暂无登记时出勤率显示“—”。</p></section>';
+  }
+  function syncAttendanceEditor(){
+    const workDate=$("editForm").querySelector('[name="attendanceWorkDate"]')?.value,personId=$("editForm").dataset.attendancePerson;
+    if(!personId)return;const row=(d.attendanceRecords||[]).find(r=>r.personId===personId&&r.workDate===workDate);
+    $("editForm").querySelector('[name="attendanceStatus"]').value=row?.status||"";$("editForm").querySelector('[name="attendanceNote"]').value=row?.note||"";
+    attendanceEditorVersion=row?.updatedAt||"";
+  }
+  function editAttendance(personId){
+    if(role!=="dispatch")return;
+    const p=m.people.find(p=>p.id===personId),history=(d.attendanceRecords||[]).filter(r=>r.personId===personId),scope=attendanceScope(),fallback=history[0];
+    if(!p&&!fallback)return toast("人员记录不存在，请刷新后重试");
+    const name=p?.name||fallback.personName,team=p?.team||fallback?.team||"",today=T.date(),workDate=today>=scope.startDate&&today<=scope.endDate?today:scope.endDate;
+    const records=history.filter(r=>r.workDate>=scope.startDate&&r.workDate<=scope.endDate).sort((a,b)=>b.workDate.localeCompare(a.workDate));
+    const body='<p><strong>'+esc(name)+'</strong> · '+esc(team)+'</p><div class="form-grid">'+input("attendanceWorkDate","考勤日期",workDate,"date")+select("attendanceStatus","考勤状态",[["","未登记"],["出勤","出勤"],["请假","请假"],["休息","休息"],["缺勤","缺勤"]],"")+'</div><label>备注（选填）<textarea name="attendanceNote" rows="2" maxlength="500" placeholder="可填写请假或缺勤说明"></textarea></label><p class="help">修改按天保存；选择“未登记”可清除当天统计状态，历史修改记录保留。</p><h3>所选范围登记记录</h3>'+(records.length?'<div class="table-wrap"><table><thead><tr><th>日期</th><th>状态</th><th>备注</th></tr></thead><tbody>'+records.map(r=>'<tr><td>'+esc(r.workDate)+'</td><td>'+esc(r.status||"未登记")+'</td><td>'+esc(r.note||"—")+'</td></tr>').join("")+'</tbody></table></div>':empty("尚未登记考勤"));
+    $("editForm").dataset.attendancePerson=personId;
+    show("考勤登记 · "+name,body,form=>operate("attendance",{personId,workDate:form.get("attendanceWorkDate"),status:form.get("attendanceStatus"),note:form.get("attendanceNote"),expectedUpdatedAt:attendanceEditorVersion},"考勤已保存"),"保存考勤");
+    syncAttendanceEditor();
   }
   function haulSummaryValidDate(value){return /^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value+"T00:00:00Z"))&&new Date(value+"T00:00:00Z").toISOString().slice(0,10)===value;}
   function haulSummaryScope(){
@@ -342,6 +388,7 @@
     try{if(scope.mode==="person")window.MineTableExport.downloadSheets([{name:"人员逐日明细",columns:fields,records:rows,title,notes},...personnelMatrixSheets(report)],title);else window.MineTableExport.download(fields,rows,title,{notes});toast("Excel 已导出");}catch(error){toast("导出失败："+error.message);}
   }
   function openAction(action,key){const s=session();
+    if(action==="attendanceEdit")return editAttendance(key);
     if(action==="haulSummaryDay"){
       if(role!=="dispatch")return;const [workDate,team]=String(key||"").split("|");
       if(!haulSummaryValidDate(workDate)||!["生产A组","生产B组"].includes(team))return toast("请选择有效日期和班组");
@@ -517,6 +564,8 @@
   $("logisticsDialog").addEventListener("close",()=>{$("logisticsFrame").src="about:blank";});
   window.addEventListener("message",event=>{if(event.origin===location.origin&&event.source===$("logisticsFrame").contentWindow&&event.data?.type==="mine-close-logistics")$("logisticsDialog").close();});
   document.addEventListener("change",event=>{
+    if(event.target.name==="attendanceWorkDate"){syncAttendanceEditor();return;}
+    if(["attendanceStartDate","attendanceEndDate","attendanceTeam"].includes(event.target.name)){if(role!=="dispatch")return;const value=event.target.value;if(event.target.name==="attendanceTeam")attendanceFilters.team=value;else attendanceFilters[event.target.name==="attendanceStartDate"?"startDate":"endDate"]=haulSummaryValidDate(value)?value:null;refresh();return;}
     if(["coalRatioPeriod","coalRatioMonth","coalRatioStartDay","coalRatioEndDay"].includes(event.target.name)){
       if(role!=="dispatch")return;
       const name=event.target.name,value=event.target.value;
@@ -536,7 +585,7 @@
       refresh();return;
     }if(event.target.name==="taskDate")updatePublishPreview();invalidateZoneFix(event.target);if(event.target.name==="kind")syncAssignmentFields();if(event.target.name==="zoneKind")syncZoneFields();if(event.target.id==="inspectionPhotos")previewSelected(event.target.files||[]);if(event.target.name==="simulationZone"){const z=simulationZones.find(z=>z.id===event.target.value);if(z){$("editForm").querySelector('[name="lat"]').value=z.lat;$("editForm").querySelector('[name="lng"]').value=z.lng;}}});
   document.addEventListener("input",event=>{invalidateZoneFix(event.target);if(event.target.id==="recordSearch"){recordSearch=event.target.value;const start=event.target.selectionStart;$("content").innerHTML=renderRecords();const field=$("recordSearch");field.focus();field.setSelectionRange(start,start);}});
-  async function externalChange(){try{await T.sync();T.context(role);const latest=T.stamp()+localStorage.getItem(L.PEOPLE)+localStorage.getItem(L.KEY);if(latest!==signature||MineTaskBoard.clockKey(d)!==taskClockSignature||(role==="dispatch"&&view==="summary"&&haulSummaryRenderedToday!==T.date())||(role==="dispatch"&&view==="assignments"&&shiftMinute!==Math.floor(Date.now()/60000)))refresh();}catch(error){block(error);}}
+  async function externalChange(){try{await T.sync();T.context(role);const latest=T.stamp()+localStorage.getItem(L.PEOPLE)+localStorage.getItem(L.KEY);if(latest!==signature||MineTaskBoard.clockKey(d)!==taskClockSignature||(role==="dispatch"&&view==="summary"&&haulSummaryRenderedToday!==T.date())||(role==="dispatch"&&view==="attendance"&&attendanceRenderedToday!==T.date())||(role==="dispatch"&&view==="assignments"&&shiftMinute!==Math.floor(Date.now()/60000)))refresh();}catch(error){block(error);}}
   document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")stopGPS(true);else externalChange();});
   window.addEventListener("pagehide",()=>{stopGPS(true);releasePhotos();});window.addEventListener("storage",externalChange);window.addEventListener("focus",externalChange);setInterval(externalChange,1000);T.ready().then(()=>refresh()).catch(block);
 })();
