@@ -1,7 +1,7 @@
 (() => {
 "use strict";
 const S=window.MineLeave,L=window.MineLogistics,$=id=>document.getElementById(id),role=new URLSearchParams(location.search).get("role"),esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-let person,ledger,view=role==="boss"?"approval":"apply",busy=false,clientId=crypto.randomUUID(),opened=null,approverSignature="";
+let person,ledger,view=role==="boss"?"approval":new URLSearchParams(location.search).get("view")==="mine"?"mine":"apply",busy=false,clientId=crypto.randomUUID(),opened=null,approverSignature="";
 const statusNames={pending:"待审批",approved:"已批准",rejected:"已驳回",withdrawn:"已撤回"},part=value=>value==="pm"?"下午":"上午",when=value=>new Date(value).toLocaleString("zh-CN",{timeZone:"Asia/Ulaanbaatar",hour12:false}),today=()=>new Date().toLocaleDateString("sv-SE",{timeZone:"Asia/Ulaanbaatar"});
 const dayText=value=>Number(value).toLocaleString("zh-CN",{maximumFractionDigits:4});
 function durationText(r){const w=S.actualWindow(r),seconds=Math.max(0,Math.floor((w.endAt-w.startAt)/1000)),days=Math.floor(seconds/86400),hours=Math.floor(seconds%86400/3600),minutes=Math.floor(seconds%3600/60),rest=seconds%60;return days+"天"+hours+"小时"+minutes+"分"+(rest?rest+"秒":"");}
@@ -35,6 +35,10 @@ function listRows(rows){
  return rows.length?rows.slice().sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).map(r=>'<button type="button" class="request-row" data-request="'+esc(r.id)+'"><span><strong>'+esc(r.personName+" · "+r.type)+'</strong><small>'+esc(r.team+" · "+r.startDate+" "+part(r.startPart)+" 至 "+r.endDate+" "+part(r.endPart))+'</small><small>'+esc(r.days+"天 · "+r.route.label)+'</small></span><b class="status '+r.status+'">'+esc((S.leaveState(r)||statusNames[r.status])+(r.returnRequest?" · 销假"+statusNames[r.returnRequest.status]:""))+'</b></button>').join(""):'<p class="empty">暂无申请</p>';
 }
 function draw(){
+ const results=S.unreadDecisions(person,ledger);
+ $("mineTab").textContent="我的申请"+(results.length?"（"+results.length+"条新结果）":"");
+ $("resultNotice").hidden=!results.length;
+ $("resultNotice").innerHTML=results.length?'<strong>审批结果提醒</strong>'+results.map(item=>'<button type="button" class="soft" data-request="'+esc(item.requestId)+'">'+esc(item.label+" · "+when(item.at))+' · 查看</button>').join(""):"";
  const own=ledger.requests.filter(r=>r.personId===person.id),reviews=ledger.requests.filter(eligible),pending=reviews.filter(r=>S.canApprove(r,person)).length;
  $("identity").textContent=person.name+(person.team?" · "+person.team:"");
  $("applyTab").hidden=person.boss===true;$("mineTab").hidden=person.boss===true;$("approvalTab").hidden=!(person.boss||["dispatch","middle_repair_manager"].includes(person.applicationRole));
@@ -45,7 +49,7 @@ function draw(){
  if(!person.boss){updateRoute();refreshQuota();}
 }
 async function refresh(){person=S.identity(role);ledger=await S.sync();draw();}
-function details(id){
+async function details(id){
  const r=ledger.requests.find(r=>r.id===id&&visible(r));if(!r)return toast("无权查看此申请");
  opened={id:r.id,updatedAt:r.updatedAt,returnPending:r.returnRequest?.status==="pending"};
  $("detailBody").innerHTML='<h2>请销假申请 · '+esc(r.personName)+'</h2><dl>'+[["班组",r.team||"未设置"],["请假类型",r.type],["申请时段（预计）",r.startDate+" "+part(r.startPart)+" 至 "+r.endDate+" "+part(r.endPart)],["请假天数",r.days+"天"],["审批路线",r.route.label],["指定审批人",r.approverId?(L.main().people.find(p=>p.id===r.approverId)?.name||r.approverId):"未指定"],["联系电话",r.phone||"未填写"],["请假原因",r.reason||"未填写"],["状态",S.leaveState(r)||statusNames[r.status]],...(r.status==="approved"?[["实际请假时长",durationText(r)+(S.leaveState(r)==="请假中"?"（持续累计）":"")],["实际计假天数",dayText(S.effectiveSpan(r).days)+"天（按实际时长折算）"]]:[]),["申请时间",when(r.createdAt)],...(r.returnRequest?[["销假状态",statusNames[r.returnRequest.status]],["申请返岗时间",when(r.returnRequest.requestedReturnAt)],["销假说明",r.returnRequest.reason||"未填写"],...(r.returnRequest.effectiveReturnAt?[["销假生效时间",when(r.returnRequest.effectiveReturnAt)]]:[]),...(r.returnRequest.decisionAt?[["销假审批人",r.returnRequest.decisionName],["销假审批意见",r.returnRequest.decisionNote||"未填写"]]:[])]:[]),...(r.decisionAt?[["审批人",r.decisionName],["审批时间",when(r.decisionAt)],["审批意见",r.decisionNote||"未填写"]]:[])].map(([label,value])=>'<div><dt>'+esc(label)+'</dt><dd>'+esc(value)+'</dd></div>').join("")+'</dl><details><summary>操作记录</summary>'+r.history.map(h=>'<p>'+esc(when(h.at)+" · "+(h.name||h.by)+" · "+(statusNames[h.action]||h.action))+'</p>').join("")+'</details>';
@@ -55,6 +59,8 @@ function details(id){
  $("approve").textContent=opened.returnPending?"批准销假":"批准请假";$("reject").textContent=opened.returnPending?"驳回销假":"驳回请假";
  $("decisionNote").value="";$("decisionField").hidden=!S.canApprove(r,person);
  $("approve").hidden=!S.canApprove(r,person);$("reject").hidden=!S.canApprove(r,person);$("withdraw").hidden=!(r.personId===person.id&&r.status==="pending");$("dialogError").textContent="";$("details").showModal();
+ const keys=S.unreadDecisions(person,ledger).filter(item=>item.requestId===r.id).map(item=>item.key);
+ if(keys.length)try{await S.act("readDecision",{id:r.id,expectedUpdatedAt:r.updatedAt,keys},role);await refresh();}catch(error){$("dialogError").textContent="结果已显示，但未读状态保存失败："+error.message;}
 }
 async function decision(action){
  if(busy||!opened)return;busy=true;setBusy();

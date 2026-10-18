@@ -15,6 +15,8 @@ function identity(role){
 }
 function route(p){if(["dispatch","middle_repair_manager"].includes(p.applicationRole)||p.team==="行政办公组")return {kind:"gm",team:"",label:"总经理审批"};if(["生产A组","生产B组"].includes(p.team))return {kind:"dispatch",team:p.team,label:p.team+"调度审批"};if(p.team==="修理组")return {kind:"repair",team:"修理组",label:"修理管理审批"};if(OTHER_ROUTE==="gm")return {kind:"gm",team:"",label:"总经理审批"};return {kind:"unconfigured",team:p.team||"",label:"审批路线尚未设置"};}
 function candidates(p,m=L.main()){const r=route(p);return m.people.filter(v=>L.active(v)&&v.id!==p.id&&(r.kind==="dispatch"?v.applicationRole==="dispatch"&&v.team===r.team:r.kind==="repair"?v.applicationRole==="middle_repair_manager":false));}
+function decisionItems(r){return (r.history||[]).flatMap((h,index)=>{const label={approved:"请假已批准",rejected:"请假已驳回","批准销假":"销假已批准","驳回销假":"销假已驳回"}[h.action];return label?[{key:index+":"+h.at+":"+h.action,at:h.at,label}]:[];});}
+function unreadDecisions(p,ledger=cache){return ledger.requests.filter(r=>r.personId===p.id).flatMap(r=>decisionItems(r).filter(item=>!(r.decisionReadKeys||[]).includes(item.key)).map(item=>({...item,requestId:r.id}))).sort((a,b)=>b.at.localeCompare(a.at));}
 function canApprove(request,p){if((request.status!=="pending"&&!(request.status==="approved"&&request.returnRequest?.status==="pending"))||request.personId===p.id)return false;return request.route.kind==="gm"?(GM_MODE==="boss"?p.boss===true:p.applicationRole==="middle_general_manager"):((request.route.kind==="dispatch"?p.applicationRole==="dispatch"&&p.team===request.route.team:request.route.kind==="repair"?p.applicationRole==="middle_repair_manager":false)&&(!request.approverId||request.approverId===p.id));}
 function validDate(value){return /^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value+"T00:00:00Z"))&&new Date(value+"T00:00:00Z").toISOString().slice(0,10)===value;}
 function span(input){if(!validDate(input.startDate)||!validDate(input.endDate))fail("请选择有效的开始和结束日期");if(!["am","pm"].includes(input.startPart)||!["am","pm"].includes(input.endPart))fail("请选择上午或下午");const from=Date.parse(input.startDate+"T00:00:00Z")/86400000*2+(input.startPart==="pm"?1:0),to=Date.parse(input.endDate+"T00:00:00Z")/86400000*2+(input.endPart==="pm"?1:0);if(to<from)fail("结束时间不能早于开始时间");return {from,to,days:(to-from+1)/2};}
@@ -75,6 +77,12 @@ async function act(type,x,role){
   ledger.requests.unshift(record);
  }else{
   record=ledger.requests.find(r=>r.id===x.id);if(!record)fail("申请不存在");if(x.expectedUpdatedAt!==record.updatedAt)fail("申请已在其他页面变更，请刷新后重试");
+  if(type==="readDecision"){
+    if(record.personId!==p.id)fail("只能确认本人的审批结果");
+    const known=new Set(decisionItems(record).map(item=>item.key)),keys=Array.isArray(x.keys)?x.keys.filter(key=>known.has(key)):[];
+    record.decisionReadKeys=[...new Set([...(record.decisionReadKeys||[]),...keys])];
+    await write(ledger);cache=ledger;loaded=true;return record.id;
+  }
   let actionText="";
   if(type==="requestReturn"){
     if(record.personId!==p.id||record.status!=="approved")fail("只能对本人已批准的请假申请销假");
@@ -107,5 +115,5 @@ async function act(type,x,role){
  }
  ledger.audit.unshift({id:uid(),at,by:p.id,name:p.name,type,requestId:record.id});await write(ledger);cache=ledger;loaded=true;return record.id;
  });}
-window.MineLeave=Object.freeze({sync,ready:sync,get,identity,route,candidates,canApprove,span,effectiveSpan,leaveWindow,actualWindow,leaveState,stamp,schedulingConflict,assertSchedule,withSchedulingLock,quota,act});
+window.MineLeave=Object.freeze({sync,ready:sync,get,identity,route,candidates,canApprove,decisionItems,unreadDecisions,span,effectiveSpan,leaveWindow,actualWindow,leaveState,stamp,schedulingConflict,assertSchedule,withSchedulingLock,quota,act});
 })();
