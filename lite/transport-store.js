@@ -324,7 +324,7 @@
       const target=String(x.target||"chat:all"),body=String(x.body||"").trim(),clientId=String(x.clientId||"");
       if(!clientId||clientId.length>100)fail("消息标识无效，请重试");
       const existing=d.messages.find(msg=>msg.kind==="chat"&&msg.senderId===a.id&&msg.clientId===clientId);if(existing)return existing.id;
-      if(target!=="chat:all"){const receiver=m.people.find(p=>p.id===target&&roles.includes(p.applicationRole)&&L.active(p));if(!receiver)fail("接收人员已不可用，请重新选择");if(target===a.id)fail("请选择其他人员");}
+      if(target!=="chat:all")fail("当前只使用公共聊天窗口，请刷新后重试");
       if(body.length>4000)fail("文字消息最多4000字");
       const attachments=Array.isArray(x.attachments)?x.attachments:[];if(attachments.length>6)fail("每条消息最多6个附件");
       for(const file of attachments)if(!file||typeof file.id!=="string"||!file.id.startsWith("file-")||!/^image\/|^audio\//.test(String(file.type))||!Number.isFinite(file.size)||file.size<=0||file.size>10*1024*1024)fail("聊天附件无效或超过10MB");

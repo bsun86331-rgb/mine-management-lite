@@ -1,9 +1,8 @@
 /* Browser-local transport chat. Files stay in the shared attachment database. */
 (() => {
   "use strict";
-  const T=window.MineTransport,L=window.MineLogistics,A=window.MineAttachmentStore;
+  const T=window.MineTransport,A=window.MineAttachmentStore;
   const esc=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-  const roleNames={driver:"汽车司机",excavator:"挖机司机",dispatch:"调度"};
   const emojis=["😀","😊","😂","👍","👌","🙏","💪","👏","❤️","🌹","✅","收到","辛苦了","🚚","⛏️","⚠️"];
   let host=null,ctx=null,active="chat:all",owner="",drafts=new Map(),urls=new Map(),digest="",observer=null,readTimer=null,readBusy=false,readIds=new Set(),limit=100,sending=false,recorder=null,stream=null,recordTimer=null,recordSeconds=0,recordCancel=false,requestGeneration=0,requesting=false,viewer=null;
   const node=id=>host?.querySelector('[data-chat="'+id+'"]');
@@ -11,9 +10,8 @@
   const stamp=value=>new Date(value).toLocaleString("zh-CN",{timeZone:"Asia/Ulaanbaatar",hour12:false});
   const unread=msg=>!(msg.readBy||[]).includes(ctx.person.id);
   const messages=()=>T.visibleMessages(ctx.d,ctx.person);
-  const thread=msg=>msg.kind!=="chat"?"system":msg.target==="chat:all"?"chat:all":msg.senderId===ctx.person.id?msg.target:msg.senderId;
-  const title=key=>key==="chat:all"?"生产工作群":key==="system"?"系统通知":ctx.m.people.find(p=>p.id===key)?.name||messages().find(msg=>msg.senderId===key)?.senderName||key;
-  function html(){return '<section class="transport-chat" data-chat-root><aside class="chat-contacts"><div class="chat-list-title">聊天与通知</div><div data-chat="contacts"></div></aside><div class="chat-main"><header class="chat-header"><div><strong data-chat="title"></strong><small>当前仅在同一浏览器内联动，跨手机聊天尚未接入共享服务。</small></div><button type="button" class="soft" data-chat-action="read-all">本会话已读</button></header><div class="chat-log" data-chat="log" role="log" aria-label="聊天记录" aria-live="polite" tabindex="0"></div><div class="chat-composer" data-chat="composer"><div class="chat-tools"><button type="button" class="soft" data-chat-action="photo">照片</button><button type="button" class="soft" data-chat-action="record" data-chat="record">录语音</button><button type="button" class="soft" data-chat-action="audio">语音文件</button><button type="button" class="soft" data-chat-action="emoji" aria-expanded="false">表情</button><span data-chat="record-status" role="status"></span></div><div class="chat-emoji" data-chat="emojis" hidden>'+emojis.map(emoji=>'<button type="button" data-chat-action="insert-emoji" data-emoji="'+esc(emoji)+'">'+esc(emoji)+'</button>').join("")+'</div><div class="chat-pending" data-chat="pending"></div><textarea data-chat="text" maxlength="4000" rows="2" placeholder="输入消息，Enter发送，Shift+Enter换行" aria-label="消息内容"></textarea><div class="chat-send-row"><small>每条最多6个附件，单个不超过10 MB；录音最长60秒。</small><button type="button" data-chat-action="send" data-chat="send">发送</button></div><input data-chat="photo-input" type="file" accept="image/*" multiple hidden><input data-chat="audio-input" type="file" accept="audio/*" hidden></div></div></section>';}
+  const title=()=>"公共聊天";
+  function html(){return '<section class="transport-chat" data-chat-root><div class="chat-main"><header class="chat-header"><div><strong data-chat="title"></strong><small>当前仅在同一浏览器内联动，跨手机聊天尚未接入共享服务。</small></div><button type="button" class="soft" data-chat-action="read-all">本会话已读</button></header><div class="chat-log" data-chat="log" role="log" aria-label="聊天记录" aria-live="polite" tabindex="0"></div><div class="chat-composer" data-chat="composer"><div class="chat-tools"><button type="button" class="soft" data-chat-action="photo">照片</button><button type="button" class="soft" data-chat-action="record" data-chat="record">录语音</button><button type="button" class="soft" data-chat-action="audio">语音文件</button><button type="button" class="soft" data-chat-action="emoji" aria-expanded="false">表情</button><span data-chat="record-status" role="status"></span></div><div class="chat-emoji" data-chat="emojis" hidden>'+emojis.map(emoji=>'<button type="button" data-chat-action="insert-emoji" data-emoji="'+esc(emoji)+'">'+esc(emoji)+'</button>').join("")+'</div><div class="chat-pending" data-chat="pending"></div><textarea data-chat="text" maxlength="4000" rows="2" placeholder="输入消息，Enter发送，Shift+Enter换行" aria-label="消息内容"></textarea><div class="chat-send-row"><small>每条最多6个附件，单个不超过10 MB；录音最长60秒。</small><button type="button" data-chat-action="send" data-chat="send">发送</button></div><input data-chat="photo-input" type="file" accept="image/*" multiple hidden><input data-chat="audio-input" type="file" accept="audio/*" hidden></div></div></section>';}
   function releaseUrls(){for(const url of urls.values())URL.revokeObjectURL(url);urls.clear();}
   function clearObserver(){observer?.disconnect();observer=null;if(readTimer)clearTimeout(readTimer);readTimer=null;readIds.clear();}
   async function flushRead(){
@@ -47,15 +45,6 @@
       }catch{if(el.isConnected)el.replaceWith(document.createTextNode("附件读取失败，请重试"));}
     }
   }
-  function drawContacts(){
-    const rows=messages(),keys=new Set(["chat:all","system"]);
-    for(const p of ctx.m.people)if(p.id!==ctx.person.id&&roleNames[p.applicationRole]&&L.active(p))keys.add(p.id);
-    for(const msg of rows)keys.add(thread(msg));
-    node("contacts").innerHTML=[...keys].map(key=>{
-      const count=rows.filter(msg=>thread(msg)===key&&unread(msg)).length,p=ctx.m.people.find(p=>p.id===key);
-      return '<button type="button" data-chat-thread="'+esc(key)+'" class="chat-contact'+(active===key?' current':'')+(count?' has-unread':'')+'"><span>'+esc(title(key))+(p?'<small>'+esc((roleNames[p.applicationRole]||p.role)+" · "+p.id)+'</small>':"")+'</span>'+(count?'<b class="chat-badge" aria-label="'+count+'条未读">'+count+'</b>':"")+'</button>';
-    }).join("");
-  }
   function drawPending(){
     const current=draft();node("pending").innerHTML=current.files.map((file,index)=>'<span>'+esc(file.type.startsWith("image/")?"照片："+file.name:"语音："+file.name)+'<button type="button" data-chat-action="remove-file" data-index="'+index+'" aria-label="移除附件">×</button></span>').join("");
   }
@@ -71,18 +60,18 @@
   }
   function draw(){
     if(!host?.isConnected||!ctx)return;
-    drawContacts();node("title").textContent=title(active);
-    node("composer").hidden=active==="system";
+    node("title").textContent=title();
+    node("composer").hidden=false;
     const text=node("text");if(text.value!==draft().text)text.value=draft().text;
     drawPending();updateControls();
-    const all=messages().filter(msg=>thread(msg)===active).sort((a,b)=>a.at.localeCompare(b.at)||a.id.localeCompare(b.id)),rows=all.slice(-limit);
+    const all=messages().sort((a,b)=>a.at.localeCompare(b.at)||a.id.localeCompare(b.id)),rows=all.slice(-limit);
     const next=ctx.person.id+"|"+active+"|"+limit+"|"+rows.map(msg=>msg.id).join(",");
     if(next===digest)return;
     const log=node("log"),oldTop=log.scrollTop,atBottom=log.scrollHeight-log.scrollTop-log.clientHeight<65,switched=!digest||digest.split("|")[1]!==active;
     digest=next;clearObserver();releaseUrls();
     log.innerHTML=(all.length>limit?'<button type="button" class="soft chat-earlier" data-chat-action="earlier">加载更早消息</button>':"")+(rows.length?rows.map(msg=>{
       const own=msg.senderId===ctx.person.id;
-      return '<article class="chat-message'+(own?' mine':'')+(msg.kind!=="chat"?' system-message':'')+'" data-message-id="'+esc(msg.id)+'"><div class="chat-message-meta">'+esc(msg.kind==="chat"?(own?"我":msg.senderName||"原人员"):"系统通知")+' · '+esc(stamp(msg.at))+'</div><div class="chat-bubble">'+(msg.body?'<p>'+esc(msg.body)+'</p>':"")+(msg.attachments||[]).map(file=>file.type.startsWith("image/")?'<button type="button" class="chat-photo-button" data-chat-action="view-photo" data-file-id="'+esc(file.id)+'"><img data-chat-file="'+esc(file.id)+'" alt="'+esc(file.name||"聊天照片")+'" loading="lazy"></button>':'<audio controls preload="none" data-chat-file="'+esc(file.id)+'" aria-label="语音消息"></audio>').join("")+'</div></article>';
+      return '<article class="chat-message'+(own?' mine':'')+(msg.kind!=="chat"?' system-message':'')+'" data-message-id="'+esc(msg.id)+'"><div class="chat-message-meta">'+esc(msg.kind==="chat"?((own?"我":msg.senderName||"原人员")+(msg.target!=="chat:all"?" · 历史私聊":"")):"系统通知")+' · '+esc(stamp(msg.at))+'</div><div class="chat-bubble">'+(msg.body?'<p>'+esc(msg.body)+'</p>':"")+(msg.attachments||[]).map(file=>file.type.startsWith("image/")?'<button type="button" class="chat-photo-button" data-chat-action="view-photo" data-file-id="'+esc(file.id)+'"><img data-chat-file="'+esc(file.id)+'" alt="'+esc(file.name||"聊天照片")+'" loading="lazy"></button>':'<audio controls preload="none" data-chat-file="'+esc(file.id)+'" aria-label="语音消息"></audio>').join("")+'</div></article>';
     }).join(""):'<div class="chat-empty">'+(active==="system"?"暂无系统通知":"暂无消息，发送第一条消息吧")+'</div>');
     log.scrollTop=switched||atBottom?log.scrollHeight:oldTop;hydrate();observeRows();
   }
@@ -141,8 +130,6 @@
     }catch(error){ctx.toast(error.message);}
   }
   function click(event){
-    const contact=event.target.closest("[data-chat-thread]");
-    if(contact){if(sending)return ctx.toast("请等待消息发送完成");stopRecording(true);active=contact.dataset.chatThread;limit=100;digest="";draw();return;}
     const b=event.target.closest("[data-chat-action]");if(!b)return;
     const action=b.dataset.chatAction;
     if(action==="send")return send();
@@ -154,7 +141,7 @@
     if(action==="remove-file"&&!sending){draft().files.splice(Number(b.dataset.index),1);drawPending();return;}
     if(action==="view-photo")return photo(b.dataset.fileId);
     if(action==="earlier"){limit+=100;digest="";draw();return;}
-    if(action==="read-all"){for(const msg of messages().filter(msg=>thread(msg)===active&&unread(msg)))readIds.add(msg.id);return flushRead();}
+    if(action==="read-all"){for(const msg of messages().filter(msg=>unread(msg)))readIds.add(msg.id);return flushRead();}
   }
   function dispose(){
     stopRecording(true);clearObserver();releaseUrls();if(viewer)viewer.close();host=null;ctx=null;digest="";
