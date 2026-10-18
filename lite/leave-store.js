@@ -19,13 +19,22 @@ function canApprove(request,p){if((request.status!=="pending"&&!(request.status=
 function validDate(value){return /^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value+"T00:00:00Z"))&&new Date(value+"T00:00:00Z").toISOString().slice(0,10)===value;}
 function span(input){if(!validDate(input.startDate)||!validDate(input.endDate))fail("请选择有效的开始和结束日期");if(!["am","pm"].includes(input.startPart)||!["am","pm"].includes(input.endPart))fail("请选择上午或下午");const from=Date.parse(input.startDate+"T00:00:00Z")/86400000*2+(input.startPart==="pm"?1:0),to=Date.parse(input.endDate+"T00:00:00Z")/86400000*2+(input.endPart==="pm"?1:0);if(to<from)fail("结束时间不能早于开始时间");return {from,to,days:(to-from+1)/2};}
 function leaveWindow(r){
- const period=span(r),startAt=period.from*43200000-8*3600000,endAt=(period.to+1)*43200000-8*3600000;
- return {startAt,endAt:r.returnRequest?.status==="approved"?Math.min(endAt,Date.parse(r.returnRequest.effectiveReturnAt)):endAt};
+ const period=span(r),startAt=period.from*43200000-8*3600000,plannedEndAt=(period.to+1)*43200000-8*3600000;
+ if(r.status!=="approved")return {startAt,endAt:plannedEndAt,plannedEndAt};
+ const returned=r.returnRequest?.status==="approved"?Date.parse(r.returnRequest.effectiveReturnAt):Infinity;
+ return {startAt,endAt:Number.isFinite(returned)?Math.max(startAt,returned):Infinity,plannedEndAt};
+}
+function actualWindow(r,at=Date.now()){
+ const w=leaveWindow(r);return {...w,endAt:r.status==="approved"?Math.max(w.startAt,Math.min(w.endAt,at)):w.endAt};
+}
+function leaveState(r,at=Date.now()){
+ if(r.status!=="approved")return "";
+ const w=leaveWindow(r);return at<w.startAt?"待开始":at>=w.endAt?"已销假":"请假中";
 }
 function effectiveSpan(r){
- const original=span(r);if(r.status!=="approved"||r.returnRequest?.status!=="approved")return original;
- const end=Date.parse(r.returnRequest.effectiveReturnAt);if(!Number.isFinite(end))return original;
- const w=leaveWindow(r),to=(w.endAt+8*3600000)/43200000-1;return {...original,to,days:Math.max(0,w.endAt-w.startAt)/86400000};
+ const original=span(r);if(r.status!=="approved")return original;
+ const w=actualWindow(r),to=(w.endAt+8*3600000)/43200000-1;
+ return {...original,to,days:Math.max(0,w.endAt-w.startAt)/86400000};
 }
 function stamp(){return loaded?JSON.stringify(cache.requests.map(r=>[r.id,r.updatedAt])):"loading";}
 function schedulingConflict(p,startAt,endAt){
@@ -48,7 +57,7 @@ function cycleAt(p,day){
 }
 function quota(p,day,ledger=cache,excludeId=""){
  let cycle;try{cycle=cycleAt(p,day);}catch{return {error:"轮休周期超出可计算日期范围，请管理员调整"};}if(cycle.error)return cycle;let used=0,reserved=0;
- for(const r of ledger.requests.filter(r=>r.personId===p.id&&r.type==="轮休假"&&r.id!==excludeId&&["pending","approved"].includes(r.status))){let w;try{w=leaveWindow(r);}catch{continue;}const cycleStart=cycle.from*43200000-8*3600000,cycleEnd=(cycle.to+1)*43200000-8*3600000,amount=Math.max(0,Math.min(w.endAt,cycleEnd)-Math.max(w.startAt,cycleStart))/86400000;if(r.status==="approved")used+=amount;else reserved+=amount;}
+ for(const r of ledger.requests.filter(r=>r.personId===p.id&&r.type==="轮休假"&&r.id!==excludeId&&["pending","approved"].includes(r.status))){let w;try{w=r.status==="approved"?actualWindow(r):leaveWindow(r);}catch{continue;}const cycleStart=cycle.from*43200000-8*3600000,cycleEnd=(cycle.to+1)*43200000-8*3600000,amount=Math.max(0,Math.min(w.endAt,cycleEnd)-Math.max(w.startAt,cycleStart))/86400000;if(r.status==="approved")used+=amount;else reserved+=amount;}
  return {...cycle,used,reserved,remaining:Math.max(0,cycle.quota-used-reserved)};
 }
 function checkQuota(p,input,ledger,excludeId){const period=span(input);let cursor=period.from;while(cursor<=period.to){const day=new Date(Math.floor(cursor/2)*86400000).toISOString().slice(0,10),q=quota(p,day,ledger,excludeId);if(q.error)fail(q.error);const end=Math.min(period.to,q.to),needed=(end-cursor+1)/2;if(needed>q.remaining+1e-9)fail(q.startDate+"至"+q.endDate+"轮休余额不足（含待审批预留）");cursor=end+1;}}
@@ -71,7 +80,7 @@ async function act(type,x,role){
     if(record.personId!==p.id||record.status!=="approved")fail("只能对本人已批准的请假申请销假");
     if(record.returnRequest?.status==="pending"||record.returnRequest?.status==="approved")fail("销假已在审批或已处理");
     const returned=Date.parse(x.returnAt),w=leaveWindow(record);
-    if(!Number.isFinite(returned)||returned<w.startAt||returned>=w.endAt||Date.now()>=w.endAt)fail("请选择原假期内、早于原结束时间的返岗时间");
+    if(!Number.isFinite(returned)||returned<w.startAt)fail("请选择不早于请假开始时间的有效返岗时间");
     record.returnRequest={status:"pending",requestedReturnAt:new Date(returned).toISOString(),reason:String(x.note||"").slice(0,1000),requestedAt:at,by:p.id};actionText="提交销假";
   }else if(["approveReturn","rejectReturn","withdrawReturn"].includes(type)){
     if(record.status!=="approved"||record.returnRequest?.status!=="pending")fail("销假申请已处理，请刷新");
@@ -88,6 +97,7 @@ async function act(type,x,role){
     else if(type==="approve"||type==="reject"){
       if(!canApprove(record,p))fail("仅本路线有权限的管理人员可审批，不能审批本人申请");
       if(type==="approve"&&!L.active(m.people.find(v=>v.id===record.personId)))fail("申请人已不在岗，请核实后处理");
+      if(type==="approve"){const requested=leaveWindow(record);if(ledger.requests.some(other=>other.id!==record.id&&other.personId===record.personId&&other.status==="approved"&&(()=>{const w=leaveWindow(other);return requested.startAt<w.endAt&&w.startAt<requested.endAt;})()))fail("申请人存在尚未销假的重叠假期，请先处理销假");}
       if(type==="approve"&&record.type==="轮休假"){const applicant=m.people.find(v=>v.id===record.personId);if(!applicant)fail("申请人档案不存在");checkQuota(applicant,record,ledger,record.id);}
       record.status=type==="approve"?"approved":"rejected";record.decisionBy=p.id;record.decisionName=p.name;record.decisionAt=at;record.decisionNote=String(x.note||"").slice(0,1000);
     }else fail("未知请销假操作");
@@ -97,5 +107,5 @@ async function act(type,x,role){
  }
  ledger.audit.unshift({id:uid(),at,by:p.id,name:p.name,type,requestId:record.id});await write(ledger);cache=ledger;loaded=true;return record.id;
  });}
-window.MineLeave=Object.freeze({sync,ready:sync,get,identity,route,candidates,canApprove,span,effectiveSpan,leaveWindow,stamp,schedulingConflict,assertSchedule,withSchedulingLock,quota,act});
+window.MineLeave=Object.freeze({sync,ready:sync,get,identity,route,candidates,canApprove,span,effectiveSpan,leaveWindow,actualWindow,leaveState,stamp,schedulingConflict,assertSchedule,withSchedulingLock,quota,act});
 })();
