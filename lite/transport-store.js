@@ -330,6 +330,28 @@
       if(t.status==="voided")fail("该车次已经作废");t.previousStatus=t.status;t.status="voided";t.voidedBy=a.id;t.voidedAt=now();t.voidNote=named(x.note,"作废说明");const s=d.shifts.find(s=>s.id===t.shiftId);if(s&&!shiftTrip(d,s)){resetCandidate(s);s.tempExcavatorId=null;}notify(d,t.personId,"车次已作废/冲销，汽车和实际挖机统计同步更新",t.id);notify(d,"exc:"+t.excavatorId,"车次已作废/冲销："+t.vehicleCode,t.id);audit(d,a,"车次作废/冲销",t.voidNote,{tripId:t.id});return;
     }
     if(type==="correctMaterial"){dispatchOnly(a);const t=find("trips",x.id);t.corrections=[...(t.corrections||[]),{at:now(),by:a.id,from:t.material||"未分类",to:materialValue(x.material)||"未分类",note:named(x.note,"调整说明")}];t.material=materialValue(x.material)||"未分类";t.materialSource="调度修正";audit(d,a,"修正物料分类",t.material,{tripId:t.id});return;}
+    if(type==="attendanceDecision"){
+      dispatchOnly(a);
+      const personId=String(x.personId||""),workDate=String(x.workDate||""),note=String(x.note||"").trim();
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(workDate)||!Number.isFinite(Date.parse(workDate+"T00:00:00Z"))||new Date(workDate+"T00:00:00Z").toISOString().slice(0,10)!==workDate)fail("请选择有效考勤日期");
+      const parse=v=>{if(v===""||v==null)return null;const n=Number(v);if(![0,0.5,1].includes(n))fail("每班请选择自动、0、0.5或1班");return n;};
+      const dayUnits=parse(x.dayUnits),nightUnits=parse(x.nightUnits);
+      if(note.length>500)fail("考勤备注最多500字");
+      const person=m.people.find(p=>p.id===personId);
+      let record=d.attendanceRecords.filter(r=>r.personId===personId&&r.workDate===workDate).sort((a,b)=>String(a.updatedAt||a.createdAt||"").localeCompare(String(b.updatedAt||b.createdAt||""))).at(-1);
+      if(!person&&!record)fail("人员记录不存在，请刷新后重试");
+      if(![person?.team,record?.team].some(team=>["生产A组","生产B组"].includes(team)))fail("当前仅确认生产A/B组考勤");
+      if(x.expectedUpdatedAt!==(record?.updatedAt||"")||(x.expectedDecisionId||"")!==(record?.attendanceDecision?.id||""))fail("当天考勤已被其他页面修改，请重新打开后保存");
+      if(!window.MineAttendanceBoard||x.expectedSourceStamp!==window.MineAttendanceBoard.sourceStamp(d,personId,workDate))fail("人员任务已变化，请重新打开核对考勤");
+      const at=now(),before=record?.attendanceDecision?clone(record.attendanceDecision):null;
+      if(!record){record={id:uid(),personId,personName:person.name,team:person.team,workDate,status:"",note:"",createdAt:at,history:[]};d.attendanceRecords.push(record);}
+      const after={id:uid(),dayUnits,nightUnits,note,at,by:a.id,name:a.name,sourceStamp:x.expectedSourceStamp};
+      record.history=Array.isArray(record.history)?record.history:[];
+      record.history.push({at,by:a.id,name:a.name,action:"调度确认日考勤",fromDecision:before,toDecision:clone(after)});
+      Object.assign(record,{attendanceDecision:after,personName:person?.name||record.personName,team:record.team||person?.team,updatedAt:at,updatedBy:a.id});
+      audit(d,a,"调度确认日考勤",record.personName+"；"+workDate+"；白班"+(dayUnits==null?"自动":dayUnits)+"；夜班"+(nightUnits==null?"自动":nightUnits),{attendanceId:record.id});
+      return record.id;
+    }
     if(type==="attendance"){
       dispatchOnly(a);
       const personId=String(x.personId||""),workDate=String(x.workDate||""),status=String(x.status||""),note=String(x.note||"").trim();
