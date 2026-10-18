@@ -341,6 +341,8 @@
       let record=d.attendanceRecords.filter(r=>r.personId===personId&&r.workDate===workDate).sort((a,b)=>String(a.updatedAt||a.createdAt||"").localeCompare(String(b.updatedAt||b.createdAt||""))).at(-1);
       if(!person&&!record)fail("人员记录不存在，请刷新后重试");
       if(![person?.team,record?.team].some(team=>["生产A组","生产B组"].includes(team)))fail("当前仅确认生产A/B组考勤");
+      if(!window.MineAttendanceBoard)fail("考勤组件尚未加载，请刷新");
+      window.MineAttendanceBoard.assertDecision(d,personId,workDate,record?.team||person?.team,{dayUnits,nightUnits},record?.attendanceDecision);
       if(x.expectedUpdatedAt!==(record?.updatedAt||"")||(x.expectedDecisionId||"")!==(record?.attendanceDecision?.id||""))fail("当天考勤已被其他页面修改，请重新打开后保存");
       if(!window.MineAttendanceBoard||x.expectedSourceStamp!==window.MineAttendanceBoard.sourceStamp(d,personId,workDate))fail("人员任务已变化，请重新打开核对考勤");
       const at=now(),before=record?.attendanceDecision?clone(record.attendanceDecision):null;
@@ -361,6 +363,8 @@
       let record=d.attendanceRecords.find(r=>r.personId===personId&&r.workDate===workDate);
       const person=m.people.find(p=>p.id===personId);
       if(!person&&!record)fail("人员档案不存在，请刷新后重试");
+      const team=record?.team||person?.team;
+      if(["生产A组","生产B组"].includes(team)&&(!window.MineAttendanceBoard||!["白班","夜班"].some(name=>window.MineAttendanceBoard.shiftState(d,team,workDate,name).ready)))fail("本班任务尚未结束或未发布，不能提前登记考勤");
       if(!record&&!status&&!note)return;
       if(!record){record={id:uid(),personId,personName:person.name,team:person.team||"",workDate,status:"",note:"",createdAt:now(),history:[]};d.attendanceRecords.push(record);}
       if(x.expectedUpdatedAt!==undefined&&x.expectedUpdatedAt!==(record.updatedAt||""))fail("此人的当天考勤已被其他页面修改，请重新打开后保存");
