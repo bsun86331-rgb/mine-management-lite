@@ -51,15 +51,18 @@
     const legacy=[...new Set((d.assignments||[]).filter(a=>a.kind==="excavator"&&a.vehicleId===trip.excavatorId&&a.workDate===trip.workDate&&a.shiftName===trip.shiftName).map(a=>a.personId))];
     return legacy.length===1?legacy[0]:null;
   }
-  function shiftTripSummary(d,m,r){
+  function teamTrips(d,m,workDate,team,shiftName=null){
     const rows=(d.trips||[]).filter(t=>{
-      if(t.status!=="completed"||t.mode!=="gps"||t.workDate!==r.workDate||t.shiftName!==r.shiftName)return false;
+      if(t.status!=="completed"||t.mode!=="gps"||t.workDate!==workDate||(shiftName&&t.shiftName!==shiftName))return false;
       const release=(d.taskReleases||[]).find(v=>v.id===t.releaseId);
       const assignment=(d.assignments||[]).find(a=>a.id===t.assignmentId);
-      const team=release?.team||assignment?.team||m.people.find(p=>p.id===t.personId)?.team;
-      return team===r.team;
+      const tripTeam=release?.team||assignment?.team||m.people.find(p=>p.id===t.personId)?.team;
+      return tripTeam===team;
     });
-    const unique=[...new Map(rows.map(t=>[t.id,t])).values()];
+    return [...new Map(rows.map(t=>[t.id,t])).values()];
+  }
+  function shiftTripSummary(d,m,r){
+    const unique=teamTrips(d,m,r.workDate,r.team,r.shiftName);
     return {total:unique.length,materials:Object.fromEntries(["渣","煤","只记车数"].map(name=>[name,unique.filter(t=>t.material===name).length]))};
   }
   function completedTrips(d,r,task){
@@ -115,6 +118,13 @@
   function render(d,m,person,options={}){
     const dispatch=options.dispatch===true,key=dispatch?"dispatch":person.id+":"+person.applicationRole,mode=modes.get(key)||"current";
     contexts.set(key,{d,m,person,options});
+    if(dispatch&&options.history){
+      const {workDate,team}=options.history;
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(workDate)||!["生产A组","生产B组"].includes(team))return '<p class="task-empty">请选择有效日期和班组。</p>';
+      const dayTrips=teamTrips(d,m,workDate,team),linked=new Set(dayTrips.map(t=>t.releaseId)),releases=(d.taskReleases||[]).filter(r=>r.workDate===workDate&&r.team===team&&(r.status==="published"||linked.has(r.id))).slice().sort((a,b)=>Number(b.version)-Number(a.version)||Date.parse(b.publishedAt)-Date.parse(a.publishedAt));
+      const rows=["白班","夜班"].map(shift=>releases.find(r=>r.shiftName===shift)).filter(Boolean);
+      return '<section class="task-board task-history-board" data-task-board-key="'+esc(key)+'"><div class="task-board-toolbar"><div><strong>'+esc(workDate+" · "+team+" · 当天任务看板")+'</strong><span>白班、夜班按班次开始日期归属</span></div><div class="task-history-actions"><button type="button" class="task-view-button" data-action="backHaulSummary">返回统计</button><button type="button" class="task-view-button" data-action="exitHaulHistory">返回任务看板</button></div></div><div class="task-history-total">当天总拉运车数：<b>'+dayTrips.length+'</b> 车 <button type="button" class="task-view-button" data-task-day-detail="trips">查看当天拉运明细</button></div>'+(rows.length?rows.map(r=>releaseSection(d,m,r,person,true)).join(""):'<p class="task-empty">当天没有已发布的任务看板记录。'+(dayTrips.length?'可通过上方按钮查看已保存的拉运明细。':"")+'</p>')+'</section>';
+    }
     const schedule=slots(d),slot=schedule[mode];
     const published=(d.taskReleases||[]).filter(r=>r.status==="published");
     // Never use editable productionGroups or auxiliaryPlans to preview the next shift.
@@ -195,17 +205,17 @@
     const seconds=Math.round((end-start)/1000),hours=Math.floor(seconds/3600),minutes=Math.floor(seconds%3600/60);
     return (hours?hours+"小时 ":"")+(minutes?minutes+"分 ":"")+(seconds%60)+"秒";
   }
-  function tripsDetails(d,m,r,task){
-    const trips=completedTrips(d,r,task).slice().sort((a,b)=>Date.parse(a.loadedAt)-Date.parse(b.loadedAt)||String(a.id).localeCompare(String(b.id))),materials={};
+  function tripsDetails(d,m,r,task,selectedTrips=null){
+    const trips=(selectedTrips||completedTrips(d,r,task)).slice().sort((a,b)=>Date.parse(a.loadedAt)-Date.parse(b.loadedAt)||String(a.id).localeCompare(String(b.id))),materials={};
     for(const t of trips){const name=t.material||"未分类";materials[name]=(materials[name]||0)+1;}
-    const summary=info([["任务班次",r.workDate+" "+r.shiftName],["人员",task.personName],["有效车数",trips.length+"车"],["物料分类",Object.entries(materials).map(([name,n])=>name+" "+n+"车").join("、")||"暂无"]]);
+    const summary=info([["任务班次",r.workDate+" "+r.shiftName],[selectedTrips?"统计范围":"人员",task.personName],["有效车数",trips.length+"车"],["物料分类",Object.entries(materials).map(([name,n])=>name+" "+n+"车").join("、")||"暂无"]]);
     const rows=trips.length?'<div class="task-trip-list">'+trips.map((t,index)=>{
       const haul=tripDistance(t),source=(d.taskReleases||[]).find(v=>v.id===t.releaseId),operatorId=excavatorOperator(d,t),operator=m.people.find(p=>p.id===operatorId)?.name||source?.groups?.find(g=>g.excavatorId===t.excavatorId)?.excavatorDriverName||"未记录";
-      const fields=[["汽车编号",t.vehicleCode],["汽车司机",t.personName],["实际装载挖机",t.excavatorCode],["挖机司机",operator],["装载类型",t.isTemporary?"临时非绑定挖机装车":"绑定挖机装车"],["物料类型",t.material||"未分类"],["装载区",t.loadZone?.name],["卸载位置",t.method==="outside"?"非卸载区卸料":t.unloadZone?.name],["装载时间",when(t.loadedAt)],["离开装载区时间",when(t.departedAt)],["卸料完成时间",when(t.completedAt)],["本趟用时（含等待）",tripDuration(t)],["运距",haul.label],["距离口径",haul.basis],...(haul.samples?[["有效定位采样",haul.samples+"次"]]:[]),["卸料方式",t.method==="outside"?"非卸载区卸料":"GPS卸载区自动识别"],["卸料说明",t.outsideNote||"未填写"],["车次编号",t.id]];
+      const fields=[["车次所属班次",t.workDate+" "+t.shiftName],["汽车编号",t.vehicleCode],["汽车司机",t.personName],["实际装载挖机",t.excavatorCode],["挖机司机",operator],["装载类型",t.isTemporary?"临时非绑定挖机装车":"绑定挖机装车"],["物料类型",t.material||"未分类"],["装载区",t.loadZone?.name],["卸载位置",t.method==="outside"?"非卸载区卸料":t.unloadZone?.name],["装载时间",when(t.loadedAt)],["离开装载区时间",when(t.departedAt)],["卸料完成时间",when(t.completedAt)],["本趟用时（含等待）",tripDuration(t)],["运距",haul.label],["距离口径",haul.basis],...(haul.samples?[["有效定位采样",haul.samples+"次"]]:[]),["卸料方式",t.method==="outside"?"非卸载区卸料":"GPS卸载区自动识别"],["卸料说明",t.outsideNote||"未填写"],["车次编号",t.id]];
       const events=(t.events||[]).length?'<details class="task-trip-events"><summary>查看本趟过程记录</summary><ol>'+t.events.map(event=>'<li><time>'+esc(when(event.at))+'</time> '+esc(event.type)+(event.reason?' · '+esc(event.reason):"")+'</li>').join("")+'</ol></details>':"";
       return '<article class="task-trip-detail"><header><h3>第'+(index+1)+'趟 · '+esc(t.vehicleCode)+'</h3><strong class="task-trip-distance">'+esc(haul.label)+'</strong></header>'+info(fields)+'<p class="task-trip-distance-note">'+esc(haul.note)+'</p>'+events+'</article>';
-    }).join("")+'</div>':'<p class="task-detail-note">本班暂无计入该人员数量的已完成车次。</p>';
-    openDetails((task.kind==="excavator"?"逐趟装车明细":"逐趟拉运明细")+" · "+task.personName,summary+rows);
+    }).join("")+'</div>':'<p class="task-detail-note">'+(selectedTrips?'当天该班组暂无已完成的有效拉运车次。':'本班暂无计入该人员数量的已完成车次。')+'</p>';
+    openDetails((selectedTrips?"当天逐趟拉运明细":task.kind==="excavator"?"逐趟装车明细":"逐趟拉运明细")+" · "+task.personName,summary+rows);
   }
   function inspectionDetails(d,r,task){
     const result=inspectionData(d,task),files=[];
@@ -230,8 +240,16 @@
   }
   if(typeof document!=="undefined")document.addEventListener("click",async event=>{
     if(event.target.closest("[data-task-details-close]")){detailsDialog?.close();return;}
-    const button=event.target.closest("[data-task-board-view],[data-task-detail]");if(!button)return;
+    const button=event.target.closest("[data-task-board-view],[data-task-detail],[data-task-day-detail]");if(!button)return;
     const board=button.closest("[data-task-board-key]"),key=board?.dataset.taskBoardKey,context=contexts.get(key);if(!context)return;
+    if(button.dataset.taskDayDetail){
+      try{
+        const T=window.MineTransport,L=window.MineLogistics,current=T.context("dispatch");
+        if(!context.options.dispatch||!context.options.history||current.id!==context.person.id)throw new Error("当前账号不能查看此统计明细");
+        await T.sync();const d=T.get(),m=L.main(),{workDate,team}=context.options.history;
+        tripsDetails(d,m,{workDate,shiftName:"白班 / 夜班"},{kind:"driver",personName:team},teamTrips(d,m,workDate,team));
+      }catch(error){openDetails("无法读取详情",'<p class="task-detail-note">'+esc(error.message)+'</p>');}return;
+    }
     if(button.dataset.taskDetail){try{await showTaskDetail(context,button.dataset.taskRelease,button.dataset.taskId,button.dataset.taskDetail);}catch(error){openDetails("无法读取详情",'<p class="task-detail-note">'+esc(error.message)+'</p>');}return;}
     const mode=button.dataset.taskBoardView;if(!["current","next"].includes(mode))return;
     modes.set(key,mode);board.outerHTML=render(context.d,context.m,context.person,context.options);

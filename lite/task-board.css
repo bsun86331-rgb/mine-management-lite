@@ -60,3 +60,5 @@
 @media(max-width:600px){.task-trip-detail{padding:10px}.task-trip-detail .task-detail-fields{grid-template-columns:1fr}}
 
 .task-shift-material{font-size:14px;line-height:1.6;color:#176b4a;white-space:nowrap}.task-shift-material b{font-weight:700;color:#17251e}
+
+.task-history-actions{display:flex;flex-wrap:wrap;gap:6px}.task-history-total{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:9px 11px;margin-bottom:10px;border:1px solid #d5e6db;border-radius:8px;background:#edf6ef;color:#176b4a;font-size:14px}.task-history-total b{font-size:18px}.task-history-total button{margin-left:auto}

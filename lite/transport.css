@@ -247,3 +247,5 @@
 
 .chat-input-label{display:grid;gap:3px;margin:0 0 7px;font-size:12px;font-weight:500;color:var(--muted)}
 .chat-pending{max-height:58px;overflow:auto}
+
+.haul-summary-table .haul-summary-day-link{display:inline-block;min-width:34px;padding:1px 7px;border:1px solid #c4dfcf;border-radius:5px;background:#eef7f1;color:var(--green);font-size:inherit;font-weight:650;font-variant-numeric:tabular-nums;line-height:1.6;text-decoration:underline;text-underline-offset:3px;cursor:pointer}.haul-summary-table .haul-summary-day-link:hover{background:#dcefe3;border-color:#85b99a}
