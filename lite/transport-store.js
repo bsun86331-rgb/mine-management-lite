@@ -320,10 +320,22 @@
       if(t.status==="voided")fail("该车次已经作废");t.previousStatus=t.status;t.status="voided";t.voidedBy=a.id;t.voidedAt=now();t.voidNote=named(x.note,"作废说明");const s=d.shifts.find(s=>s.id===t.shiftId);if(s&&!shiftTrip(d,s)){resetCandidate(s);s.tempExcavatorId=null;}notify(d,t.personId,"车次已作废/冲销，汽车和实际挖机统计同步更新",t.id);notify(d,"exc:"+t.excavatorId,"车次已作废/冲销："+t.vehicleCode,t.id);audit(d,a,"车次作废/冲销",t.voidNote,{tripId:t.id});return;
     }
     if(type==="correctMaterial"){dispatchOnly(a);const t=find("trips",x.id);t.corrections=[...(t.corrections||[]),{at:now(),by:a.id,from:t.material||"未分类",to:materialValue(x.material)||"未分类",note:named(x.note,"调整说明")}];t.material=materialValue(x.material)||"未分类";t.materialSource="调度修正";audit(d,a,"修正物料分类",t.material,{tripId:t.id});return;}
-    if(type==="readMessages"){for(const msg of visibleMessages(d,a))if(!msg.readBy.includes(a.id))msg.readBy.push(a.id);return;}
+    if(type==="sendChat"){
+      const target=String(x.target||"chat:all"),body=String(x.body||"").trim(),clientId=String(x.clientId||"");
+      if(!clientId||clientId.length>100)fail("消息标识无效，请重试");
+      const existing=d.messages.find(msg=>msg.kind==="chat"&&msg.senderId===a.id&&msg.clientId===clientId);if(existing)return existing.id;
+      if(target!=="chat:all"){const receiver=m.people.find(p=>p.id===target&&roles.includes(p.applicationRole)&&L.active(p));if(!receiver)fail("接收人员已不可用，请重新选择");if(target===a.id)fail("请选择其他人员");}
+      if(body.length>4000)fail("文字消息最多4000字");
+      const attachments=Array.isArray(x.attachments)?x.attachments:[];if(attachments.length>6)fail("每条消息最多6个附件");
+      for(const file of attachments)if(!file||typeof file.id!=="string"||!file.id.startsWith("file-")||!/^image\/|^audio\//.test(String(file.type))||!Number.isFinite(file.size)||file.size<=0||file.size>10*1024*1024)fail("聊天附件无效或超过10MB");
+      if(!body&&!attachments.length)fail("请输入文字或添加照片、语音");
+      const id=uid();d.messages.unshift({id,kind:"chat",clientId,target,senderId:a.id,senderName:a.name,senderRole:a.applicationRole,body,attachments:attachments.map(f=>({id:f.id,name:String(f.name||"附件").slice(0,200),type:f.type,size:f.size,storage:"indexeddb"})),at:now(),readBy:[a.id]});
+      return id;
+    }
+    if(type==="readMessages"){const ids=Array.isArray(x.ids)?new Set(x.ids):null;for(const msg of visibleMessages(d,a))if((!ids||ids.has(msg.id))&&!msg.readBy.includes(a.id))msg.readBy.push(a.id);return;}
     fail("未知运输操作");
   }
-  function visibleMessages(d,a){const equipment=new Set(d.assignments.filter(r=>r.personId===a.id&&r.kind==="excavator").map(r=>"exc:"+r.vehicleId));return d.messages.filter(msg=>msg.target===a.id||(a.applicationRole==="dispatch"&&msg.target==="dispatch")||(a.applicationRole==="excavator"&&equipment.has(msg.target)));}
+  function visibleMessages(d,a){const equipment=new Set(d.assignments.filter(r=>r.personId===a.id&&r.kind==="excavator").map(r=>"exc:"+r.vehicleId));return d.messages.filter(msg=>msg.kind==="chat"?(msg.senderId===a.id||msg.target===a.id||(msg.target==="chat:all"&&roles.includes(a.applicationRole))):(msg.target===a.id||(a.applicationRole==="dispatch"&&msg.target==="dispatch")||(a.applicationRole==="excavator"&&equipment.has(msg.target))));}
   async function act(type,args,actor){if(!navigator.locks?.request)fail("请使用支持事务锁的新版浏览器");await ready();return navigator.locks.request(KEY,async()=>{const record=await readStorage();if(!record&&cachedToken!=="empty")fail("运输台账存储记录缺失，请保留浏览器数据");cacheRecord(record);const d=get(),m=L.main(),a=actorFrom(m,actor),result=execute(d,m,a,type,args||{}),next={raw:JSON.stringify(d),token:uid()};await writeStorage(next);cacheRecord(next);signalStorage();return result;});}
   window.MineTransport={KEY,get,ready,sync,stamp,context,act,defaults,materialTypes,shiftTimeDefaults,currentShift,date,distance,inside,validZone,ownShift,shiftTrip,liveTrip,equipmentState,working,isExcavator,isHaulTruck,isAuxiliaryVehicle,auxiliaryRoles,draftSlots,visibleMessages};
 })();
