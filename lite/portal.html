@@ -37,6 +37,7 @@ const roles={
  assistant_dump:["排土管理员","⚑","排土现场管理岗位工作入口，查看当班任务、设备和作业内容。"],
  dispatch:["调度端","🗺","调度人员查看车辆、人员和作业安排。"],
  middle:["中层管理端","⚙","中层管理人员跟进现场班组和日常管理。"],
+ middle_repair_manager:["修理管理","⚒","审批修理组请假，查看本人申请与后勤事项。"],
  middle_finance:["财务","¥","复核后勤物资赔偿并导出待扣款清单。"],
  middle_survey:["测绘","⌖","测绘岗位工作入口，查看当班任务、设备和作业内容。"],
  middle_store:["后勤库管","▣","管理后勤库存、物资申请、发放、归还与离职清算。"],
@@ -71,6 +72,7 @@ async function checkWorkAccess(){
   }
   document.getElementById("accessNote").textContent=key==="middle_store"?"后勤库存、申请发放、归还及清算功能已开放。":"后勤物资申请、本人领用确认及归还清算已开放，其他岗位业务逐步建设。";
   if(MineTransport.auxiliaryRoles.includes(key))document.getElementById("accessNote").textContent="查看本人当班任务、设备和作业内容；到班次开始时间任务自动执行。";
+  if(key==="middle_repair_manager")document.getElementById("accessNote").textContent="修理组请假审批及本人请假申请已开放，请使用下方请假入口。";
   const link=document.getElementById("logisticsLink");link.href="logistics.html?role="+encodeURIComponent(key);
   link.textContent=key==="middle_store"?"进入后勤库管工作台":key==="middle_finance"?"后勤申请 / 赔偿复核":"后勤物资申请";
   try{
@@ -98,5 +100,5 @@ document.getElementById("roleTitle").textContent=item[0];
 document.getElementById("roleIcon").textContent=item[1];
 document.getElementById("roleDesc").textContent=item[2];
 </script>
-</body>
+<script src="leave-store.js?v=20261018-1" defer></script><script src="leave-entry.js?v=20261018-1" defer></script></body>
 </html>

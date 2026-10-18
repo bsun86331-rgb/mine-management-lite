@@ -53,8 +53,8 @@
     $("confirmPassword").autocomplete=setup?"new-password":"off";
     $("gateSubmit").textContent=setup?"设置密码并进入":"验证并进入";
   }
-  function unlock(){gate.hidden=true;work.hidden=false;}
-  function lock(){work.hidden=true;gate.hidden=false;form.reset();error.textContent="";setMode();}
+  function unlock(){window.MineLeaveBoss=true;gate.hidden=true;work.hidden=false;}
+  function lock(){window.MineLeaveBoss=false;window.MineLeaveEntry?.close();work.hidden=true;gate.hidden=false;form.reset();error.textContent="";setMode();}
   setMode();
   form.addEventListener("submit",async event=>{
     event.preventDefault();error.textContent="";
@@ -78,5 +78,5 @@
   $("lockButton").addEventListener("click",lock);
 })();
 </script>
-</body>
+<script src="logistics-store.js?v=20261016-7" defer></script><script src="leave-store.js?v=20261018-1" defer></script><script src="leave-entry.js?v=20261018-1" defer></script></body>
 </html>

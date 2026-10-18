@@ -388,7 +388,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     driver:"司机端",excavator:"挖机端",
     assistant_loader:"铲车司机",assistant_fuel:"加油车司机",assistant_water:"水车司机",assistant_grader:"平地机司机",assistant_dump:"排土管理员",
     dispatch:"调度端",
-    middle_finance:"财务",middle_survey:"测绘",middle_store:"后勤库管",middle_statistics:"统计",middle_logistics:"其他后勤人员"
+    middle_repair_manager:"修理管理",middle_finance:"财务",middle_survey:"测绘",middle_store:"后勤库管",middle_statistics:"统计",middle_logistics:"其他后勤人员"
   };
   function personnelRoleField(row) {
     const code=Object.hasOwn(personnelRoles,row.applicationRole)?row.applicationRole:Object.keys(personnelRoles).find(key=>personnelRoles[key]===row.role);
