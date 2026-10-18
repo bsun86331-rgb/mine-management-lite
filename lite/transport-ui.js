@@ -36,7 +36,7 @@
   function closeModal(){if(busy)return;$("modal").close();modalSave=null;releasePhotos();}
   function show(title,body,save,label="保存"){releasePhotos();$("modalTitle").textContent=title;$("modalBody").innerHTML=body;$("modalError").textContent="";$("save").textContent=label;$("save").hidden=!save;$("save").disabled=false;modalSave=save;$("modal").showModal();}
   function block(error){window.MineTransportChat?.dispose();stopGPS(false);$("app").hidden=true;$("blocked").hidden=false;$("blockedText").textContent=error.message||error;$("blockedLink").href="enroll.html?role="+encodeURIComponent(role||"");$("blockedLink").textContent="返回登记状态页";$("modal").close();$("logisticsDialog").close();releasePhotos();}
-  function refresh(force=false){try{const next=T.context(role);if(person&&next.id!==person.id)throw new Error("本人登记已切换，请重新进入对应工作台");person=next;L.selectSession(person,false);actor={personId:person.id,role};d=T.get();m=L.main();$("blocked").hidden=true;$("app").hidden=false;signature=T.stamp()+localStorage.getItem(L.PEOPLE)+localStorage.getItem(L.KEY);if($("modal").open&&!force)return;render();}catch(error){block(error);}}
+  function refresh(force=false){try{const next=T.context(role);if(person&&next.id!==person.id)throw new Error("本人登记已切换，请重新进入对应工作台");person=next;L.selectSession(person,false);actor={personId:person.id,role};d=T.get();m=L.main();$("blocked").hidden=true;$("app").hidden=false;signature=T.stamp()+window.MineLeave.stamp()+localStorage.getItem(L.PEOPLE)+localStorage.getItem(L.KEY);if($("modal").open&&!force)return;render();}catch(error){block(error);}}
   async function operate(type,args={},success="已保存",onSaved=null){
     if(busy)return;busy=true;$("save").disabled=true;
     try{await T.act(type,args,actor);if(onSaved)onSaved();$("modal").close();modalSave=null;releasePhotos();refresh(true);toast(success);}catch(error){toast(error.message);}finally{busy=false;$("save").disabled=false;}
@@ -245,6 +245,7 @@
     return '<div id="dispatchShiftPicker" class="shift-picker" role="group" aria-label="白夜班选择">'+(dispatchShiftLocked?[selectedDispatchShift]:["白班","夜班"]).map(name=>{const times=d.shiftTimes[name],overnight=times.end<times.start;return '<section class="shift-card'+(name===current?' current-shift':'')+(name===selectedDispatchShift?' selected-shift':'')+'"><button type="button" class="shift-name" data-action="selectDispatchShift" data-id="'+name+'" aria-pressed="'+(name===selectedDispatchShift)+'">'+name+(name===current?' · 当前班':'')+'</button><button type="button" class="shift-hours" data-action="editShiftTimes" data-id="'+name+'" aria-label="设置'+name+'时间">'+esc(times.start)+'—'+esc(times.end)+(overnight?' （次日结束）':'')+'</button></section>';}).join("")+'</div>';
   }
   function productionContext(){return {workDate:dispatchProductionDate||T.date(),shiftName:selectedDispatchShift,team:dispatchGroups[selectedDispatchShift]||""};}
+  function eligibleForSchedule(p,c=productionContext()){try{if(!p||!window.MineLeave)return false;const w=window.MineTaskEngine.timeWindow(c.workDate,d.shiftTimes[c.shiftName]);return !window.MineLeave.schedulingConflict(p,w.startAt,w.endAt);}catch{return false;}}
   function dispatchBindingKey(){const c=productionContext();return JSON.stringify([c.workDate,c.shiftName,c.team]);}
   function publishedDispatchTask(){const c=productionContext();return d.taskReleases.find(r=>r.status==="published"&&(r.sourceDate||r.workDate)===c.workDate&&r.shiftName===c.shiftName&&r.team===c.team);}
   function dispatchPublishButton(){const release=publishedDispatchTask(),editing=release&&dispatchBindingEdits.get(dispatchBindingKey())===release.id;return button(release&&!editing?"changeTaskBinding":"publishTasks","",release&&!editing?"更改绑定":"发布任务","");}
@@ -265,7 +266,7 @@
   }
   function renderFollowingTruck(g){
     const cards=g.followingTrucks.filter(t=>t.status==="draft").map(truck=>{
-      const v=vehicleOf(truck.vehicleId),p=m.people.find(p=>p.id===truck.personId),driverValid=p&&L.active(p)&&p.applicationRole==="driver"&&p.team===g.team;
+      const v=vehicleOf(truck.vehicleId),p=m.people.find(p=>p.id===truck.personId),driverValid=p&&L.active(p)&&p.applicationRole==="driver"&&p.team===g.team&&eligibleForSchedule(p);
       return '<div class="production-equipment-card following-truck-card" aria-label="跟随汽车">'+button("chooseFollowingTruck",truck.id,v?(v.code||v.name||"已选汽车"):(truck.vehicleId?"汽车失效，请重选":"选择汽车"),"equipment-choice equipment-label")+button("chooseFollowingDriver",truck.id,p?(p.name+(driverValid?"":"（需重选）")):(truck.personId?"司机失效，请重选":"选择司机"),"equipment-choice driver-label")+button("removeFollowingTruck",truck.id,"移除","equipment-remove")+'</div>';
     }).join("");
     return cards+'<button type="button" class="production-equipment-card following-truck-card add-following-truck" data-action="addFollowingTruck" data-id="'+esc(g.id)+'" aria-label="新增一组跟随汽车" title="新增跟随汽车">＋</button>'+renderProductionRegions(g);
@@ -273,7 +274,7 @@
   function renderProductionGroup(g){
     if(!dispatchShiftLocked||timeConfiguredShift!==selectedDispatchShift||!dispatchGroups[selectedDispatchShift])return "";
     const v=g?vehicleOf(g.vehicleId):null,p=g?m.people.find(p=>p.id===g.personId):null;
-    const driverValid=p&&L.active(p)&&p.applicationRole==="excavator"&&p.team===g.team,ready=g&&T.isExcavator(v)&&driverValid;
+    const driverValid=p&&L.active(p)&&p.applicationRole==="excavator"&&p.team===g.team&&eligibleForSchedule(p),ready=g&&T.isExcavator(v)&&driverValid;
     return '<section class="production-group-section"><div class="actions">'+button("openProductionGroup",g?.id||"",groupTitle(g),"")+'</div>'+(g?'<div class="production-equipment-row"><div class="production-equipment-card" aria-label="'+esc(groupTitle(g))+'挖机">'+button("chooseProductionEquipment",g.id,v?(v.code||v.name||"已选设备"):(g.vehicleId?"设备失效，请重选":"选择设备"),"equipment-choice equipment-label")+button("chooseProductionDriver",g.id,p?(p.name+(driverValid?"":"（需重选）")):(g.personId?"司机失效，请重选":"选择司机"),"equipment-choice driver-label")+button("removeProductionGroup",g.id,"移除","equipment-remove")+'</div>'+(ready?renderFollowingTruck(g):"")+'</div>':"")+'</section>';
   }
   function renderAssignments(){
@@ -288,13 +289,13 @@
   function renderAuxiliaryVehicles(){
     const cards=(auxiliaryPlan()?.cards||[]).filter(c=>c.status==="draft");
     return '<section class="dispatch-lower-section"><h3>辅助车辆</h3><div class="auxiliary-vehicle-row">'+cards.map(card=>{
-      const v=vehicleOf(card.vehicleId),p=m.people.find(p=>p.id===card.personId),valid=p&&L.active(p)&&T.auxiliaryRoles.includes(p.applicationRole)&&p.team===productionContext().team;
+      const v=vehicleOf(card.vehicleId),p=m.people.find(p=>p.id===card.personId),valid=p&&L.active(p)&&T.auxiliaryRoles.includes(p.applicationRole)&&p.team===productionContext().team&&eligibleForSchedule(p);
       return '<div class="auxiliary-item"><div class="production-equipment-card auxiliary-equipment-card">'+button("auxEquipment",card.id,v?(v.code||v.name||"已选设备"):(card.vehicleId?"设备失效，请重选":"选择设备"),"equipment-choice equipment-label")+button("auxDriver",card.id,p?(p.name+(valid?"":"（需重选）")):(card.personId?"人员失效，请重选":"选择司机"),"equipment-choice driver-label")+button("auxRemove",card.id,"移除","equipment-remove")+'</div>'+button("auxContent",card.id,"作业内容"+(card.content?" · 已设置":""),"auxiliary-content-button")+'</div>';
     }).join("")+'<button type="button" class="auxiliary-add" data-action="auxAdd" aria-label="增加辅助车辆">＋</button></div></section>';
   }
   function renderUnusedResources(){
-    const team=productionContext().team,vehicles=m.vehicles.filter(v=>draftAvailable("vehicleId",v.id,null)),people=m.people.filter(p=>L.active(p)&&p.team===team&&frontLineRoles.includes(p.applicationRole)&&draftAvailable("personId",p.id,null));
-    return '<section class="dispatch-lower-section"><h3>未进入分配的车辆 / 设备</h3><p class="help">绿色为可调配；红色为维修、保养、停用、暂停或作业占用。点击编号查看信息。</p><div class="unused-resource-list">'+(vehicles.map(v=>{const a=availability(v);return button("unusedVehicleInfo",v.id,(v.code||v.name||v.id)+" · "+a.label,"resource-chip"+(a.ok?"":" unavailable"));}).join("")||'<span class="muted">暂无未分配设备</span>')+'</div></section><section class="dispatch-lower-section"><h3>未进入分配的人员</h3><p class="help">仅显示所选班组未分配的一线人员（司机和排土管理）。</p><div class="unused-resource-list">'+(people.map(p=>{const busy=d.shifts.some(s=>s.personId===p.id&&s.status!=="closed");return button("unusedPersonInfo",p.id,p.name+" · "+jobName(p)+" · "+p.team+" · "+(busy?"班次占用":"空闲"),"resource-chip"+(busy?" unavailable":""));}).join("")||'<span class="muted">暂无未分配人员</span>')+'</div></section>';
+    const team=productionContext().team,vehicles=m.vehicles.filter(v=>draftAvailable("vehicleId",v.id,null)),people=m.people.filter(p=>L.active(p)&&p.team===team&&frontLineRoles.includes(p.applicationRole)&&eligibleForSchedule(p)&&draftAvailable("personId",p.id,null));
+    return '<section class="dispatch-lower-section"><h3>未进入分配的车辆 / 设备</h3><p class="help">绿色为可调配；红色为维修、保养、停用、暂停或作业占用。点击编号查看信息。</p><div class="unused-resource-list">'+(vehicles.map(v=>{const a=availability(v);return button("unusedVehicleInfo",v.id,(v.code||v.name||v.id)+" · "+a.label,"resource-chip"+(a.ok?"":" unavailable"));}).join("")||'<span class="muted">暂无未分配设备</span>')+'</div></section><section class="dispatch-lower-section"><h3>未进入分配的人员</h3><p class="help">仅显示所选班组未分配的一线人员，已批准请假且时段冲突的人员不参与排班。</p><div class="unused-resource-list">'+(people.map(p=>{const busy=d.shifts.some(s=>s.personId===p.id&&s.status!=="closed");return button("unusedPersonInfo",p.id,p.name+" · "+jobName(p)+" · "+p.team+" · "+(busy?"班次占用":"空闲"),"resource-chip"+(busy?" unavailable":""));}).join("")||'<span class="muted">暂无未分配人员</span>')+'</div></section>';
   }
   const metres=value=>Number.isFinite(value)?value.toFixed(3):"未设置";
   function utmSummary(z){const c=window.MineUTM.zoneCoordinates(z);return "WGS84 / UTM "+(c.zone==null?"分区未设置":c.zone+(c.hemisphere||""))+" · X "+metres(c.easting)+" / Y "+metres(c.northing)+" 米";}
@@ -439,7 +440,7 @@
         const vehicles=m.vehicles.filter(v=>T.isExcavator(v)&&draftAvailable("vehicleId",v.id,g.id));
         show(groupTitle(g)+" · 选择挖机",select("vehicleId","挖机设备",[["","请选择（选填）"],...vehicles.map(v=>[v.id,(v.code||v.id)+(v.name?" · "+v.name:"")])],g.vehicleId||"")+(vehicles.length?"":'<p class="help">暂无挖机设备档案。</p>'),f=>operate("productionGroup",{...context,action:"equipment",value:f.get("vehicleId")},"设备已选择"),"确定");return;
       }
-      const drivers=m.people.filter(p=>L.active(p)&&p.applicationRole==="excavator"&&p.team===g.team&&draftAvailable("personId",p.id,g.id));
+      const drivers=m.people.filter(p=>L.active(p)&&p.applicationRole==="excavator"&&p.team===g.team&&eligibleForSchedule(p)&&draftAvailable("personId",p.id,g.id));
       show(groupTitle(g)+" · 选择挖机司机",select("personId",g.team+"挖机司机",[["","请选择（选填）"],...drivers.map(p=>[p.id,p.name+" / "+p.id])],g.personId||"")+(drivers.length?"":'<p class="help">该班组暂无已审核在岗的挖机司机。</p>'),f=>operate("productionGroup",{...context,action:"driver",value:f.get("personId")},"挖机司机已选择"),"确定");return;
     }
     if(["chooseFollowingTruck","chooseFollowingDriver","removeFollowingTruck","addFollowingTruck"].includes(action)){
@@ -457,7 +458,7 @@
         const vehicles=m.vehicles.filter(v=>T.isHaulTruck(v)&&draftAvailable("vehicleId",v.id,truck.id));
         show("跟随汽车 · 选择设备",select("vehicleId","汽车设备",[["","请选择（选填）"],...vehicles.map(v=>[v.id,(v.code||v.id)+(v.name?" · "+v.name:"")])],truck.vehicleId||"")+(vehicles.length?"":'<p class="help">暂无尚未在本组选择的矿用自卸车。</p>'),f=>operate("productionGroup",{...context,action:"truckEquipment",value:f.get("vehicleId")},"跟随汽车已选择"),"确定");return;
       }
-      const drivers=m.people.filter(p=>L.active(p)&&p.applicationRole==="driver"&&p.team===g.team&&draftAvailable("personId",p.id,truck.id));
+      const drivers=m.people.filter(p=>L.active(p)&&p.applicationRole==="driver"&&p.team===g.team&&eligibleForSchedule(p)&&draftAvailable("personId",p.id,truck.id));
       show("跟随汽车 · 选择司机",select("personId",g.team+"汽车司机",[["","请选择（选填）"],...drivers.map(p=>[p.id,p.name+" / "+p.id])],truck.personId||"")+(drivers.length?"":'<p class="help">该班组暂无尚未在本组选择的在岗汽车司机。</p>'),f=>operate("productionGroup",{...context,action:"truckDriver",value:f.get("personId")},"汽车司机已选择"),"确定");return;
     }
     if(action==="productionRegions"){
@@ -486,7 +487,7 @@
         const vehicles=m.vehicles.filter(v=>T.isAuxiliaryVehicle(v)&&draftAvailable("vehicleId",v.id,card.id));
         return show("辅助车辆 · 选择设备",select("vehicleId","辅助设备",[["","请选择（选填）"],...vehicles.map(v=>[v.id,(v.code||v.id)+(v.name?" · "+v.name:"")])],card.vehicleId||""),f=>operate("auxiliaryPlan",{...args,action:"equipment",value:f.get("vehicleId")},"辅助设备已选择"),"确定");
       }
-      const drivers=m.people.filter(p=>L.active(p)&&p.team===context.team&&T.auxiliaryRoles.includes(p.applicationRole)&&draftAvailable("personId",p.id,card.id));
+      const drivers=m.people.filter(p=>L.active(p)&&p.team===context.team&&eligibleForSchedule(p)&&T.auxiliaryRoles.includes(p.applicationRole)&&draftAvailable("personId",p.id,card.id));
       return show("辅助车辆 · 选择人员",select("personId",context.team+"辅助岗位人员",[["","请选择（选填）"],...drivers.map(p=>[p.id,p.name+" · "+jobName(p)])],card.personId||""),f=>operate("auxiliaryPlan",{...args,action:"driver",value:f.get("personId")},"辅助人员已选择"),"确定");
     }
     if(action==="unusedVehicleInfo"){
@@ -595,8 +596,8 @@
       refresh();return;
     }if(event.target.name==="taskDate")updatePublishPreview();invalidateZoneFix(event.target);if(event.target.name==="kind")syncAssignmentFields();if(event.target.name==="zoneKind")syncZoneFields();if(event.target.id==="inspectionPhotos")previewSelected(event.target.files||[]);if(event.target.name==="simulationZone"){const z=simulationZones.find(z=>z.id===event.target.value);if(z){$("editForm").querySelector('[name="lat"]').value=z.lat;$("editForm").querySelector('[name="lng"]').value=z.lng;}}});
   document.addEventListener("input",event=>{invalidateZoneFix(event.target);if(event.target.id==="recordSearch"){recordSearch=event.target.value;const start=event.target.selectionStart;$("content").innerHTML=renderRecords();const field=$("recordSearch");field.focus();field.setSelectionRange(start,start);}});
-  async function externalChange(){try{await T.sync();T.context(role);const latest=T.stamp()+localStorage.getItem(L.PEOPLE)+localStorage.getItem(L.KEY);if(latest!==signature||MineTaskBoard.clockKey(d)!==taskClockSignature||(role==="dispatch"&&view==="summary"&&haulSummaryRenderedToday!==T.date())||(role==="dispatch"&&view==="attendance"&&attendanceRenderedToday!==T.date())||(role==="dispatch"&&view==="assignments"&&shiftMinute!==Math.floor(Date.now()/60000)))refresh();}catch(error){block(error);}}
+  async function externalChange(){try{await Promise.all([T.sync(),window.MineLeave.sync()]);T.context(role);const latest=T.stamp()+window.MineLeave.stamp()+localStorage.getItem(L.PEOPLE)+localStorage.getItem(L.KEY);if(latest!==signature||MineTaskBoard.clockKey(d)!==taskClockSignature||(role==="dispatch"&&view==="summary"&&haulSummaryRenderedToday!==T.date())||(role==="dispatch"&&view==="attendance"&&attendanceRenderedToday!==T.date())||(role==="dispatch"&&view==="assignments"&&shiftMinute!==Math.floor(Date.now()/60000)))refresh();}catch(error){block(error);}}
   document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")stopGPS(true);else externalChange();});
-  window.addEventListener("pagehide",()=>{stopGPS(true);releasePhotos();});window.addEventListener("storage",externalChange);window.addEventListener("focus",externalChange);setInterval(externalChange,1000);T.ready().then(()=>refresh()).catch(block);
+  window.addEventListener("pagehide",()=>{stopGPS(true);releasePhotos();});window.addEventListener("storage",externalChange);window.addEventListener("focus",externalChange);setInterval(externalChange,1000);Promise.all([T.ready(),window.MineLeave.ready()]).then(()=>refresh()).catch(block);
 })();
 

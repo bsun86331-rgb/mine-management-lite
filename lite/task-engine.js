@@ -30,7 +30,7 @@
     const T=window.MineTransport,L=window.MineLogistics,sourceDate=dateOnly(x.sourceDate||x.workDate),workDate=dateOnly(x.taskDate||sourceDate),team=String(x.team||""),shiftName=String(x.shiftName||"");
     if(!["生产A组","生产B组"].includes(team)||!["白班","夜班"].includes(shiftName))fail("请先选择班次和生产班组");
     const times=clone(d.shiftTimes[shiftName]),windowTime=timeWindow(workDate,times),warnings=[],tasks=[],groups=[],seenPeople=new Set(),seenVehicles=new Set();
-    const member=(id,role)=>{const p=m.people.find(p=>p.id===id);if(!p||!L.active(p)||p.team!==team||(Array.isArray(role)?!role.includes(p.applicationRole):p.applicationRole!==role))fail("人员已失效、岗位或班组不符，请重新选择");return p;};
+    const member=(id,role)=>{const p=m.people.find(p=>p.id===id);if(!p||!L.active(p)||p.team!==team||(Array.isArray(role)?!role.includes(p.applicationRole):p.applicationRole!==role))fail("人员已失效、岗位或班组不符，请重新选择");if(!window.MineLeave)fail("请销假组件尚未加载，请刷新");window.MineLeave.assertSchedule(p,windowTime.startAt,windowTime.endAt);return p;};
     const device=(id,predicate)=>{const v=m.vehicles.find(v=>v.id===id);if(!v||!predicate(v))fail("设备档案已变化或类别不符，请重新选择");if(!T.working(d,m,id))fail((v.code||id)+" 当前维修、保养、暂停或停用，不能发布");return v;};
     function push(task,p,v){
       if(seenPeople.has(p.id))fail(p.name+" 在发布内容中重复分配");seenPeople.add(p.id);
