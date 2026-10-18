@@ -60,10 +60,9 @@
   }
   function senderLabel(msg){
     if(msg.kind!=="chat")return "系统通知";
-    const p=ctx.m.people.find(p=>p.id===msg.senderId),snapshotted=Object.prototype.hasOwnProperty.call(msg,"senderVehicleCode");
-    const time=Date.parse(msg.at),past=snapshotted?null:ctx.d.shifts.find(s=>s.personId===msg.senderId&&Date.parse(s.openedAt)<=time&&(!s.closedAt||Date.parse(s.closedAt)>=time)),assignment=past?ctx.d.assignments.find(r=>r.id===past.assignmentId):null;
-    const name=msg.senderName||p?.name||"原人员",team=msg.senderTeam??(assignment?.team||p?.team||""),role=msg.senderRole||p?.applicationRole,vehicle=snapshotted?msg.senderVehicleCode:past?.vehicleCode;
-    return name+(msg.senderId===ctx.person.id?"（我）":"")+" · "+(team||"班组未设置")+(["driver","excavator"].includes(role)?" · "+(vehicle|| (snapshotted?"未接班":"车辆未记录")):"")+(msg.target!=="chat:all"?" · 历史私聊":"");
+    const p=ctx.m.people.find(p=>p.id===msg.senderId),historical=T.chatVehicleAt(ctx.d,ctx.m,msg.senderId,msg.at);
+    const name=msg.senderName||p?.name||"原人员",team=msg.senderTeam??(historical.team||p?.team||""),role=msg.senderRole||p?.applicationRole,vehicle=msg.senderVehicleCode||historical.vehicleCode;
+    return name+(msg.senderId===ctx.person.id?"（我）":"")+" · "+(team||"班组未设置")+(["driver","excavator"].includes(role)&&vehicle?" · "+vehicle:"")+(msg.target!=="chat:all"?" · 历史私聊":"");
   }
   function draw(){
     if(!host?.isConnected||!ctx)return;

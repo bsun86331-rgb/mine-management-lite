@@ -101,6 +101,16 @@
   function requireFree(d,c,field,value,except){if(value&&draftSlots(d,c).some(slot=>slot.id!==except&&slot[field]===value))fail(field==="vehicleId"?"该设备已在本班其他配置中选择":"该人员已在本班其他配置中选择");}
   const liveTrip=t=>["loaded","hauling","review"].includes(t.status);
   const ownShift=(d,pid)=>d.shifts.find(s=>s.personId===pid&&s.status!=="closed");
+  function chatVehicleAt(d,m,personId,at=now()){
+    const time=Date.parse(at),empty={vehicleId:"",vehicleCode:"",shiftId:null,assignmentId:null,team:""};
+    if(!Number.isFinite(time))return empty;
+    const prior=d.shifts.filter(s=>s.personId===personId&&s.vehicleId&&Date.parse(s.openedAt)<=time).sort((a,b)=>Date.parse(b.openedAt)-Date.parse(a.openedAt));
+    const shift=prior[0];
+    const candidates=d.assignments.filter(r=>r.personId===personId&&r.vehicleId&&["active","completed"].includes(r.status)&&(!r.activatedAt||Date.parse(r.activatedAt)<=time)).map(r=>({row:r,start:Date.parse(r.workDate+"T"+(d.shiftTimes[r.shiftName]?.start||"08:00")+":00+08:00")})).filter(item=>Number.isFinite(item.start)&&item.start<=time).sort((a,b)=>b.start-a.start||String(b.row.activatedAt||b.row.createdAt||"").localeCompare(String(a.row.activatedAt||a.row.createdAt||"")));
+    const assignment=shift?d.assignments.find(r=>r.id===shift.assignmentId):candidates[0]?.row;
+    const vehicleId=shift?.vehicleId||assignment?.vehicleId||"",vehicle=m.vehicles.find(v=>v.id===vehicleId);
+    return {vehicleId,vehicleCode:shift?.vehicleCode||vehicle?.code||"",shiftId:shift?.id||null,assignmentId:assignment?.id||null,team:assignment?.team||""};
+  }
   const shiftTrip=(d,s)=>s?d.trips.find(t=>t.shiftId===s.id&&liveTrip(t)):null;
   const audit=(d,a,type,detail,extra={})=>d.audit.unshift({id:uid(),at:now(),personId:a.id,actor:a.name,role:a.applicationRole,type,detail,...extra});
   function notify(d,target,body,ref){d.messages.unshift({id:uid(),target,body,ref,at:now(),readBy:[]});}
@@ -329,8 +339,8 @@
       const attachments=Array.isArray(x.attachments)?x.attachments:[];if(attachments.length>6)fail("每条消息最多6个附件");
       for(const file of attachments)if(!file||typeof file.id!=="string"||!file.id.startsWith("file-")||!/^image\/|^audio\//.test(String(file.type))||!Number.isFinite(file.size)||file.size<=0||file.size>10*1024*1024)fail("聊天附件无效或超过10MB");
       if(!body&&!attachments.length)fail("请输入文字或添加照片、语音");
-      const shift=ownShift(d,a.id),assignment=shift?d.assignments.find(r=>r.id===shift.assignmentId):null,vehicle=shift?m.vehicles.find(v=>v.id===shift.vehicleId):null;
-      const id=uid();d.messages.unshift({id,kind:"chat",clientId,target,senderId:a.id,senderName:a.name,senderRole:a.applicationRole,senderTeam:a.team||assignment?.team||"",senderVehicleId:shift?.vehicleId||"",senderVehicleCode:shift?.vehicleCode||vehicle?.code||"",senderShiftId:shift?.id||null,body,attachments:attachments.map(f=>({id:f.id,name:String(f.name||"附件").slice(0,200),type:f.type,size:f.size,storage:"indexeddb"})),at:now(),readBy:[a.id]});
+      const chatVehicle=chatVehicleAt(d,m,a.id);
+      const id=uid();d.messages.unshift({id,kind:"chat",clientId,target,senderId:a.id,senderName:a.name,senderRole:a.applicationRole,senderTeam:a.team||chatVehicle.team||"",senderVehicleId:chatVehicle.vehicleId,senderVehicleCode:chatVehicle.vehicleCode,senderShiftId:chatVehicle.shiftId,body,attachments:attachments.map(f=>({id:f.id,name:String(f.name||"附件").slice(0,200),type:f.type,size:f.size,storage:"indexeddb"})),at:now(),readBy:[a.id]});
       return id;
     }
     if(type==="readMessages"){const ids=Array.isArray(x.ids)?new Set(x.ids):null;for(const msg of visibleMessages(d,a))if((!ids||ids.has(msg.id))&&!msg.readBy.includes(a.id))msg.readBy.push(a.id);return;}
@@ -338,6 +348,6 @@
   }
   function visibleMessages(d,a){const equipment=new Set(d.assignments.filter(r=>r.personId===a.id&&r.kind==="excavator").map(r=>"exc:"+r.vehicleId));return d.messages.filter(msg=>msg.kind==="chat"?(msg.senderId===a.id||msg.target===a.id||(msg.target==="chat:all"&&roles.includes(a.applicationRole))):(msg.target===a.id||(a.applicationRole==="dispatch"&&msg.target==="dispatch")||(a.applicationRole==="excavator"&&equipment.has(msg.target))));}
   async function act(type,args,actor){if(!navigator.locks?.request)fail("请使用支持事务锁的新版浏览器");await ready();return navigator.locks.request(KEY,async()=>{const record=await readStorage();if(!record&&cachedToken!=="empty")fail("运输台账存储记录缺失，请保留浏览器数据");cacheRecord(record);const d=get(),m=L.main(),a=actorFrom(m,actor),result=execute(d,m,a,type,args||{}),next={raw:JSON.stringify(d),token:uid()};await writeStorage(next);cacheRecord(next);signalStorage();return result;});}
-  window.MineTransport={KEY,get,ready,sync,stamp,context,act,defaults,materialTypes,shiftTimeDefaults,currentShift,date,distance,inside,validZone,ownShift,shiftTrip,liveTrip,equipmentState,working,isExcavator,isHaulTruck,isAuxiliaryVehicle,auxiliaryRoles,draftSlots,visibleMessages};
+  window.MineTransport={KEY,get,ready,sync,stamp,context,act,defaults,materialTypes,shiftTimeDefaults,currentShift,date,distance,inside,validZone,ownShift,shiftTrip,liveTrip,equipmentState,working,isExcavator,isHaulTruck,isAuxiliaryVehicle,auxiliaryRoles,draftSlots,visibleMessages,chatVehicleAt};
 })();
 
