@@ -79,12 +79,21 @@
   const attendanceRate=row=>row.due?(row.present/row.due*100).toFixed(1)+"%":"—";
   function renderAttendance(){
     if(role!=="dispatch")return "";
-    attendanceRenderedToday=T.date();const scope=attendanceScope();$("subtitle").textContent=scope.startDate+" 至 "+scope.endDate+" · "+(scope.team||"全部生产班组");
+    attendanceRenderedToday=T.date();const scope=attendanceScope();$("title").textContent="人员逐日考勤表";$("subtitle").textContent=scope.startDate+" 至 "+scope.endDate+" · "+(scope.team||"全部生产班组");
     const controls='<div class="attendance-filters">'+input("attendanceStartDate","开始日期",scope.startDate,"date")+input("attendanceEndDate","结束日期",scope.endDate,"date")+select("attendanceTeam","班组",[["","全部生产班组"],["生产A组","生产A组"],["生产B组","生产B组"]],scope.team)+'</div>';
     if(scope.error)return controls+'<p class="attendance-error" role="alert">'+esc(scope.error)+'</p>';
-    const {rows,totals}=attendanceData(scope),numberCells=row=>["due","present","leave","rest","absent"].map(key=>'<td class="attendance-number">'+row[key]+'</td>').join("")+'<td class="attendance-number">'+attendanceRate(row)+'</td>';
-    const strip='<div class="attendance-strip"><span>人员 <b>'+rows.length+'</b> 人</span><span>实出勤 <b>'+totals.present+'</b> 人天</span><span>请假 <b>'+totals.leave+'</b> 人天</span><span>出勤率 <b>'+attendanceRate(totals)+'</b></span></div>';
-    return '<section class="attendance-summary">'+controls+strip+'<section class="panel"><div class="table-wrap"><table class="attendance-table"><thead><tr><th>姓名 / 班组</th><th>应出勤</th><th>实出勤</th><th>请假</th><th>休息</th><th>缺勤</th><th>出勤率</th><th>登记</th></tr></thead><tbody>'+(rows.length?rows.map(row=>'<tr><td><strong>'+esc(row.name)+'</strong><small>'+esc(row.team)+' · '+esc(row.id)+'</small></td>'+numberCells(row)+'<td>'+button("attendanceEdit",row.id,"登记 / 查看")+'</td></tr>').join(""):'<tr><td colspan="8" class="empty">暂无对应班组人员或考勤记录</td></tr>')+'</tbody><tfoot><tr><td>合计</td>'+numberCells(totals)+'<td></td></tr></tfoot></table></div></section><p class="help">单位：天。按每天登记状态汇总，同一人员同一天只计一次。应出勤＝实出勤＋请假＋缺勤；休息不计入应出勤。未登记日期不自动计为出勤或缺勤，暂无登记时出勤率显示“—”。</p></section>';
+    const {rows,totals}=attendanceData(scope),start=Date.parse(scope.startDate+"T00:00:00Z"),end=Date.parse(scope.endDate+"T00:00:00Z"),days=Array.from({length:Math.round((end-start)/86400000)+1},(_,i)=>new Date(start+i*86400000).toISOString().slice(0,10)),crossYear=scope.startDate.slice(0,4)!==scope.endDate.slice(0,4);
+    const records=new Map((d.attendanceRecords||[]).slice().sort((a,b)=>String(a.updatedAt||a.createdAt||"").localeCompare(String(b.updatedAt||b.createdAt||""))).map(r=>[JSON.stringify([r.personId,r.workDate]),r]));
+    const statusNames={"出勤":["出","work"],"请假":["请","leave"],"休息":["休","rest"],"缺勤":["缺","absent"]},valueAt=(personId,day)=>records.get(JSON.stringify([personId,day]));
+    const strip='<div class="attendance-strip"><span>人员 <b>'+rows.length+'</b> 人</span><span>出勤 <b>'+totals.present+'</b> 人天</span><span>请假 <b>'+totals.leave+'</b> 人天</span></div>';
+    const heading='<tr><th class="attendance-name-col">姓名 / 班组</th>'+days.map(day=>'<th class="attendance-day-heading">'+esc(crossYear?day:Number(day.slice(5,7))+"/"+Number(day.slice(8,10)))+'</th>').join("")+'<th class="attendance-present-col">出勤</th><th class="attendance-leave-col">请假</th></tr>';
+    const body=rows.map(row=>'<tr><td class="attendance-name-col">'+button("attendanceEdit",row.id,row.name,"attendance-person-button")+'<small>'+esc(row.team)+' · '+esc(row.id)+'</small></td>'+days.map(day=>{
+      const record=valueAt(row.id,day),status=record?.status||"",state=statusNames[status]||["—","unmarked"];
+      return '<td class="attendance-day-cell"><button type="button" class="attendance-status '+state[1]+'" data-action="attendanceDay" data-id="'+esc(row.id+"|"+day)+'" aria-label="'+esc(row.name+" "+day+" "+(status||"未登记")+"，点击登记或修改")+'">'+state[0]+'</button></td>';
+    }).join("")+'<td class="attendance-present-col attendance-number">'+row.present+'</td><td class="attendance-leave-col attendance-number">'+row.leave+'</td></tr>').join("");
+    const footer='<tr><td class="attendance-name-col">出勤合计</td>'+days.map(day=>'<td class="attendance-day-cell attendance-number">'+rows.filter(row=>valueAt(row.id,day)?.status==="出勤").length+'</td>').join("")+'<td class="attendance-present-col attendance-number">'+totals.present+'</td><td class="attendance-leave-col attendance-number">'+totals.leave+'</td></tr>';
+    const legend='<div class="attendance-legend"><span><b class="attendance-status work">出</b> 出勤</span><span><b class="attendance-status leave">请</b> 请假</span><span><b class="attendance-status rest">休</b> 休息</span><span><b class="attendance-status absent">缺</b> 缺勤</span><span><b class="attendance-status unmarked">—</b> 未登记</span></div>';
+    return '<section class="attendance-summary">'+controls+strip+'<section class="panel"><div class="table-wrap attendance-matrix-wrap"><table class="attendance-table attendance-matrix" aria-label="人员逐日考勤表"><thead>'+heading+'</thead><tbody>'+(body||'<tr><td colspan="'+(days.length+3)+'" class="empty">暂无对应班组人员或考勤记录</td></tr>')+'</tbody><tfoot>'+footer+'</tfoot></table></div></section>'+legend+'<p class="help">每人一行、每天一列，点击日期格登记或修改。未登记显示“—”，不自动算缺勤；右侧按所选日期汇总出勤和请假天数，底行按天统计出勤人数。</p></section>';
   }
   function syncAttendanceEditor(){
     const workDate=$("editForm").querySelector('[name="attendanceWorkDate"]')?.value,personId=$("editForm").dataset.attendancePerson;
@@ -92,11 +101,11 @@
     $("editForm").querySelector('[name="attendanceStatus"]').value=row?.status||"";$("editForm").querySelector('[name="attendanceNote"]').value=row?.note||"";
     attendanceEditorVersion=row?.updatedAt||"";
   }
-  function editAttendance(personId){
+  function editAttendance(personId,selectedDate=null){
     if(role!=="dispatch")return;
     const p=m.people.find(p=>p.id===personId),history=(d.attendanceRecords||[]).filter(r=>r.personId===personId),scope=attendanceScope(),fallback=history[0];
     if(!p&&!fallback)return toast("人员记录不存在，请刷新后重试");
-    const name=p?.name||fallback.personName,team=p?.team||fallback?.team||"",today=T.date(),workDate=today>=scope.startDate&&today<=scope.endDate?today:scope.endDate;
+    const name=p?.name||fallback.personName,team=p?.team||fallback?.team||"",today=T.date(),workDate=selectedDate&&haulSummaryValidDate(selectedDate)?selectedDate:today>=scope.startDate&&today<=scope.endDate?today:scope.endDate;
     const records=history.filter(r=>r.workDate>=scope.startDate&&r.workDate<=scope.endDate).sort((a,b)=>b.workDate.localeCompare(a.workDate));
     const body='<p><strong>'+esc(name)+'</strong> · '+esc(team)+'</p><div class="form-grid">'+input("attendanceWorkDate","考勤日期",workDate,"date")+select("attendanceStatus","考勤状态",[["","未登记"],["出勤","出勤"],["请假","请假"],["休息","休息"],["缺勤","缺勤"]],"")+'</div><label>备注（选填）<textarea name="attendanceNote" rows="2" maxlength="500" placeholder="可填写请假或缺勤说明"></textarea></label><p class="help">修改按天保存；选择“未登记”可清除当天统计状态，历史修改记录保留。</p><h3>所选范围登记记录</h3>'+(records.length?'<div class="table-wrap"><table><thead><tr><th>日期</th><th>状态</th><th>备注</th></tr></thead><tbody>'+records.map(r=>'<tr><td>'+esc(r.workDate)+'</td><td>'+esc(r.status||"未登记")+'</td><td>'+esc(r.note||"—")+'</td></tr>').join("")+'</tbody></table></div>':empty("尚未登记考勤"));
     $("editForm").dataset.attendancePerson=personId;
@@ -389,6 +398,7 @@
   }
   function openAction(action,key){const s=session();
     if(action==="attendanceEdit")return editAttendance(key);
+    if(action==="attendanceDay"){if(role!=="dispatch")return;const [personId,day]=String(key||"").split("|");if(!haulSummaryValidDate(day))return;return editAttendance(personId,day);}
     if(action==="haulSummaryDay"){
       if(role!=="dispatch")return;const [workDate,team]=String(key||"").split("|");
       if(!haulSummaryValidDate(workDate)||!["生产A组","生产B组"].includes(team))return toast("请选择有效日期和班组");
