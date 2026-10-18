@@ -329,7 +329,8 @@
       const attachments=Array.isArray(x.attachments)?x.attachments:[];if(attachments.length>6)fail("每条消息最多6个附件");
       for(const file of attachments)if(!file||typeof file.id!=="string"||!file.id.startsWith("file-")||!/^image\/|^audio\//.test(String(file.type))||!Number.isFinite(file.size)||file.size<=0||file.size>10*1024*1024)fail("聊天附件无效或超过10MB");
       if(!body&&!attachments.length)fail("请输入文字或添加照片、语音");
-      const id=uid();d.messages.unshift({id,kind:"chat",clientId,target,senderId:a.id,senderName:a.name,senderRole:a.applicationRole,body,attachments:attachments.map(f=>({id:f.id,name:String(f.name||"附件").slice(0,200),type:f.type,size:f.size,storage:"indexeddb"})),at:now(),readBy:[a.id]});
+      const shift=ownShift(d,a.id),assignment=shift?d.assignments.find(r=>r.id===shift.assignmentId):null,vehicle=shift?m.vehicles.find(v=>v.id===shift.vehicleId):null;
+      const id=uid();d.messages.unshift({id,kind:"chat",clientId,target,senderId:a.id,senderName:a.name,senderRole:a.applicationRole,senderTeam:a.team||assignment?.team||"",senderVehicleId:shift?.vehicleId||"",senderVehicleCode:shift?.vehicleCode||vehicle?.code||"",senderShiftId:shift?.id||null,body,attachments:attachments.map(f=>({id:f.id,name:String(f.name||"附件").slice(0,200),type:f.type,size:f.size,storage:"indexeddb"})),at:now(),readBy:[a.id]});
       return id;
     }
     if(type==="readMessages"){const ids=Array.isArray(x.ids)?new Set(x.ids):null;for(const msg of visibleMessages(d,a))if((!ids||ids.has(msg.id))&&!msg.readBy.includes(a.id))msg.readBy.push(a.id);return;}

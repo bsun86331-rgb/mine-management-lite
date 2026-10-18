@@ -58,6 +58,13 @@
     node("text").disabled=sending;
     for(const b of host.querySelectorAll('[data-chat-action="photo"],[data-chat-action="remove-file"]'))b.disabled=sending;
   }
+  function senderLabel(msg){
+    if(msg.kind!=="chat")return "系统通知";
+    const p=ctx.m.people.find(p=>p.id===msg.senderId),snapshotted=Object.prototype.hasOwnProperty.call(msg,"senderVehicleCode");
+    const time=Date.parse(msg.at),past=snapshotted?null:ctx.d.shifts.find(s=>s.personId===msg.senderId&&Date.parse(s.openedAt)<=time&&(!s.closedAt||Date.parse(s.closedAt)>=time)),assignment=past?ctx.d.assignments.find(r=>r.id===past.assignmentId):null;
+    const name=msg.senderName||p?.name||"原人员",team=msg.senderTeam??(assignment?.team||p?.team||""),role=msg.senderRole||p?.applicationRole,vehicle=snapshotted?msg.senderVehicleCode:past?.vehicleCode;
+    return name+(msg.senderId===ctx.person.id?"（我）":"")+" · "+(team||"班组未设置")+(["driver","excavator"].includes(role)?" · "+(vehicle|| (snapshotted?"未接班":"车辆未记录")):"")+(msg.target!=="chat:all"?" · 历史私聊":"");
+  }
   function draw(){
     if(!host?.isConnected||!ctx)return;
     node("title").textContent=title();
@@ -71,7 +78,7 @@
     digest=next;clearObserver();releaseUrls();
     log.innerHTML=(all.length>limit?'<button type="button" class="soft chat-earlier" data-chat-action="earlier">加载更早消息</button>':"")+(rows.length?rows.map(msg=>{
       const own=msg.senderId===ctx.person.id;
-      return '<article class="chat-message'+(own?' mine':'')+(msg.kind!=="chat"?' system-message':'')+'" data-message-id="'+esc(msg.id)+'"><div class="chat-message-meta">'+esc(msg.kind==="chat"?((own?"我":msg.senderName||"原人员")+(msg.target!=="chat:all"?" · 历史私聊":"")):"系统通知")+' · '+esc(stamp(msg.at))+'</div><div class="chat-bubble">'+(msg.body?'<p>'+esc(msg.body)+'</p>':"")+(msg.attachments||[]).map(file=>file.type.startsWith("image/")?'<button type="button" class="chat-photo-button" data-chat-action="view-photo" data-file-id="'+esc(file.id)+'"><img data-chat-file="'+esc(file.id)+'" alt="'+esc(file.name||"聊天照片")+'" loading="lazy"></button>':'<audio controls preload="none" data-chat-file="'+esc(file.id)+'" aria-label="语音消息"></audio>').join("")+'</div></article>';
+      return '<article class="chat-message'+(own?' mine':'')+(msg.kind!=="chat"?' system-message':'')+'" data-message-id="'+esc(msg.id)+'"><div class="chat-message-meta">'+esc(senderLabel(msg))+' · '+esc(stamp(msg.at))+'</div><div class="chat-bubble">'+(msg.body?'<p>'+esc(msg.body)+'</p>':"")+(msg.attachments||[]).map(file=>file.type.startsWith("image/")?'<button type="button" class="chat-photo-button" data-chat-action="view-photo" data-file-id="'+esc(file.id)+'"><img data-chat-file="'+esc(file.id)+'" alt="'+esc(file.name||"聊天照片")+'" loading="lazy"></button>':'<audio controls preload="none" data-chat-file="'+esc(file.id)+'" aria-label="语音消息"></audio>').join("")+'</div></article>';
     }).join(""):'<div class="chat-empty">'+(active==="system"?"暂无系统通知":"暂无消息，发送第一条消息吧")+'</div>');
     log.scrollTop=switched||atBottom?log.scrollHeight:oldTop;hydrate();observeRows();
   }
