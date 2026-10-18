@@ -295,5 +295,45 @@ button.attendance-status:hover{border-color:#78a98b}
 /* Task-style daily attendance and monthly half-shift totals. */
 .att2-tabs{margin-bottom:14px}.att2-filters{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin:10px 0 16px}.att2-filters label{min-width:180px;max-width:260px;flex:1;margin:0}.att2-filters .actions{margin:0}.att2-board{margin:14px 0}.att2-board-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}.att2-board-head h2{font-size:17px;margin:0}.att2-board-head>span{font-size:14px;color:#587168}.att2-cards{display:flex;flex-wrap:wrap;gap:10px}.att2-card{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:200px;flex:0 1 260px;padding:14px;border:1px solid #b5d4bc;border-radius:10px;background:#f0f8ed;color:#173d31;text-align:left;font-weight:400}.att2-card.driver{background:#edf5ff;border-color:#b8cff2}.att2-card.auxiliary{background:#fff8ea;border-color:#e4d0a6}.att2-card strong{font-size:17px}.att2-card small{font-size:13px;line-height:1.6}.att2-card b{font-size:23px;color:#176b4a}.att2-card .att2-warning{color:#a55c15}.att2-rule{font-size:13px;line-height:1.8;padding:12px 14px;border-radius:9px;background:#eaf2ee;color:#426154;margin:14px 0}.att2-day-totals{width:100%}.att2-day-totals th,.att2-day-totals td{padding:10px;text-align:left;white-space:nowrap}.att2-month-wrap{max-height:65vh;overflow:auto}.att2-month-table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:13px}.att2-month-table th,.att2-month-table td{padding:9px;text-align:center;min-width:78px;white-space:nowrap;border-bottom:1px solid #dbe5df;background:#fff}.att2-month-table thead th{position:sticky;top:0;z-index:2;background:#edf5ef}.att2-month-table .att2-sticky-name{position:sticky;left:0;z-index:1;min-width:140px;text-align:left;background:#f8fbf8}.att2-sticky-name small{display:block;font-size:11px;font-weight:400;color:#64776b}.att2-month-table .att2-sticky-total{position:sticky;right:0;z-index:1;min-width:96px;background:#edf5ef}.att2-month-table thead .att2-sticky-name,.att2-month-table thead .att2-sticky-total{z-index:3}.att2-month-cell{padding:6px;min-width:52px;background:transparent;color:#7c8b83;border:0;border-radius:5px;font-weight:500;font-size:13px}.att2-month-cell.has-units{background:#e6f3e9;color:#176b4a;font-weight:700}.att2-month-cell:hover{background:#dceee2}.att2-detail{padding:12px;margin:10px 0;border:1px solid #dbe5df;border-radius:9px}.att2-detail p{margin:6px 0}.att2-detail small{overflow-wrap:anywhere;font-size:11px;color:#66786e}@media(max-width:600px){.att2-card{flex:1 1 100%;min-width:0}.att2-filters label{min-width:140px}.att2-board-head h2{font-size:16px}.att2-rule{font-size:12px}}
 
-/* Scene-based attendance: excavator groups, auxiliary staff, and unassigned people. */
-.att3-scene{margin:16px 0;padding:16px}.att3-scene-row{display:grid;grid-template-columns:110px minmax(0,1fr);border-top:1px solid #d7dfda;align-items:stretch}.att3-scene-row>h3{display:flex;align-items:center;justify-content:center;font-size:16px;margin:0;padding:16px 10px;text-align:center;color:#173d31}.att3-row-body{border-left:1px solid #d7dfda;min-width:0;padding:15px}.att3-card-list{display:flex;flex-wrap:wrap;align-items:stretch;gap:12px}.att3-person-card{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;text-align:center;flex:0 1 160px;min-width:140px;max-width:190px;min-height:145px;padding:12px 10px;border:1px solid #d99e9e;border-radius:13px;background:#fce1df;color:#513630;font-weight:400}.att3-person-card strong{font-size:17px;line-height:1.5;overflow-wrap:anywhere}.att3-person-card .att3-person-name{font-size:16px;font-weight:650}.att3-person-card b{font-size:16px}.att3-person-card small{font-size:12px;line-height:1.5}.att3-person-card.confirmed-present{background:#e7f4e8;border-color:#9ac8a2;color:#176b4a}.att3-person-card.confirmed-zero{background:#f1f3f2;border-color:#bbc8c0;color:#64736b}.att3-person-card:hover{box-shadow:0 0 0 2px #176b4a25}.att3-unassigned-row .att3-row-body{background:#fff4f3}.att3-unassigned-row .help{margin-top:0;margin-bottom:12px}.att3-total-details{margin:14px 0}.att3-total-details>summary{font-size:15px;font-weight:650;cursor:pointer;color:#176b4a}.att3-confirmation-preview{padding:12px;border-radius:9px;background:#eaf4ed;font-size:17px;font-weight:700;color:#176b4a}.att3-total-details .table-wrap{margin-top:12px}@media(max-width:650px){.att3-scene-row{grid-template-columns:76px minmax(0,1fr)}.att3-scene-row>h3{padding:12px 5px;font-size:14px}.att3-row-body{padding:12px 9px}.att3-person-card{flex:1 1 135px;min-width:115px;max-width:none}.att3-card-list{gap:8px}.att3-confirmation-preview{font-size:15px}}
+/* Scene-based attendance: compact groups, auxiliary staff, and unassigned people. */
+.att3-scene{margin:10px 0;padding:10px}
+.dispatch-compact .panel.att3-scene{margin:8px 0;padding:10px;border-radius:10px}
+.att3-scene .att2-board-head{gap:6px;margin-bottom:8px}
+.att3-scene .att2-board-head h2,.dispatch-compact .att3-scene .att2-board-head h2{font-size:15px;margin:0}
+.att3-scene .att2-board-head>span{font-size:12px}
+.att3-scene-row{display:grid;grid-template-columns:90px minmax(0,1fr);border-top:1px solid #d7dfda;align-items:stretch}
+.att3-scene-row>h3{display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1.4;margin:0;padding:8px 6px;text-align:center;color:#173d31}
+.att3-row-body{border-left:1px solid #d7dfda;min-width:0;padding:8px}
+.att3-row-body>.muted{margin:2px 0;font-size:12px;line-height:1.5}
+.att3-card-list{display:flex;flex-wrap:wrap;align-items:stretch;gap:8px}
+.att3-person-card{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;text-align:center;flex:0 1 124px;min-width:112px;max-width:144px;min-height:88px;padding:8px 6px;border:1px solid #d99e9e;border-radius:9px;background:#fce1df;color:#513630;font-weight:400}
+.att3-person-card strong{font-size:15px;line-height:1.3;overflow-wrap:anywhere}
+.att3-person-card>span{font-size:12px;line-height:1.3;overflow-wrap:anywhere}
+.att3-person-card .att3-person-name{font-size:14px;font-weight:650}
+.att3-person-card b{font-size:14px;line-height:1.3}
+.att3-person-card small{font-size:11px;line-height:1.35;overflow-wrap:anywhere}
+.att3-person-card small:last-child{display:none}
+.att3-person-card.confirmed-present{background:#e7f4e8;border-color:#9ac8a2;color:#176b4a}
+.att3-person-card.confirmed-zero{background:#f1f3f2;border-color:#bbc8c0;color:#64736b}
+.att3-person-card:hover{box-shadow:0 0 0 2px #176b4a25}
+.att3-unassigned-row .att3-row-body{background:#fff4f3}
+.att3-unassigned-row .help{font-size:11px;line-height:1.4;margin:0 0 6px}
+.att3-total-details{margin:8px 0}
+.att3-total-details>summary{font-size:14px;font-weight:650;cursor:pointer;color:#176b4a}
+.att3-confirmation-preview{padding:12px;border-radius:9px;background:#eaf4ed;font-size:17px;font-weight:700;color:#176b4a}
+.att3-total-details .table-wrap{margin-top:8px}
+.att2-filters{gap:8px;margin:6px 0 10px}
+.att2-filters label{min-width:140px;max-width:190px;flex:0 1 170px}
+.att2-filters input,.att2-filters select{min-height:34px;padding:6px 8px}
+.att2-filters+.attendance-strip{gap:6px 18px;padding:7px 10px;font-size:13px;margin-bottom:8px}
+.att2-filters+.attendance-strip b{font-size:16px}
+.att2-rule{font-size:12px;line-height:1.6;padding:8px 10px;margin:8px 0}
+@media(max-width:650px){
+ .att3-scene-row{grid-template-columns:68px minmax(0,1fr)}
+ .att3-scene-row>h3{padding:8px 4px;font-size:13px}
+ .att3-row-body{padding:7px 6px}
+ .att3-person-card{flex:1 1 108px;min-width:96px;max-width:none;min-height:86px;padding:7px 5px}
+ .att3-card-list{gap:6px}
+ .att3-confirmation-preview{font-size:15px}
+ .att2-filters label{flex:1 1 130px;max-width:none;min-width:120px}
+}
