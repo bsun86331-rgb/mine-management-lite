@@ -151,12 +151,16 @@ function teamSelect(team,all=true){return '<label>班组<select name="att2Team">
 function daily(d,m,filters,today){
  const date=filters.date||addDays(today,-1),team=filters.team||"",schedule=scheduleFor(d,team,date),shifts=schedule.releases.map(r=>r.shiftName),shift=shifts.length===2?"全部班次":shifts[0]||"",model=build(d,m,date,date,Date.now(),team),selected=model.people.filter(p=>!team||p.team===team),cells=selected.map(p=>cellAt(model,p.id,date)).filter(Boolean),entries=cells.flatMap(c=>c.entries);
  const controls='<div class="att2-filters"><label>考勤日期<input type="date" name="att2Date" value="'+esc(date)+'"></label>'+teamSelect(team,false)+'<label class="att2-auto-shift">班次（根据排班自动带出）<input type="text" name="att3AutoShift" readonly value="'+esc(schedule.label)+'" title="'+esc(schedule.label)+'"></label>'+(team&&schedule.kind==="none"?'<button type="button" class="att3-unscheduled-toggle" data-action="att3UnscheduledPanel" aria-haspopup="dialog">未排班判断</button>':'')+'</div>';
+ let leavePeople=[],leaveError="";
+ if(team){try{leavePeople=selected.filter(p=>leaveOnDay(p.id,date));}catch(e){leaveError=e.message;}}
+ const leaveIds=new Set(leavePeople.map(p=>p.id));
+ const leavePanel=team?'<section class="panel att3-scene" id="att3LeavePanel"><h2>请假人员 · '+esc(team)+'</h2><div class="att3-card-list">'+(leaveError?'<p class="muted">'+esc(leaveError)+'</p>':leavePeople.map(p=>'<article class="att3-person-card confirmed-zero"><strong>'+esc(p.name)+'</strong><span>请假</span></article>').join("")||'<p class="muted">暂无请假人员。</p>')+'</div></section>':"";
  if(team&&schedule.kind==="none"){
-  const cards=selected.map(p=>{const state=unscheduledState(d,p.id,team,date),c=cellAt(model,p.id,date),decision=c?.manual?.unscheduledDecision,status=state.error?state.error:!state.ready?"次日开始确认":state.onLeave?"请假 · 自动排除":decision?(decision.units?"正常考勤":"不记考勤"):"待整组判断";return '<article class="att3-person-card '+(decision?(c?.units>0?"confirmed-present":"confirmed-zero"):"unconfirmed")+'"><strong>'+esc(p.name)+'</strong><span>'+esc(status)+'</span></article>';}).join("");
-  return tabs("daily")+controls+'<section id="att3UnscheduledPanel" class="panel att3-scene"><h2>班组判断结果 · '+esc(team)+'</h2><p class="help">通过班次框后的“未排班判断”统一设置整个班组。请假人员自动排除、不记考勤；下方只显示各人的结果。</p><div class="att3-card-list">'+(cards||'<p>暂无在岗人员。</p>')+'</div></section>'+rule;
+  const cards=selected.filter(p=>!leaveIds.has(p.id)).map(p=>{const state=unscheduledState(d,p.id,team,date),c=cellAt(model,p.id,date),decision=c?.manual?.unscheduledDecision,status=state.error?state.error:!state.ready?"次日开始确认":state.onLeave?"请假 · 自动排除":decision?(decision.units?"正常考勤":"不记考勤"):"待整组判断";return '<article class="att3-person-card '+(decision?(c?.units>0?"confirmed-present":"confirmed-zero"):"unconfirmed")+'"><strong>'+esc(p.name)+'</strong><span>'+esc(status)+'</span></article>';}).join("");
+  return tabs("daily")+controls+'<section id="att3UnscheduledPanel" class="panel att3-scene"><h2>班组判断结果 · '+esc(team)+'</h2><p class="help">通过班次框后的“未排班判断”统一设置整个班组。请假人员自动排除、不记考勤；下方只显示各人的结果。</p><div class="att3-card-list">'+(cards||'<p>暂无非请假人员。</p>')+'</div></section>'+leavePanel+rule;
 
  }
- if(!team||!shifts.length||schedule.kind==="invalid")return tabs("daily")+controls+'<section class="panel"><p class="muted">'+esc(schedule.message)+'</p></section>'+rule;
+ if(!team||!shifts.length||schedule.kind==="invalid")return tabs("daily")+controls+'<section class="panel"><p class="muted">'+esc(schedule.message)+'</p></section>'+leavePanel+rule;
 
  const generated=selected.filter(p=>(shift==="全部班次"?["白班","夜班"]:[shift]).some(name=>shiftState(d,p.team,date,name).ready));
  const total=cells.reduce((n,c)=>n+c.units,0),strip='<div class="attendance-strip"><span>人员 <b>'+generated.length+'</b> 人</span><span>当日合计 <b>'+fmt(total)+'</b> 班</span><span>调度已确认 <b>'+cells.filter(c=>c.confirmed).length+'</b> 人</span><span>待核对 <b>'+cells.reduce((n,c)=>n+c.issues,0)+'</b> 项</span></div>';
@@ -183,7 +187,7 @@ function daily(d,m,filters,today){
   const c=cellAt(model,p.id,date),status=!c?"未登记":c.confirmed?"调度确认":c.source==="manual"?"原人工记录":c.issues?"异常待核对":c.running?"进行中，结束后补计":"按任务计算";
   return '<tr><td><button type="button" class="soft" data-action="att3Confirm" data-id="'+esc(p.id+"|"+date+"|"+(shift==="夜班"||!shiftState(d,p.team,date,"白班").ready?"夜班":"白班"))+'">'+esc(p.name)+'</button></td><td>'+esc(p.team)+'</td><td>'+fmt(c?.dayUnits)+'</td><td>'+fmt(c?.nightUnits)+'</td><td><strong>'+fmt(c?.units)+'</strong></td><td>'+esc(status)+'</td></tr>';
  }).join("")+'</tbody><tfoot><tr><th colspan="4">当日合计</th><th>'+fmt(total)+'</th><th>确认后同步汇总</th></tr></tfoot></table></div></details>';
- return tabs("daily")+controls+(generated.length?strip:"")+scenes+(generated.length?peopleTable:"")+rule+'<p class="help">第二天按前一天的实际排班时段确认；白班转夜班须等夜班次晨结束，两个时段一起开放。调度确认优先于排班默认计算，白0.5＋夜1＝1.5个考勤。点击卡片可将未上班人员设为0，也可为未分任务人员补记考勤；恢复“跟随任务 / 原规则”会保留调整历史。</p>';
+ return tabs("daily")+controls+(generated.length?strip:"")+scenes+leavePanel+(generated.length?peopleTable:"")+rule+'<p class="help">第二天按前一天的实际排班时段确认；白班转夜班须等夜班次晨结束，两个时段一起开放。调度确认优先于排班默认计算，白0.5＋夜1＝1.5个考勤。点击卡片可将未上班人员设为0，也可为未分任务人员补记考勤；恢复“跟随任务 / 原规则”会保留调整历史。</p>';
 }
 function monthly(d,m,filters,today){
  const month=filters.month||today.slice(0,7),team=filters.team||"",range=monthRange(month),model=build(d,m,range.startDate,range.endDate,Date.now(),team),people=model.people.filter(p=>!team||p.team===team),count=Number(range.endDate.slice(8)),days=Array.from({length:count},(_,i)=>addDays(range.startDate,i)),total=people.reduce((sum,p)=>sum+days.reduce((n,day)=>n+(cellAt(model,p.id,day)?.units||0),0),0);
