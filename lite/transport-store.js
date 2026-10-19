@@ -10,7 +10,7 @@
   const shiftContains=(times,minute)=>{const start=clockMinutes(times.start),end=clockMinutes(times.end);return start<end?minute>=start&&minute<end:minute>=start||minute<end;};
   function currentShift(times,at=new Date()){const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Ulaanbaatar",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(at),values=Object.fromEntries(parts.map(p=>[p.type,p.value])),minute=Number(values.hour)*60+Number(values.minute);const matches=["白班","夜班"].filter(name=>shiftContains(times[name],minute));return matches.length===1?matches[0]:null;}
   const defaults={dwellSeconds:20,maxAccuracy:50,gapSeconds:90,exitMargin:15,maxSpeedKmh:150};
-  function parseLedger(raw){let d;try{d=JSON.parse(raw||"null");}catch{fail("运输台账无法读取，请保留浏览器数据并联系管理员");}if(!d)d={version:1,revision:0,settings:{...defaults},assignments:[],zones:[],shifts:[],inspections:[],faults:[],trips:[],devices:[],messages:[],audit:[]};for(const key of ["assignments","zones","shifts","inspections","faults","trips","devices","messages","audit"])if(!Array.isArray(d[key]))fail("运输台账格式异常");if(d.productionGroups==null)d.productionGroups=[];if(!Array.isArray(d.productionGroups))fail("生产设备组草稿格式异常");for(const group of d.productionGroups){if(group.followingTrucks==null)group.followingTrucks=group.followingTruck?[{...group.followingTruck}]:(group.vehicleId&&group.personId?[{id:group.id+"-truck-1",status:"draft",vehicleId:"",personId:"",createdAt:group.updatedAt||group.createdAt}]:[]);if(!Array.isArray(group.followingTrucks))fail("跟随汽车草稿格式异常");}if(d.auxiliaryPlans==null)d.auxiliaryPlans=[];if(!Array.isArray(d.auxiliaryPlans)||d.auxiliaryPlans.some(p=>!Array.isArray(p.cards)))fail("辅助车辆草稿格式异常");if(d.attendanceRecords==null)d.attendanceRecords=[];if(!Array.isArray(d.attendanceRecords))fail("考勤记录格式异常");if(d.taskReleases==null)d.taskReleases=[];if(!Array.isArray(d.taskReleases))fail("任务发布记录格式异常");d.settings={...defaults,...d.settings};d.shiftTimes=Object.fromEntries(["白班","夜班"].map(name=>[name,{...shiftTimeDefaults[name],...d.shiftTimes?.[name]}]));return d;}
+  function parseLedger(raw){let d;try{d=JSON.parse(raw||"null");}catch{fail("运输台账无法读取，请保留浏览器数据并联系管理员");}if(!d)d={version:1,revision:0,settings:{...defaults},assignments:[],zones:[],shifts:[],inspections:[],faults:[],trips:[],devices:[],messages:[],audit:[]};for(const key of ["assignments","zones","shifts","inspections","faults","trips","devices","messages","audit"])if(!Array.isArray(d[key]))fail("运输台账格式异常");if(d.productionGroups==null)d.productionGroups=[];if(!Array.isArray(d.productionGroups))fail("生产设备组草稿格式异常");for(const group of d.productionGroups){if(group.followingTrucks==null)group.followingTrucks=group.followingTruck?[{...group.followingTruck}]:(group.vehicleId&&group.personId?[{id:group.id+"-truck-1",status:"draft",vehicleId:"",personId:"",createdAt:group.updatedAt||group.createdAt}]:[]);if(!Array.isArray(group.followingTrucks))fail("跟随汽车草稿格式异常");}if(d.auxiliaryPlans==null)d.auxiliaryPlans=[];if(!Array.isArray(d.auxiliaryPlans)||d.auxiliaryPlans.some(p=>!Array.isArray(p.cards)))fail("辅助车辆草稿格式异常");for(const field of ["attendancePublications","attendanceReminderChoices"]){if(d[field]==null)d[field]=[];if(!Array.isArray(d[field]))fail("考勤确认台账格式异常");}if(d.attendanceRecords==null)d.attendanceRecords=[];if(!Array.isArray(d.attendanceRecords))fail("考勤记录格式异常");if(d.taskReleases==null)d.taskReleases=[];if(!Array.isArray(d.taskReleases))fail("任务发布记录格式异常");d.settings={...defaults,...d.settings};d.shiftTimes=Object.fromEntries(["白班","夜班"].map(name=>[name,{...shiftTimeDefaults[name],...d.shiftTimes?.[name]}]));return d;}
   const DATABASE="mine-management-lite-transport-data-v1",STORE="ledger";
   let storageConnection=null,storageReady=null,cachedRaw=null,cachedToken="empty",loaded=false,syncing=null;
   function storageFailure(error){
@@ -370,6 +370,22 @@
       Object.assign(record,{unscheduledDecision:after,updatedAt:at,updatedBy:a.id});
       audit(d,a,"未排班考勤判断",person.name+"；"+workDate+"；"+units+"个考勤；"+note,{attendanceId:record.id});return record.id;
     }
+    if(type==="publishAttendance"){
+      dispatchOnly(a);if(!window.MineAttendancePublication)fail("考勤确认组件尚未加载");
+      const plan=window.MineAttendancePublication.plan(d,m,String(x.team||""),String(x.workDate||""));
+      if(!plan.ready||!plan.rows.length)fail(plan.error||"本班尚不能确认");
+      if(plan.pending)fail("仍有人员待核对，请先处理异常与未分配人员");
+      if(plan.fingerprint!==x.fingerprint)fail("考勤、请假或排班依据已变化，请重新核对");
+      if(plan.current)return plan.latest.id;
+      const record={id:uid(),team:plan.team,workDate:plan.date,fingerprint:plan.fingerprint,rows:clone(plan.rows),confirmedAt:now(),confirmedBy:a.id,confirmedByName:a.name,supersedes:plan.latest?.id||null};
+      d.attendancePublications.push(record);audit(d,a,"整组考勤确认",plan.date+"；"+plan.team,{publicationId:record.id});return record.id;
+    }
+    if(type==="attendanceReminderChoice"){
+      dispatchOnly(a);const schedule=window.MineAttendanceBoard.scheduleFor(d,x.team,x.workDate),first=schedule.releases[0];
+      if(schedule.kind!=="dayToNight"||!first||Date.now()<Date.parse(first.endAt)||schedule.releases.every(r=>Date.now()>=Date.parse(r.endAt)))fail("当前不是白班转夜班的半班核对阶段");
+      if(!["review","wait"].includes(x.choice))fail("请选择核对方式");
+      d.attendanceReminderChoices.push({id:uid(),team:x.team,workDate:x.workDate,releaseId:first.id,choice:x.choice,at:now(),by:a.id});audit(d,a,"选择半班考勤核对方式",x.workDate+"；"+x.team+"；"+x.choice);return;
+    }
     if(type==="attendanceDecision"){
       dispatchOnly(a);
       const personId=String(x.personId||""),workDate=String(x.workDate||""),note=String(x.note||"").trim();
@@ -439,7 +455,8 @@
  const w=release||window.MineTaskEngine.timeWindow(c.workDate,d.shiftTimes[c.shiftName]);
  window.MineLeave.assertSchedule(p,w.startAt,w.endAt);
  }
- async function act(type,args,actor){if(!navigator.locks?.request)fail("请使用支持事务锁的新版浏览器");await ready();const transaction=()=>navigator.locks.request(KEY,async()=>{const record=await readStorage();if(!record&&cachedToken!=="empty")fail("运输台账存储记录缺失，请保留浏览器数据");cacheRecord(record);const d=get(),m=L.main(),a=actorFrom(m,actor),result=execute(d,m,a,type,args||{}),next={raw:JSON.stringify(d),token:uid()};await writeStorage(next);cacheRecord(next);signalStorage();return result;});if(["productionGroup","auxiliaryPlan","assignment","activateAssignment","publishTasks","openShift","unscheduledAttendance","unscheduledAttendanceGroup"].includes(type)){if(!window.MineLeave)fail("请销假组件尚未加载，请刷新");return window.MineLeave.withSchedulingLock(transaction);}return transaction();}
+ async function act(type,args,actor){if(!navigator.locks?.request)fail("请使用支持事务锁的新版浏览器");await ready();const transaction=()=>navigator.locks.request(KEY,async()=>{const record=await readStorage();if(!record&&cachedToken!=="empty")fail("运输台账存储记录缺失，请保留浏览器数据");cacheRecord(record);const d=get(),m=L.main(),a=actorFrom(m,actor),result=execute(d,m,a,type,args||{}),next={raw:JSON.stringify(d),token:uid()};await writeStorage(next);cacheRecord(next);signalStorage();return result;});if(["productionGroup","auxiliaryPlan","assignment","activateAssignment","publishTasks","openShift","unscheduledAttendance","unscheduledAttendanceGroup","attendanceDecision","publishAttendance","attendanceReminderChoice"].includes(type)){if(!window.MineLeave)fail("请销假组件尚未加载，请刷新");return window.MineLeave.withSchedulingLock(transaction);}return transaction();}
   window.MineTransport={KEY,get,ready,sync,stamp,context,act,defaults,materialTypes,shiftTimeDefaults,currentShift,date,distance,inside,validZone,ownShift,shiftTrip,liveTrip,equipmentState,working,isExcavator,isHaulTruck,isAuxiliaryVehicle,auxiliaryRoles,draftSlots,visibleMessages,chatVehicleAt};
 })();
+
 

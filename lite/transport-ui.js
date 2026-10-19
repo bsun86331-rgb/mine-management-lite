@@ -9,7 +9,7 @@
   const attendanceFilters={startDate:null,endDate:null,team:""};
   const att2Filters={date:null,month:null,team:""};
   let att3ConfirmationContext=null;
-  let attendanceEditorVersion="",attendanceRenderedToday="";
+  let attendanceEditorVersion="",attendanceRenderedToday="",attendanceReminderMinute=-1;
   const haulSummaryFilters={startDate:null,endDate:null,mode:"crew",personId:"",vehicleId:""};
   const haulSummaryTitles={crew:"班组逐日车数统计",person:"人员逐日车数统计",equipment:"设备逐日车数统计"};
   let haulSummaryRenderedToday="",haulSummaryExportData=null,haulSummaryTaskHistory=null;
@@ -54,12 +54,15 @@
     if(role==="dispatch"&&view==="tasks"&&haulSummaryTaskHistory){$("title").textContent=haulSummaryTaskHistory.workDate+" · "+haulSummaryTaskHistory.team+"任务看板";$("subtitle").textContent="查看当天白夜班任务及逐趟拉运明细";}
     $("eyebrow").hidden=false;$("subtitle").hidden=false;$("notice").hidden=false;
     $("notice").innerHTML=(unread?'<div class="banner">你有 '+unread+' 条未读消息。'+button("go-messages","","查看")+'</div>':'');
+    if(role==="dispatch"){
+      const reminders=MineAttendancePublication.reminders(d,m);$("notice").innerHTML+=reminders.map(r=>'<div class="banner">'+esc(r.date+" · "+r.team+"："+r.text)+' '+button(r.kind==="half"?"attReminderChoice":"attReminderOpen",r.date+"|"+r.team,r.kind==="half"?"选择核对方式":"核对考勤")+'</div>').join("");
+    }
     const renderers={attendanceDaily:renderDailyAttendance,attendance:renderAttendance,summary:renderHaulSummary,tasks:()=>MineTaskBoard.render(d,m,person,{dispatch:role==="dispatch",hideTitle:true,history:role==="dispatch"?haulSummaryTaskHistory:null}),assignments:renderAssignments,zones:renderZones,records:renderRecords,faults:renderFaults,devices:renderDevices,sessions:renderSessions,messages:renderMessages,settings:renderSettings,audit:renderAudit,work:role==="driver"?renderDriver:renderExcavator};
     if(view==="messages"&&window.MineTransportChat){
       if(!$("content").querySelector("[data-chat-root]"))$("content").innerHTML=MineTransportChat.html();
       MineTransportChat.update({d,m,person,role,onChanged:()=>refresh(),toast});
     }else{window.MineTransportChat?.dispose();$("content").innerHTML=(view==="work"?MineTaskBoard.render(d,m,person):"")+renderers[view]();}
-    taskClockSignature=MineTaskBoard.clockKey(d);
+    taskClockSignature=MineTaskBoard.clockKey(d);attendanceReminderMinute=Math.floor(Date.now()/60000);
   }
   function attendanceScope(){
     const today=T.date(),startDate=attendanceFilters.startDate||today.slice(0,7)+"-01",endDate=attendanceFilters.endDate||today;
@@ -83,13 +86,13 @@
     attendanceRenderedToday=T.date();const date=att2Filters.date||MineAttendanceBoard.addDays(T.date(),-1);if(!att2Filters.month)att2Filters.month=date.slice(0,7);
     $("title").textContent="按日考勤";$("subtitle").textContent=date+" · "+(att2Filters.team||"请选择班组")+" · "+MineAttendanceBoard.scheduleFor(d,att2Filters.team||"",date).label;
     attendanceFilters.startDate=date;attendanceFilters.endDate=date;attendanceFilters.team=att2Filters.team;
-    return MineAttendanceBoard.daily(d,m,att2Filters,T.date());
+    return MineAttendanceBoard.daily(d,m,att2Filters,T.date())+MineAttendancePublication.footer(d,m,att2Filters.team,att2Filters.date||MineAttendanceBoard.addDays(T.date(),-1));
   }
   function renderAttendance(){
     attendanceRenderedToday=T.date();const month=att2Filters.month||T.date().slice(0,7),range=MineAttendanceBoard.monthRange(month);
     $("title").textContent="汇总考勤表";$("subtitle").textContent=month+" · "+(att2Filters.team||"全部生产班组")+" · 按日考勤自动汇总";
     attendanceFilters.startDate=range.startDate;attendanceFilters.endDate=range.endDate;attendanceFilters.team=att2Filters.team;
-    return MineAttendanceBoard.monthly(d,m,att2Filters,T.date());
+    return '<div class="actions"><button type="button" data-action="attExportMonth">导出 Excel</button></div>'+MineAttendanceBoard.monthly(d,m,att2Filters,T.date());
   }
   function syncAtt3Confirmation(){
     if(!att3ConfirmationContext)return;
@@ -440,6 +443,14 @@
     try{if(scope.mode==="person")window.MineTableExport.downloadSheets([{name:"人员逐日明细",columns:fields,records:rows,title,notes},...personnelMatrixSheets(report)],title);else window.MineTableExport.download(fields,rows,title,{notes});toast("Excel 已导出");}catch(error){toast("导出失败："+error.message);}
   }
   function openAction(action,key){const s=session();
+    if(action==="attExportMonth"){if(role!=="dispatch")return;return MineAttendancePublication.exportMonthly(d,m,att2Filters,T.date());}
+    if(action==="attReminderOpen"){if(role!=="dispatch")return;const [date,team]=String(key).split("|");att2Filters.date=date;att2Filters.team=team;view="attendanceDaily";refresh();return;}
+    if(action==="attReminderChoice"){if(role!=="dispatch")return;const [date,team]=String(key).split("|");return show("白班转夜班 · 前半班已结束",'<p>前半班可以先核对；整组最终确认须等后半段夜班结束。</p>'+select("halfChoice","核对方式",[["review","先核对前半班"],["wait","等夜班结束一起核对"]],"wait"),form=>operate("attendanceReminderChoice",{team,workDate:date,choice:form.get("halfChoice")},"已记录核对方式",()=>{att2Filters.date=date;att2Filters.team=team;view="attendanceDaily";}));}
+    if(action==="attPublish"){
+      if(role!=="dispatch")return;const team=att2Filters.team,workDate=att2Filters.date||MineAttendanceBoard.addDays(T.date(),-1),plan=MineAttendancePublication.plan(d,m,team,workDate);
+      if(!plan.ready||plan.pending||!plan.rows.length)return toast(plan.error||"请先完成全部人员核对");
+      return show("考勤确认",'<p>'+esc(team+" · "+workDate)+'</p><p>确认后，各人在自己的端口可以查看本人考勤。</p><div class="table-wrap"><table><thead><tr><th>姓名</th><th>结果</th><th>考勤</th></tr></thead><tbody>'+plan.rows.map(r=>'<tr><td>'+esc(r.name)+'</td><td>'+esc(r.status)+'</td><td>'+esc(r.units)+'</td></tr>').join("")+'</tbody></table></div>',()=>operate("publishAttendance",{team,workDate,fingerprint:plan.fingerprint},"考勤已确认，本人端已可查看"),"确认考勤");
+    }
     if(action==="att2MonthDay"){
       if(role!=="dispatch")return;const [day,team]=String(key||"").split("|");if(!haulSummaryValidDate(day))return;
       att2Filters.date=day;att2Filters.team=["生产A组","生产B组"].includes(team)?team:"";view="attendanceDaily";refresh();return;
@@ -661,7 +672,8 @@
       refresh();return;
     }if(event.target.name==="taskDate")updatePublishPreview();invalidateZoneFix(event.target);if(event.target.name==="kind")syncAssignmentFields();if(event.target.name==="zoneKind")syncZoneFields();if(event.target.id==="inspectionPhotos")previewSelected(event.target.files||[]);if(event.target.name==="simulationZone"){const z=simulationZones.find(z=>z.id===event.target.value);if(z){$("editForm").querySelector('[name="lat"]').value=z.lat;$("editForm").querySelector('[name="lng"]').value=z.lng;}}});
   document.addEventListener("input",event=>{invalidateZoneFix(event.target);if(event.target.id==="recordSearch"){recordSearch=event.target.value;const start=event.target.selectionStart;$("content").innerHTML=renderRecords();const field=$("recordSearch");field.focus();field.setSelectionRange(start,start);}});
-  async function externalChange(){try{await Promise.all([T.sync(),window.MineLeave.sync()]);T.context(role);const latest=T.stamp()+window.MineLeave.stamp()+localStorage.getItem(L.PEOPLE)+localStorage.getItem(L.KEY);if(latest!==signature||MineTaskBoard.clockKey(d)!==taskClockSignature||(role==="dispatch"&&view==="summary"&&haulSummaryRenderedToday!==T.date())||(role==="dispatch"&&["attendance","attendanceDaily"].includes(view)&&attendanceRenderedToday!==T.date())||(role==="dispatch"&&view==="assignments"&&shiftMinute!==Math.floor(Date.now()/60000)))refresh();}catch(error){block(error);}}
+  async function externalChange(){try{await Promise.all([T.sync(),window.MineLeave.sync()]);T.context(role);const latest=T.stamp()+window.MineLeave.stamp()+localStorage.getItem(L.PEOPLE)+localStorage.getItem(L.KEY);if(latest!==signature||(role==="dispatch"&&attendanceReminderMinute!==Math.floor(Date.now()/60000))||MineTaskBoard.clockKey(d)!==taskClockSignature||(role==="dispatch"&&view==="summary"&&haulSummaryRenderedToday!==T.date())||(role==="dispatch"&&["attendance","attendanceDaily"].includes(view)&&attendanceRenderedToday!==T.date())||(role==="dispatch"&&view==="assignments"&&shiftMinute!==Math.floor(Date.now()/60000)))refresh();}catch(error){block(error);}}
   document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")stopGPS(true);else externalChange();});
   window.addEventListener("pagehide",()=>{stopGPS(true);releasePhotos();});window.addEventListener("storage",externalChange);window.addEventListener("focus",externalChange);setInterval(externalChange,1000);Promise.all([T.ready(),window.MineLeave.ready()]).then(()=>refresh()).catch(block);
 })();
+
