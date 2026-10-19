@@ -344,3 +344,7 @@ button.attendance-status:hover{border-color:#78a98b}
 /* Per-phase transport evidence in compact attendance cards. */
 .att3-person-card.att3-trip-present{background:#e7f4e8;border-color:#9ac8a2;color:#176b4a}
 .att3-person-card.att3-trip-anomaly{background:#fff1df;border-color:#e0ac68;color:#9b4a0b}
+
+/* Unscheduled judgement begins beside the automatically derived shift. */
+.att2-filters .att3-unscheduled-toggle{align-self:flex-end;min-height:34px;margin:0;padding:6px 12px;white-space:nowrap}
+#att3UnscheduledPanel[hidden]{display:none!important}

@@ -7,7 +7,7 @@
   let d,m,person,actor,view=role==="dispatch"?"tasks":"work",modalSave=null,busy=false,signature="",watchId=null,gpsTimer=null,gpsFetching=false,gpsGeneration=0,positionBusy=false,lastQueuedPoint=null,tracking=false,photoUrls=[],modalToken=0,recordSearch="",taskClockSignature="",publishPreviewState=null,selectedDispatchShift=null,dispatchShiftLocked=false,timeConfiguredShift=null,dispatchGroups={},dispatchProductionDate=null,shiftMinute=null,zoneCenterFix=null,zoneFixRequest=0,lastSimulation={lat:"",lng:"",accuracy:"5"};
   const dispatchBindingEdits=new Map();
   const attendanceFilters={startDate:null,endDate:null,team:""};
-  const att2Filters={date:null,month:null,team:""};
+  const att2Filters={date:null,month:null,team:"",unscheduledOpen:false};
   let att3ConfirmationContext=null;
   let attendanceEditorVersion="",attendanceRenderedToday="";
   const haulSummaryFilters={startDate:null,endDate:null,mode:"crew",personId:"",vehicleId:""};
@@ -429,6 +429,7 @@
       if(role!=="dispatch")return;const [day,team]=String(key||"").split("|");if(!haulSummaryValidDate(day))return;
       att2Filters.date=day;att2Filters.team=["生产A组","生产B组"].includes(team)?team:"";view="attendanceDaily";refresh();return;
     }
+    if(action==="att3UnscheduledPanel"){if(role!=="dispatch")return;att2Filters.unscheduledOpen=!att2Filters.unscheduledOpen;refresh();return;}
     if(action==="att3Unscheduled"){const [personId,date]=String(key||"").split("|");return confirmUnscheduledAttendance(personId,date);}
     if(action==="att3Confirm"){
       if(role!=="dispatch")return;const [id,day,shift]=String(key||"").split("|");if(!haulSummaryValidDate(day))return;
@@ -618,6 +619,7 @@
   document.addEventListener("change",event=>{
     if(["att3DayUnits","att3NightUnits"].includes(event.target.name)){syncAtt3Confirmation();return;}
     if(["att2Date","att2Month","att2Team"].includes(event.target.name)){
+      if(event.target.name!=="att2Month")att2Filters.unscheduledOpen=false;
       if(role!=="dispatch")return;const name=event.target.name,value=event.target.value;
       if(name==="att2Date"){if(!haulSummaryValidDate(value))return toast("请选择有效考勤日期");att2Filters.date=value;att2Filters.month=value.slice(0,7);}
       if(name==="att2Month"){try{MineAttendanceBoard.monthRange(value);}catch(error){return toast(error.message);}att2Filters.month=value;}
