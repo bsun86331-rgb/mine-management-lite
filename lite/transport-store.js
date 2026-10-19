@@ -392,6 +392,7 @@
       if(!/^\d{4}-\d{2}-\d{2}$/.test(workDate)||!Number.isFinite(Date.parse(workDate+"T00:00:00Z"))||new Date(workDate+"T00:00:00Z").toISOString().slice(0,10)!==workDate)fail("请选择有效考勤日期");
       const parse=v=>{if(v===""||v==null)return null;const n=Number(v);if(![0,0.5,1].includes(n))fail("每班请选择自动、0、0.5或1班");return n;};
       const dayUnits=parse(x.dayUnits),nightUnits=parse(x.nightUnits);
+      if(!note)fail("请填写原因说明");
       if(note.length>500)fail("考勤备注最多500字");
       const person=m.people.find(p=>p.id===personId);
       let record=d.attendanceRecords.filter(r=>r.personId===personId&&r.workDate===workDate).sort((a,b)=>String(a.updatedAt||a.createdAt||"").localeCompare(String(b.updatedAt||b.createdAt||""))).at(-1);

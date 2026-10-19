@@ -131,12 +131,13 @@
     }
     if(!reasons.length)reasons.push("未发现排班或车数异常，可按现场情况更改考勤。");
     const current=decision?.[activeKey],selected=current===0?"absent":current===0.5?"half":current===normalUnits?"present":"";
-    const body='<p><strong>'+esc(p.name)+'</strong> · '+esc(p.team)+' · '+esc(workDate)+' · '+esc(activeShift)+'</p><section class="att2-detail"><h3>排班异常原因</h3>'+[...new Set(reasons)].map(reason=>'<p>'+esc(reason)+'</p>').join("")+'</section><h3>更改考勤</h3>'+select("att3Result","考勤结果",[["","请选择"],["present","正常记考勤"],["absent","不记考勤"],["half","记半天"]],selected)+'<label>原因说明<textarea name="att3Note" rows="3" maxlength="500" placeholder="请填写现场情况或更改考勤的原因">'+esc(decision?.note||"")+'</textarea></label><details><summary>任务依据与原记录</summary>'+(source?'<div class="table-wrap"><table><thead><tr><th>班次</th><th>设备</th><th>开始</th><th>结束</th><th>状态</th></tr></thead><tbody>'+source+'</tbody></table></div>':'<p>本人未分配任务，可按现场情况确认考勤。</p>')+(record&&(record.status||record.note)?'<p>'+esc("原人工记录："+(record.status||"未登记")+"；"+(record.note||"无备注"))+'</p>':"")+'</details>'+(changes?'<details><summary>调度确认历史</summary>'+changes+'</details>':"");
+    const body='<p><strong>'+esc(p.name)+'</strong> · '+esc(p.team)+' · '+esc(workDate)+' · '+esc(activeShift)+'</p><section class="att2-detail"><h3>排班异常原因</h3>'+[...new Set(reasons)].map(reason=>'<p>'+esc(reason)+'</p>').join("")+'</section><h3>更改考勤</h3>'+select("att3Result","考勤结果",[["","请选择"],["present","正常记考勤"],["absent","不记考勤"],["half","记半天"]],selected)+'<label>原因说明（必填）<textarea name="att3Note" rows="3" maxlength="500" required placeholder="请填写现场情况或更改考勤的原因">'+esc(decision?.note||"")+'</textarea></label><details><summary>任务依据与原记录</summary>'+(source?'<div class="table-wrap"><table><thead><tr><th>班次</th><th>设备</th><th>开始</th><th>结束</th><th>状态</th></tr></thead><tbody>'+source+'</tbody></table></div>':'<p>本人未分配任务，可按现场情况确认考勤。</p>')+(record&&(record.status||record.note)?'<p>'+esc("原人工记录："+(record.status||"未登记")+"；"+(record.note||"无备注"))+'</p>':"")+'</details>'+(changes?'<details><summary>调度确认历史</summary>'+changes+'</details>':"");
     att3ConfirmationContext=null;
     show("确认考勤 · "+p.name,body,form=>{
       const result=form.get("att3Result");if(!["present","absent","half"].includes(result))throw new Error("请选择正常记考勤、不记考勤或记半天");
+      const note=String(form.get("att3Note")||"").trim();if(!note)throw new Error("请填写原因说明");
       const next={dayUnits:decision?.dayUnits??null,nightUnits:decision?.nightUnits??null};next[activeKey]=result==="present"?normalUnits:result==="half"?0.5:0;
-      return operate("attendanceDecision",{personId,workDate,...next,note:form.get("att3Note"),expectedUpdatedAt,expectedDecisionId,expectedSourceStamp},"考勤已确认，日月汇总已更新");
+      return operate("attendanceDecision",{personId,workDate,...next,note,expectedUpdatedAt,expectedDecisionId,expectedSourceStamp},"考勤已确认，日月汇总已更新");
     },"保存考勤");
   }
 
