@@ -8,18 +8,41 @@ const time=v=>Number.isFinite(Date.parse(v))?new Date(v).toLocaleString("zh-CN",
 const fmt=n=>Number.isFinite(Number(n??0))?Number(n||0).toLocaleString("zh-CN",{maximumFractionDigits:2}):"—";
 function unitsFor(hours){return Number.isFinite(hours)&&hours>0?(hours<=STANDARD_HOURS/2?0.5:1):0;}
 function monthRange(month){if(!/^\d{4}-\d{2}$/.test(String(month))||!validDate(month+"-01"))throw Error("请选择有效月份");const startDate=month+"-01",n=new Date(startDate+"T00:00:00Z"),endDate=new Date(Date.UTC(n.getUTCFullYear(),n.getUTCMonth()+1,0)).toISOString().slice(0,10);return {startDate,endDate};}
+const localDay=at=>new Date(at).toLocaleDateString("sv-SE",{timeZone:"Asia/Ulaanbaatar"});
+function scheduleFor(d,team,date,at=Date.now()){
+ const latest=new Map();
+ for(const r of d.taskReleases||[]){if(r.status!=="published"||r.team!==team||r.workDate!==date||!["白班","夜班"].includes(r.shiftName))continue;const old=latest.get(r.shiftName);if(!old||Number(r.version||1)>Number(old.version||1)||(Number(r.version||1)===Number(old.version||1)&&String(r.publishedAt||"")>String(old.publishedAt||"")))latest.set(r.shiftName,r);}
+ const releases=[...latest.values()].sort((a,b)=>Date.parse(a.startAt)-Date.parse(b.startAt)),units={},limits={};
+ if(!releases.length)return {kind:"none",label:team?"未排班":"请选择班组",releases,units,limits,ready:false,message:team?"所选日期、班组未排班，暂不生成考勤。":"请选择班组，自动读取当天排班。"};
+ const valid=releases.every(r=>{const start=Date.parse(r.startAt),end=Date.parse(r.endAt);return Number.isFinite(start)&&Number.isFinite(end)&&end>start&&localDay(start)===date;})&&releases.every((r,i)=>!i||Date.parse(releases[i-1].endAt)<=Date.parse(r.startAt));
+ if(!valid)return {kind:"invalid",label:"排班时间待核对",releases,units,limits,ready:false,message:"排班时间无效或重叠，请核对排班记录后确认考勤。"};
+ let kind,label;
+ if(releases.length===2&&releases[0].shiftName==="白班"&&releases[1].shiftName==="夜班"){
+  kind="dayToNight";label="白班转夜班（上满1.5个考勤）";units["白班"]=0.5;units["夜班"]=1;limits["白班"]=0.5;limits["夜班"]=1;
+ }else if(releases.length===1){
+  const r=releases[0],hours=(Date.parse(r.endAt)-Date.parse(r.startAt))/3600000,hour=Number(new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Ulaanbaatar",hour:"2-digit",hourCycle:"h23"}).format(new Date(r.startAt)));
+  const afternoon=localDay(Date.parse(r.endAt))===date&&hour>=12&&hours<=6;
+  kind=afternoon?"nightToDay":r.shiftName==="白班"?"day":"night";label=afternoon?"夜班转白班（上满0.5个考勤）":r.shiftName;units[r.shiftName]=afternoon?0.5:unitsFor(hours);limits[r.shiftName]=afternoon?0.5:1;
+ }else return {kind:"invalid",label:"排班时间待核对",releases,units,limits,ready:false,message:"同日排班顺序待核对，暂不生成考勤。"};
+ const ended=releases.every(r=>at>=Date.parse(r.endAt)),nextDay=date<localDay(at),ready=ended&&nextDay;
+ const message=ready?"排班已结束，可确认前一天考勤。":!ended?"当天排班尚未全部结束，结束后于次日确认考勤。":"当天排班已结束，请于次日确认考勤。";
+ return {kind,label,releases,units,limits,ready,message};
+}
 function shiftState(d,team,date,shiftName,at=Date.now()){
- const release=(d.taskReleases||[]).filter(r=>r.status==="published"&&r.team===team&&r.workDate===date&&r.shiftName===shiftName).sort((a,b)=>Number(b.version||1)-Number(a.version||1)||String(b.publishedAt||"").localeCompare(String(a.publishedAt||"")))[0];
- if(!release)return {ready:false,phase:"missing",release:null,message:"本班尚未发布任务，暂不生成考勤。"};
- const start=Date.parse(release.startAt),end=Date.parse(release.endAt);
- if(!Number.isFinite(start)||!Number.isFinite(end)||end<=start)return {ready:false,phase:"invalid",release,message:"本班任务时间待核对，暂不生成考勤。"};
- const phase=at<start?"scheduled":at<end?"running":"ended";
- return {ready:phase==="ended",phase,release,message:phase==="ended"?"本班已结束，可以确认考勤。":phase==="scheduled"?"本班任务尚未开始，结束后生成考勤。":"本班任务进行中，结束后生成考勤。"};
+ const schedule=scheduleFor(d,team,date,at),release=schedule.releases.find(r=>r.shiftName===shiftName)||null;
+ if(!release)return {ready:false,phase:"missing",release:null,message:schedule.message};
+ if(schedule.kind==="invalid")return {ready:false,phase:"invalid",release,message:schedule.message};
+ const phase=at<Date.parse(release.startAt)?"scheduled":at<Date.parse(release.endAt)?"running":schedule.ready?"ended":"awaitingConfirmationDay";
+ return {ready:schedule.ready,phase,release,message:schedule.message};
 }
 function assertDecision(d,personId,date,team,next,previous={}){
  const states=[shiftState(d,team,date,"白班"),shiftState(d,team,date,"夜班")];
- if(!states.some(s=>s.ready))throw Error("本班任务尚未结束或未发布，不能提前确认考勤");
- for(const [i,key] of ["dayUnits","nightUnits"].entries())if(!states[i].ready&&next[key]!==((previous||{})[key]??null))throw Error((i===0?"白班":"夜班")+"任务尚未结束或未发布，不能提前确认考勤");
+ if(!states.some(s=>s.ready))throw Error("当天排班尚未全部结束、未到次日或未发布，不能提前确认考勤");
+ for(const [i,key] of ["dayUnits","nightUnits"].entries()){
+  const name=i===0?"白班":"夜班";
+  if(!states[i].ready&&next[key]!==((previous||{})[key]??null))throw Error(name+"排班未结束或未到次日，不能提前确认考勤");
+  const max=scheduleFor(d,team,date).limits[name];if(states[i].ready&&next[key]!=null&&next[key]>max)throw Error(name+"按本日排班上满最多记"+max+"个考勤");
+ }
 }
 function build(d,m,startDate,endDate,at=Date.now(),team=""){
  if(!validDate(startDate)||!validDate(endDate)||startDate>endDate)throw Error("请选择有效的考勤日期");
@@ -27,7 +50,7 @@ function build(d,m,startDate,endDate,at=Date.now(),team=""){
  const active=p=>window.MineLogistics?window.MineLogistics.active(p):["在岗","已通过"].includes(p.status);
  const addPerson=(p,prefer=false)=>{if(p?.id&&(prefer||!people.has(p.id)))people.set(p.id,{id:p.id,name:p.name||p.id,team:p.team||""});};
  for(const p of m.people||[])if(TEAMS.includes(p.team)&&(!team||p.team===team)&&active(p))addPerson(p);
- const getCell=(p,date)=>{const key=JSON.stringify([p.id,date]);if(!cells.has(key))cells.set(key,{personId:p.id,workDate:date,name:p.name,team:p.team,entries:[],manual:null,dayReady:shiftState(d,p.team,date,"白班",at).ready,nightReady:shiftState(d,p.team,date,"夜班",at).ready,units:0,plannedUnits:0,running:0,scheduled:0,issues:0,source:"none"});return cells.get(key);};
+ const getCell=(p,date)=>{const key=JSON.stringify([p.id,date]);if(!cells.has(key))cells.set(key,{personId:p.id,workDate:date,name:p.name,team:p.team,entries:[],manual:null,dayReady:shiftState(d,p.team,date,"白班",at).ready,nightReady:shiftState(d,p.team,date,"夜班",at).ready,maxDay:scheduleFor(d,p.team,date,at).limits["白班"],maxNight:scheduleFor(d,p.team,date,at).limits["夜班"],units:0,plannedUnits:0,running:0,scheduled:0,issues:0,source:"none"});return cells.get(key);};
  for(const r of d.taskReleases||[]){
   if(r.status!=="published"||!TEAMS.includes(r.team)||(team&&r.team!==team)||!validDate(r.workDate)||r.workDate<startDate||r.workDate>endDate)continue;
   const key=JSON.stringify([r.workDate,r.shiftName,r.team]),old=latest.get(key);
@@ -42,7 +65,7 @@ function build(d,m,startDate,endDate,at=Date.now(),team=""){
    const profile=(m.people||[]).find(p=>p.id===task.personId),p={id:task.personId,name:task.personName||profile?.name||task.personId,team:r.team};
    addPerson(p,true);const cell=getCell(p,r.workDate),start=Date.parse(r.startAt),end=Date.parse(r.endAt),hours=(end-start)/3600000;
    if(seen.has(p.id)){seen.get(p.id).conflict=true;continue;}
-   const entry={id:task.id||r.id+":"+p.id,releaseId:r.id,personId:p.id,personName:p.name,team:r.team,workDate:r.workDate,shiftName:r.shiftName,kind:task.kind||task.role||"auxiliary",vehicleCode:task.vehicleCode||"",content:task.content||"",groupNumber:task.groupNumber,startAt:r.startAt,endAt:r.endAt,hours,expectedUnits:unitsFor(hours),phase:!Number.isFinite(start)||!Number.isFinite(end)||end<=start?"invalid":at<start?"scheduled":at<end?"running":"ended",version:r.version||1,conflict:false};
+   const entry={id:task.id||r.id+":"+p.id,releaseId:r.id,personId:p.id,personName:p.name,team:r.team,workDate:r.workDate,shiftName:r.shiftName,kind:task.kind||task.role||"auxiliary",vehicleCode:task.vehicleCode||"",content:task.content||"",groupNumber:task.groupNumber,startAt:r.startAt,endAt:r.endAt,hours,expectedUnits:scheduleFor(d,r.team,r.workDate,at).units[r.shiftName]??unitsFor(hours),phase:!Number.isFinite(start)||!Number.isFinite(end)||end<=start?"invalid":at<start?"scheduled":at<end?"running":"ended",version:r.version||1,conflict:false};
    seen.set(p.id,entry);cell.entries.push(entry);cell.source="tasks";
   }
  }
@@ -72,19 +95,21 @@ function build(d,m,startDate,endDate,at=Date.now(),team=""){
 function resolveUnits(cell,decision=cell?.manual?.attendanceDecision){
  const entries=cell?.entries||[],hasDay=cell?.dayReady!==false&&[0,0.5,1].includes(decision?.dayUnits),hasNight=cell?.nightReady!==false&&[0,0.5,1].includes(decision?.nightUnits),confirmed=hasDay||hasNight;
  let autoDay=entries.filter(e=>e.shiftName==="白班").reduce((n,e)=>n+(e.units||0),0),autoNight=entries.filter(e=>e.shiftName==="夜班").reduce((n,e)=>n+(e.units||0),0);
- if(!entries.length&&!confirmed&&cell?.dayReady!==false&&cell?.manual?.status==="出勤")autoDay=1;
- const dayUnits=hasDay?decision.dayUnits:autoDay,nightUnits=hasNight?decision.nightUnits:autoNight;
+ if(!entries.length&&!confirmed&&cell?.dayReady!==false&&cell?.manual?.status==="出勤")autoDay=Math.min(1,cell?.maxDay??1);
+ const dayUnits=hasDay?Math.min(decision.dayUnits,cell?.maxDay??1):autoDay,nightUnits=hasNight?Math.min(decision.nightUnits,cell?.maxNight??1):autoNight;
  const unresolved=e=>!(e.shiftName==="白班"?hasDay:e.shiftName==="夜班"?hasNight:false);
  return {dayUnits,nightUnits,units:dayUnits+nightUnits,autoDay,autoNight,confirmed,dayConfirmed:hasDay,nightConfirmed:hasNight,source:confirmed?"confirmed":entries.length?"tasks":cell?.manual?"manual":"none",issues:entries.filter(e=>(e.conflict||e.phase==="invalid")&&unresolved(e)).length,running:entries.filter(e=>e.phase==="running"&&unresolved(e)).length,scheduled:entries.filter(e=>e.phase==="scheduled"&&unresolved(e)).length};
 }
 function sourceStamp(d,id,date){const team=window.MineLogistics?.main().people.find(p=>p.id===id)?.team||(d.attendanceRecords||[]).find(r=>r.personId===id&&r.workDate===date)?.team;return JSON.stringify((d.taskReleases||[]).filter(r=>r.status==="published"&&r.workDate===date&&(!team||r.team===team)).map(r=>[r.id,r.team,r.shiftName,r.version,r.startAt,r.endAt,shiftState(d,r.team,date,r.shiftName).phase,(r.tasks||[]).map(t=>[t.id,t.personId,t.groupNumber,t.vehicleCode])]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))));}
 const cellAt=(model,id,date)=>model.cells.get(JSON.stringify([id,date]));
-const rule='<p class="att2-rule">先工作，下班后确认考勤。仅在对应班组本班已发布任务的结束时间到达后生成考勤，白、夜班分别判断；未分任务人员也须等本班结束。未作调度确认时，按任务看板已发布的开始、结束时间计算，暂按12小时为标准班：大于0且不超过6小时记0.5班，超过6小时记1班；零时长或无效时间不计。白、夜班分别累计，同日可为1.5班；跨午夜归开始日，任务时段结束后入账，进行中及待开始暂不计。单段超过12小时仍按1班并提示核对，后续按你的规则调整。</p>';
+const rule='<p class="att2-rule">选择日期、班组后按当天已发布排班记录自动带出班次，不比较前后两天的班别。第二天确认前一天：上午半班加傍晚至次晨夜班为白班转夜班，上满合计1.5个考勤（白0.5＋夜1）；只有下午半班为夜班转白班，上满0.5个考勤。普通白/夜班沿用排班时长计算，未排班不生成。当天所有排班结束且进入次日后才生成并开放确认，跨午夜夜班仍归开始日；调度可确认未上满、缺勤或未分任务人员，日月汇总同源，历史记录保留。</p>';
 function tabs(mode){return '<div class="actions att2-tabs"><button type="button" class="'+(mode==="daily"?"":"soft")+'" data-view="attendanceDaily">按日考勤</button><button type="button" class="'+(mode==="monthly"?"":"soft")+'" data-view="attendance">汇总考勤表</button></div>';}
-function teamSelect(team){return '<label>班组<select name="att2Team"><option value="">全部生产班组</option>'+TEAMS.map(t=>'<option'+(team===t?' selected':"")+'>'+esc(t)+'</option>').join("")+'</select></label>';}
+function teamSelect(team,all=true){return '<label>班组<select name="att2Team"><option value="">'+(all?'全部生产班组':'请选择班组')+'</option>'+TEAMS.map(t=>'<option'+(team===t?' selected':"")+'>'+esc(t)+'</option>').join("")+'</select></label>';}
 function daily(d,m,filters,today){
- const date=filters.date||today,team=filters.team||"",shift=filters.shiftName||"白班",model=build(d,m,date,date,Date.now(),team),selected=model.people.filter(p=>!team||p.team===team),cells=selected.map(p=>cellAt(model,p.id,date)).filter(Boolean),entries=cells.flatMap(c=>c.entries);
- const controls='<div class="att2-filters"><label>考勤日期<input type="date" name="att2Date" value="'+esc(date)+'"></label>'+teamSelect(team)+'<label>班次<select name="att3Shift">'+["白班","夜班","全部班次"].map(v=>'<option'+(v===shift?' selected':"")+'>'+v+'</option>').join("")+'</select></label><div class="actions"><button type="button" class="soft" data-action="att2Previous">前一天</button><button type="button" class="soft" data-action="att2Today">今天</button><button type="button" class="soft" data-action="att2Next">后一天</button></div></div>';
+ const date=filters.date||addDays(today,-1),team=filters.team||"",schedule=scheduleFor(d,team,date),shifts=schedule.releases.map(r=>r.shiftName),shift=shifts.length===2?"全部班次":shifts[0]||"",model=build(d,m,date,date,Date.now(),team),selected=model.people.filter(p=>!team||p.team===team),cells=selected.map(p=>cellAt(model,p.id,date)).filter(Boolean),entries=cells.flatMap(c=>c.entries);
+ const controls='<div class="att2-filters"><label>考勤日期<input type="date" name="att2Date" value="'+esc(date)+'"></label>'+teamSelect(team,false)+'<label class="att2-auto-shift">班次（根据排班自动带出）<input type="text" name="att3AutoShift" readonly value="'+esc(schedule.label)+'" title="'+esc(schedule.label)+'"></label></div>';
+ if(!team||!shifts.length||schedule.kind==="invalid")return tabs("daily")+controls+'<section class="panel"><p class="muted">'+esc(schedule.message)+'</p></section>'+rule;
+
  const generated=selected.filter(p=>(shift==="全部班次"?["白班","夜班"]:[shift]).some(name=>shiftState(d,p.team,date,name).ready));
  const total=cells.reduce((n,c)=>n+c.units,0),strip='<div class="attendance-strip"><span>人员 <b>'+generated.length+'</b> 人</span><span>当日合计 <b>'+fmt(total)+'</b> 班</span><span>调度已确认 <b>'+cells.filter(c=>c.confirmed).length+'</b> 人</span><span>待核对 <b>'+cells.reduce((n,c)=>n+c.issues,0)+'</b> 项</span></div>';
  const profile=id=>(m.people||[]).find(p=>p.id===id);
@@ -94,7 +119,7 @@ function daily(d,m,filters,today){
   const status=confirmed?"调度已确认":entry?(entry.conflict||entry.phase==="invalid"?"任务待核对":entry.phase==="ended"?"按任务计算":entry.phase==="running"?"任务进行中":"任务待开始"):c?.source==="manual"?"原人工记录":"待调度判断";
   return '<button type="button" class="att3-person-card '+(confirmed?(units>0?"confirmed-present":"confirmed-zero"):"unconfirmed")+'" data-action="att3Confirm" data-id="'+esc(p.id+"|"+date+"|"+shiftName)+'">'+(entry?'<strong>'+esc(entry.vehicleCode||(["driver","excavator"].includes(entry.kind)?"未绑定设备":"辅助作业"))+'</strong><span class="att3-person-name">'+esc(p.name)+'</span>':'<strong>'+esc(p.name)+'</strong><span>'+esc(roleName(p))+'</span>')+'<b>'+esc(shiftName)+' '+fmt(units)+'班</b><small>'+esc(status)+'</small>'+(entry?'<small>'+esc(time(entry.startAt)+" — "+time(entry.endAt))+'</small>':"")+'<small>点击确认 / 调整</small></button>';
  }
- const shifts=shift==="全部班次"?["白班","夜班"]:[shift],teams=team?[team]:TEAMS;
+ const teams=[team];
  const scenes=teams.flatMap(t=>shifts.map(shiftName=>{
   const state=shiftState(d,t,date,shiftName),release=state.release;
   if(!state.ready)return '<section class="panel att3-waiting"><header class="att2-board-head"><h2>'+esc(date+" · "+t+" · "+shiftName)+'</h2></header><p class="muted">'+esc(state.message)+(release?" 本班结束："+esc(time(release.endAt)):"")+'</p></section>';
@@ -110,7 +135,7 @@ function daily(d,m,filters,today){
   const c=cellAt(model,p.id,date),status=!c?"未登记":c.confirmed?"调度确认":c.source==="manual"?"原人工记录":c.issues?"存在待核对任务":c.running?"进行中，结束后补计":"按任务计算";
   return '<tr><td><button type="button" class="soft" data-action="att3Confirm" data-id="'+esc(p.id+"|"+date+"|"+(shift==="夜班"||!shiftState(d,p.team,date,"白班").ready?"夜班":"白班"))+'">'+esc(p.name)+'</button></td><td>'+esc(p.team)+'</td><td>'+fmt(c?.dayUnits)+'</td><td>'+fmt(c?.nightUnits)+'</td><td><strong>'+fmt(c?.units)+'</strong></td><td>'+esc(status)+'</td></tr>';
  }).join("")+'</tbody><tfoot><tr><th colspan="4">当日合计</th><th>'+fmt(total)+'</th><th>确认后同步汇总</th></tr></tfoot></table></div></details>';
- return tabs("daily")+controls+(generated.length?strip:"")+scenes+(generated.length?peopleTable:"")+rule+'<p class="help">本班任务结束后才生成卡片并开放确认；白班结束不代表夜班可提前确认。调度确认优先于已结束班次的自动计算，另一班仍可跟随任务。同一人白班0.5＋夜班1＝1.5班。点击卡片可将未上班人员设为0，也可为未分任务人员补记考勤；恢复“跟随任务 / 原规则”会保留调整历史。</p>';
+ return tabs("daily")+controls+(generated.length?strip:"")+scenes+(generated.length?peopleTable:"")+rule+'<p class="help">第二天按前一天的实际排班时段确认；白班转夜班须等夜班次晨结束，两个时段一起开放。调度确认优先于排班默认计算，白0.5＋夜1＝1.5个考勤。点击卡片可将未上班人员设为0，也可为未分任务人员补记考勤；恢复“跟随任务 / 原规则”会保留调整历史。</p>';
 }
 function monthly(d,m,filters,today){
  const month=filters.month||today.slice(0,7),team=filters.team||"",range=monthRange(month),model=build(d,m,range.startDate,range.endDate,Date.now(),team),people=model.people.filter(p=>!team||p.team===team),count=Number(range.endDate.slice(8)),days=Array.from({length:count},(_,i)=>addDays(range.startDate,i)),total=people.reduce((sum,p)=>sum+days.reduce((n,day)=>n+(cellAt(model,p.id,day)?.units||0),0),0);
@@ -126,5 +151,5 @@ function details(d,m,id,date){
  const rows=c?.entries||[],legacy=c?.manual;
  return '<h3>'+esc(p.name+" · "+p.team+" · "+date)+'</h3><p>当日已计 <strong>'+fmt(c?.units)+' 班</strong></p>'+rows.map(e=>'<section class="att2-detail"><h3>'+esc(e.shiftName+" · "+(e.vehicleCode||"人员任务"))+'</h3><p>任务开始：'+esc(time(e.startAt))+'</p><p>任务结束：'+esc(time(e.endAt))+'</p><p>时长 '+fmt(e.hours)+' 小时；任务默认 '+fmt(e.units)+' 班；'+esc(e.conflict?"时段重叠，暂不计":e.phase==="ended"?"已结束":e.phase==="running"?"进行中":"待开始")+'</p><small>来源：任务版本 '+esc(e.version)+' · '+esc(e.releaseId)+'</small></section>').join("")+(!rows.length?'<p>当天没有已发布人员任务。</p>':"")+(legacy?.attendanceDecision?'<section class="att2-detail"><h3>调度确认</h3><p>白班 '+esc(legacy.attendanceDecision.dayUnits==null?"跟随任务 / 原规则":fmt(legacy.attendanceDecision.dayUnits)+"班")+'；夜班 '+esc(legacy.attendanceDecision.nightUnits==null?"跟随任务 / 原规则":fmt(legacy.attendanceDecision.nightUnits)+"班")+'</p><p>'+esc(legacy.attendanceDecision.note||"无备注")+'</p><small>'+esc(time(legacy.attendanceDecision.at)+" · "+(legacy.attendanceDecision.name||"调度"))+'</small></section>':"")+(legacy&&(legacy.status||legacy.note)?'<section class="att2-detail"><h3>原人工记录（保留）</h3><p>'+esc(legacy.status||"未登记")+' · '+esc(legacy.note||"无备注")+'</p><small>'+esc(c.confirmed?"已由调度确认，原记录不重复累加。":rows.length?"同日已有任务，本条不重复累加。":"无任务，人工出勤按1班补充。")+'</small></section>':"")+'<button type="button" class="soft" data-action="att3Confirm" data-id="'+esc(id+"|"+date+"|白班")+'">确认 / 调整考勤</button> <button type="button" class="soft" data-action="attendanceDay" data-id="'+esc(id+"|"+date)+'">查看 / 登记原人工考勤</button>'+rule;
 }
-window.MineAttendanceBoard=Object.freeze({STANDARD_HOURS,unitsFor,monthRange,addDays,build,cellAt,resolveUnits,shiftState,assertDecision,sourceStamp,daily,monthly,details});
+window.MineAttendanceBoard=Object.freeze({STANDARD_HOURS,unitsFor,monthRange,addDays,build,cellAt,resolveUnits,shiftState,scheduleFor,assertDecision,sourceStamp,daily,monthly,details});
 })();

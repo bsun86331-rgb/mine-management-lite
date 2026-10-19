@@ -364,7 +364,7 @@
       const person=m.people.find(p=>p.id===personId);
       if(!person&&!record)fail("人员档案不存在，请刷新后重试");
       const team=record?.team||person?.team;
-      if(["生产A组","生产B组"].includes(team)&&(!window.MineAttendanceBoard||!["白班","夜班"].some(name=>window.MineAttendanceBoard.shiftState(d,team,workDate,name).ready)))fail("本班任务尚未结束或未发布，不能提前登记考勤");
+      if(["生产A组","生产B组"].includes(team)&&(!window.MineAttendanceBoard||!["白班","夜班"].some(name=>window.MineAttendanceBoard.shiftState(d,team,workDate,name).ready)))fail("当天排班尚未全部结束、未到次日或未发布，不能提前登记考勤");
       if(!record&&!status&&!note)return;
       if(!record){record={id:uid(),personId,personName:person.name,team:person.team||"",workDate,status:"",note:"",createdAt:now(),history:[]};d.attendanceRecords.push(record);}
       if(x.expectedUpdatedAt!==undefined&&x.expectedUpdatedAt!==(record.updatedAt||""))fail("此人的当天考勤已被其他页面修改，请重新打开后保存");

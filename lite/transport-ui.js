@@ -7,7 +7,7 @@
   let d,m,person,actor,view=role==="dispatch"?"tasks":"work",modalSave=null,busy=false,signature="",watchId=null,gpsTimer=null,gpsFetching=false,gpsGeneration=0,positionBusy=false,lastQueuedPoint=null,tracking=false,photoUrls=[],modalToken=0,recordSearch="",taskClockSignature="",publishPreviewState=null,selectedDispatchShift=null,dispatchShiftLocked=false,timeConfiguredShift=null,dispatchGroups={},dispatchProductionDate=null,shiftMinute=null,zoneCenterFix=null,zoneFixRequest=0,lastSimulation={lat:"",lng:"",accuracy:"5"};
   const dispatchBindingEdits=new Map();
   const attendanceFilters={startDate:null,endDate:null,team:""};
-  const att2Filters={date:null,month:null,team:"",shiftName:"白班"};
+  const att2Filters={date:null,month:null,team:""};
   let att3ConfirmationContext=null;
   let attendanceEditorVersion="",attendanceRenderedToday="";
   const haulSummaryFilters={startDate:null,endDate:null,mode:"crew",personId:"",vehicleId:""};
@@ -80,8 +80,8 @@
   }
   const attendanceRate=row=>row.due?(row.present/row.due*100).toFixed(1)+"%":"—";
   function renderDailyAttendance(){
-    attendanceRenderedToday=T.date();const date=att2Filters.date||T.date();
-    $("title").textContent="按日考勤";$("subtitle").textContent=date+" · "+(att2Filters.team||"全部生产班组")+" · 白夜班按任务时段累计";
+    attendanceRenderedToday=T.date();const date=att2Filters.date||MineAttendanceBoard.addDays(T.date(),-1);if(!att2Filters.month)att2Filters.month=date.slice(0,7);
+    $("title").textContent="按日考勤";$("subtitle").textContent=date+" · "+(att2Filters.team||"请选择班组")+" · "+MineAttendanceBoard.scheduleFor(d,att2Filters.team||"",date).label;
     attendanceFilters.startDate=date;attendanceFilters.endDate=date;attendanceFilters.team=att2Filters.team;
     return MineAttendanceBoard.daily(d,m,att2Filters,T.date());
   }
@@ -102,12 +102,13 @@
     const model=MineAttendanceBoard.build(d,m,workDate,workDate),p=model.people.find(p=>p.id===personId),cell=MineAttendanceBoard.cellAt(model,personId,workDate);
     if(!p)throw new Error("人员记录不存在，请刷新后重试");
     const dayReady=MineAttendanceBoard.shiftState(d,p.team,workDate,"白班").ready,nightReady=MineAttendanceBoard.shiftState(d,p.team,workDate,"夜班").ready;
-    if(!(shiftName==="夜班"?nightReady:dayReady))return toast("本班任务尚未结束或未发布，结束后才能确认考勤");
+    const schedule=MineAttendanceBoard.scheduleFor(d,p.team,workDate),maxDay=schedule.limits["白班"]??1,maxNight=schedule.limits["夜班"]??1;
+    if(!(shiftName==="夜班"?nightReady:dayReady))return toast("当天排班尚未全部结束、未到次日或未发布，暂不能确认考勤");
     const record=cell?.manual,decision=record?.attendanceDecision,expectedUpdatedAt=record?.updatedAt||"",expectedDecisionId=decision?.id||"",expectedSourceStamp=MineAttendanceBoard.sourceStamp(d,personId,workDate),options=[["","跟随任务 / 原规则"],["0","不计考勤（0班）"],["0.5","半班（0.5班）"],["1","整班（1班）"]];
     const source=(cell?.entries||[]).map(e=>'<tr><td>'+esc(e.shiftName)+'</td><td>'+esc(e.vehicleCode||"人员任务")+'</td><td>'+esc(when(e.startAt))+'</td><td>'+esc(when(e.endAt))+'</td><td>'+esc(e.phase==="ended"?"已结束":e.phase==="running"?"进行中":e.phase==="invalid"?"时间待核对":"待开始")+'</td></tr>').join("");
     const changes=(record?.history||[]).filter(h=>h.action==="调度确认日考勤").slice().reverse().map(h=>'<p>'+esc(when(h.at)+" · "+(h.name||h.by)+" · 白班 "+(h.toDecision?.dayUnits==null?"跟随任务":h.toDecision.dayUnits+"班")+" / 夜班 "+(h.toDecision?.nightUnits==null?"跟随任务":h.toDecision.nightUnits+"班")+(h.toDecision?.note?" · "+h.toDecision.note:""))+'</p>').join("");
-    const body='<p><strong>'+esc(p.name)+'</strong> · '+esc(p.team)+' · '+esc(workDate)+'</p><p class="help">当前查看'+esc(shiftName||"白班")+'。先工作，下班后确认；仅已结束的班次可调整，未分任务人员也须等本班结束。</p><div class="form-grid">'+select("att3DayUnits","白班考勤"+(dayReady?"":"（任务未结束，暂不可确认）"),options,dayReady&&decision?.dayUnits!=null?String(decision.dayUnits):"").replace('<select ','<select '+(dayReady?"":'disabled '))+select("att3NightUnits","夜班考勤"+(nightReady?"":"（任务未结束，暂不可确认）"),options,nightReady&&decision?.nightUnits!=null?String(decision.nightUnits):"").replace('<select ','<select '+(nightReady?"":'disabled '))+'</div><p class="att3-confirmation-preview" id="att3ConfirmationPreview"></p><label>考勤说明（选填）<textarea name="att3Note" rows="3" maxlength="500" placeholder="例如：上午半班、下午休息，夜班整班">'+esc(decision?.note||"")+'</textarea></label><p class="help">保存后日合计、月汇总自动更新。选择“跟随任务 / 原规则”可恢复默认计算，原人工记录和调整历史保留。</p><details><summary>任务依据与原记录</summary>'+(source?'<div class="table-wrap"><table><thead><tr><th>班次</th><th>设备</th><th>开始</th><th>结束</th><th>状态</th></tr></thead><tbody>'+source+'</tbody></table></div>':'<p>本人未分配任务；本班任务已结束，可按现场情况确认考勤。</p>')+(record&&(record.status||record.note)?'<p>'+esc("原人工记录："+(record.status||"未登记")+"；"+(record.note||"无备注"))+'</p>':"")+'</details>'+(changes?'<details><summary>调度确认历史</summary>'+changes+'</details>':"");
-    att3ConfirmationContext={cell:cell||{entries:[],manual:null}};
+    const body='<p><strong>'+esc(p.name)+'</strong> · '+esc(p.team)+' · '+esc(workDate)+'</p><p class="help">当前查看'+esc(shiftName||"白班")+'。第二天确认前一天；按当天全部排班时段结束后开放，未分任务人员也一样。</p><div class="form-grid">'+select("att3DayUnits","白班考勤"+(dayReady?"":"（任务未结束，暂不可确认）"),options.filter(([v])=>v===""||Number(v)<=maxDay).map(([v,t])=>[v,v==="0.5"&&maxDay===0.5?"上满（0.5个考勤）":t]),dayReady&&decision?.dayUnits!=null&&decision.dayUnits<=maxDay?String(decision.dayUnits):"").replace('<select ','<select '+(dayReady?"":'disabled '))+select("att3NightUnits","夜班考勤"+(nightReady?"":"（任务未结束，暂不可确认）"),options.filter(([v])=>v===""||Number(v)<=maxNight).map(([v,t])=>[v,v==="0.5"&&maxNight===0.5?"上满（0.5个考勤）":t]),nightReady&&decision?.nightUnits!=null&&decision.nightUnits<=maxNight?String(decision.nightUnits):"").replace('<select ','<select '+(nightReady?"":'disabled '))+'</div><p class="att3-confirmation-preview" id="att3ConfirmationPreview"></p><label>考勤说明（选填）<textarea name="att3Note" rows="3" maxlength="500" placeholder="例如：上午半班、下午休息，夜班整班">'+esc(decision?.note||"")+'</textarea></label><p class="help">保存后日合计、月汇总自动更新。选择“跟随任务 / 原规则”可恢复默认计算，原人工记录和调整历史保留。</p><details><summary>任务依据与原记录</summary>'+(source?'<div class="table-wrap"><table><thead><tr><th>班次</th><th>设备</th><th>开始</th><th>结束</th><th>状态</th></tr></thead><tbody>'+source+'</tbody></table></div>':'<p>本人未分配任务；本班任务已结束，可按现场情况确认考勤。</p>')+(record&&(record.status||record.note)?'<p>'+esc("原人工记录："+(record.status||"未登记")+"；"+(record.note||"无备注"))+'</p>':"")+'</details>'+(changes?'<details><summary>调度确认历史</summary>'+changes+'</details>':"");
+    att3ConfirmationContext={cell:cell||{entries:[],manual:null,dayReady,nightReady,maxDay,maxNight}};
     show("确认考勤 · "+p.name,body,form=>operate("attendanceDecision",{personId,workDate,dayUnits:dayReady?form.get("att3DayUnits"):(decision?.dayUnits??null),nightUnits:nightReady?form.get("att3NightUnits"):(decision?.nightUnits??null),note:form.get("att3Note"),expectedUpdatedAt,expectedDecisionId,expectedSourceStamp},"考勤已确认，日月汇总已更新"),"保存考勤");
     syncAtt3Confirmation();
   }
@@ -414,9 +415,6 @@
     try{if(scope.mode==="person")window.MineTableExport.downloadSheets([{name:"人员逐日明细",columns:fields,records:rows,title,notes},...personnelMatrixSheets(report)],title);else window.MineTableExport.download(fields,rows,title,{notes});toast("Excel 已导出");}catch(error){toast("导出失败："+error.message);}
   }
   function openAction(action,key){const s=session();
-    if(action==="att2Previous"||action==="att2Next"||action==="att2Today"){
-      if(role!=="dispatch")return;att2Filters.date=action==="att2Today"?T.date():MineAttendanceBoard.addDays(att2Filters.date||T.date(),action==="att2Next"?1:-1);refresh();return;
-    }
     if(action==="att2MonthDay"){
       if(role!=="dispatch")return;const [day,team]=String(key||"").split("|");if(!haulSummaryValidDate(day))return;
       att2Filters.date=day;att2Filters.team=["生产A组","生产B组"].includes(team)?team:"";view="attendanceDaily";refresh();return;
@@ -608,7 +606,6 @@
   window.addEventListener("message",event=>{if(event.origin===location.origin&&event.source===$("logisticsFrame").contentWindow&&event.data?.type==="mine-close-logistics")$("logisticsDialog").close();});
   document.addEventListener("change",event=>{
     if(["att3DayUnits","att3NightUnits"].includes(event.target.name)){syncAtt3Confirmation();return;}
-    if(event.target.name==="att3Shift"){if(role!=="dispatch")return;att2Filters.shiftName=["白班","夜班","全部班次"].includes(event.target.value)?event.target.value:"白班";refresh();return;}
     if(["att2Date","att2Month","att2Team"].includes(event.target.name)){
       if(role!=="dispatch")return;const name=event.target.name,value=event.target.value;
       if(name==="att2Date"){if(!haulSummaryValidDate(value))return toast("请选择有效考勤日期");att2Filters.date=value;att2Filters.month=value.slice(0,7);}
