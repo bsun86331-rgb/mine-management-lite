@@ -7,7 +7,7 @@
   let d,m,person,actor,view=role==="dispatch"?"tasks":"work",modalSave=null,busy=false,signature="",watchId=null,gpsTimer=null,gpsFetching=false,gpsGeneration=0,positionBusy=false,lastQueuedPoint=null,tracking=false,photoUrls=[],modalToken=0,recordSearch="",taskClockSignature="",publishPreviewState=null,selectedDispatchShift=null,dispatchShiftLocked=false,timeConfiguredShift=null,dispatchGroups={},dispatchProductionDate=null,shiftMinute=null,zoneCenterFix=null,zoneFixRequest=0,lastSimulation={lat:"",lng:"",accuracy:"5"};
   const dispatchBindingEdits=new Map();
   const attendanceFilters={startDate:null,endDate:null,team:""};
-  const att2Filters={date:null,month:null,team:"",unscheduledOpen:false};
+  const att2Filters={date:null,month:null,team:""};
   let att3ConfirmationContext=null;
   let attendanceEditorVersion="",attendanceRenderedToday="";
   const haulSummaryFilters={startDate:null,endDate:null,mode:"crew",personId:"",vehicleId:""};
@@ -97,15 +97,16 @@
     const parse=value=>value===""?null:Number(value),summary=MineAttendanceBoard.resolveUnits(att3ConfirmationContext.cell,{dayUnits:parse(day.value),nightUnits:parse(night.value)});
     output.textContent="白班 "+summary.dayUnits+" 班 ＋ 夜班 "+summary.nightUnits+" 班 ＝ 当日 "+summary.units+" 班";
   }
-  function confirmUnscheduledAttendance(personId,workDate){
+  function confirmUnscheduledGroup(){
     if(role!=="dispatch")return;
-    const p=m.people.find(p=>p.id===personId);if(!p)return toast("人员不存在，请刷新");
-    const state=MineAttendanceBoard.unscheduledState(d,personId,p.team,workDate);
-    if(!state.ready)return toast(state.error||"请在次日确认未排班考勤");
-    const model=MineAttendanceBoard.build(d,m,workDate,workDate),record=MineAttendanceBoard.cellAt(model,personId,workDate)?.manual,decision=record?.unscheduledDecision,expectedUpdatedAt=record?.updatedAt||"",expectedSourceStamp=MineAttendanceBoard.sourceStamp(d,personId,workDate);
-    const changes=(record?.history||[]).filter(h=>h.action==="未排班考勤判断").slice().reverse().map(h=>'<p>'+esc(when(h.at)+" · "+h.name+" · "+h.toDecision.units+"个考勤 · "+h.toDecision.note)+'</p>').join("");
-    const body='<p><strong>'+esc(p.name)+'</strong> · '+esc(p.team+" · "+workDate)+'</p><p class="help">'+(state.onLeave?'当日有已批准请假，不记考勤；未销假一直按请假处理。':'未排班不自动认定缺勤。下雨、检查等非司机原因，可正常记考勤；记1个必须填写原因。')+'</p>'+select("attNoScheduleUnits","调度判断",state.onLeave?[["0","请假，不记考勤（0）"]]:[["","请选择判断结果"],["1","非司机原因，正常记考勤（1）"],["0","不记考勤（0）"]],state.onLeave?"0":decision?String(decision.units):"")+'<label>原因 / 说明<textarea name="attNoScheduleNote" rows="3" maxlength="500" placeholder="例如：下雨停工、现场检查">'+esc(decision?.note||"")+'</textarea></label><p class="help">保存后自动进入月汇总。若排班或请假发生变化，需要重新打开核对。</p>'+(changes?'<details><summary>判断历史</summary>'+changes+'</details>':"");
-    show("未排班考勤 · "+p.name,body,form=>{if(form.get("attNoScheduleUnits")==="")throw Error("请选择判断结果");return operate("unscheduledAttendance",{personId,workDate,units:form.get("attNoScheduleUnits"),note:form.get("attNoScheduleNote"),expectedUpdatedAt,expectedSourceStamp},"考勤判断已保存，月汇总已更新");},"保存考勤");
+    const team=att2Filters.team,workDate=att2Filters.date||MineAttendanceBoard.addDays(T.date(),-1),plan=MineAttendanceBoard.unscheduledGroup(d,m,team,workDate);
+    if(!plan.ready)return toast(plan.error);
+    const expectedGroupStamp=plan.stamp;
+    const rows=plan.members.map(p=>'<tr><td>'+esc(p.name)+'</td><td>'+esc(p.onLeave?"请假，自动排除（0个）":"按整组选择统一设置")+'</td></tr>').join("");
+    const history=plan.members.flatMap(p=>(p.record?.history||[]).filter(h=>h.toDecision?.batchId).map(h=>h.toDecision));
+    const batches=[...new Map(history.map(h=>[h.batchId,h])).values()].sort((a,b)=>String(b.at).localeCompare(String(a.at))).map(h=>'<p>'+esc(when(h.at)+" · "+(h.name||"调度")+" · 整组"+h.groupUnits+"个（请假除外） · "+(h.note||"无说明"))+'</p>').join("");
+    const body='<p><strong>'+esc(team)+'</strong> · '+esc(workDate)+' · 未排班</p><p>本组 '+plan.members.length+' 人，可统一设置 '+(plan.members.length-plan.excluded)+' 人；请假 '+plan.excluded+' 人，自动按0个考勤处理。</p>'+select("attGroupUnits","整组判断",[["","请选择判断结果"],["1","正常记考勤（每人1个，请假除外）"],["0","不记考勤（每人0个）"]],"")+'<label>原因 / 说明<textarea name="attGroupNote" rows="3" maxlength="500" placeholder="例如：下雨停工、现场检查；正常记考勤时填写原因"></textarea></label><p class="help">保存后统一更新本日期、本班组所有在岗人员的结果并进入月汇总，保留每个人的修改历史。请假或人员信息变化时需重新打开核对。</p><details><summary>本次人员范围与请假排除</summary><div class="table-wrap"><table><thead><tr><th>姓名</th><th>本次处理</th></tr></thead><tbody>'+rows+'</tbody></table></div></details>'+(batches?'<details><summary>整组判断历史</summary>'+batches+'</details>':"");
+    show("整组未排班判断",body,form=>operate("unscheduledAttendanceGroup",{team,workDate,units:form.get("attGroupUnits"),note:form.get("attGroupNote"),expectedGroupStamp},"整组考勤已保存，请假人员已自动排除"),"保存整组考勤");
   }
   function confirmDailyAttendance(personId,workDate,shiftName){
     if(role!=="dispatch")return;
@@ -429,8 +430,7 @@
       if(role!=="dispatch")return;const [day,team]=String(key||"").split("|");if(!haulSummaryValidDate(day))return;
       att2Filters.date=day;att2Filters.team=["生产A组","生产B组"].includes(team)?team:"";view="attendanceDaily";refresh();return;
     }
-    if(action==="att3UnscheduledPanel"){if(role!=="dispatch")return;att2Filters.unscheduledOpen=!att2Filters.unscheduledOpen;refresh();return;}
-    if(action==="att3Unscheduled"){const [personId,date]=String(key||"").split("|");return confirmUnscheduledAttendance(personId,date);}
+    if(action==="att3UnscheduledPanel")return confirmUnscheduledGroup();
     if(action==="att3Confirm"){
       if(role!=="dispatch")return;const [id,day,shift]=String(key||"").split("|");if(!haulSummaryValidDate(day))return;
       return confirmDailyAttendance(id,day,shift);
@@ -619,7 +619,6 @@
   document.addEventListener("change",event=>{
     if(["att3DayUnits","att3NightUnits"].includes(event.target.name)){syncAtt3Confirmation();return;}
     if(["att2Date","att2Month","att2Team"].includes(event.target.name)){
-      if(event.target.name!=="att2Month")att2Filters.unscheduledOpen=false;
       if(role!=="dispatch")return;const name=event.target.name,value=event.target.value;
       if(name==="att2Date"){if(!haulSummaryValidDate(value))return toast("请选择有效考勤日期");att2Filters.date=value;att2Filters.month=value.slice(0,7);}
       if(name==="att2Month"){try{MineAttendanceBoard.monthRange(value);}catch(error){return toast(error.message);}att2Filters.month=value;}

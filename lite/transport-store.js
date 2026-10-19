@@ -330,6 +330,28 @@
       if(t.status==="voided")fail("该车次已经作废");t.previousStatus=t.status;t.status="voided";t.voidedBy=a.id;t.voidedAt=now();t.voidNote=named(x.note,"作废说明");const s=d.shifts.find(s=>s.id===t.shiftId);if(s&&!shiftTrip(d,s)){resetCandidate(s);s.tempExcavatorId=null;}notify(d,t.personId,"车次已作废/冲销，汽车和实际挖机统计同步更新",t.id);notify(d,"exc:"+t.excavatorId,"车次已作废/冲销："+t.vehicleCode,t.id);audit(d,a,"车次作废/冲销",t.voidNote,{tripId:t.id});return;
     }
     if(type==="correctMaterial"){dispatchOnly(a);const t=find("trips",x.id);t.corrections=[...(t.corrections||[]),{at:now(),by:a.id,from:t.material||"未分类",to:materialValue(x.material)||"未分类",note:named(x.note,"调整说明")}];t.material=materialValue(x.material)||"未分类";t.materialSource="调度修正";audit(d,a,"修正物料分类",t.material,{tripId:t.id});return;}
+    if(type==="unscheduledAttendanceGroup"){
+      dispatchOnly(a);
+      const team=String(x.team||""),workDate=String(x.workDate||""),note=String(x.note||"").trim(),units=Number(x.units);
+      if(x.units==null||x.units===""||![0,1].includes(units))fail("请选择整组正常考勤或不记考勤");
+      if(note.length>500)fail("考勤备注最多500字");
+      if(units===1&&!note)fail("请填写下雨、检查等非司机原因");
+      if(!window.MineAttendanceBoard)fail("考勤组件尚未加载");
+      const plan=window.MineAttendanceBoard.unscheduledGroup(d,m,team,workDate);
+      if(!plan.ready)fail(plan.error);
+      if(x.expectedGroupStamp!==plan.stamp)fail("班组人员、请假、排班或考勤记录已变化，请重新打开核对后整组保存");
+      const draft=clone(d),batchId=uid();
+      for(const member of plan.members){
+        const id=execute(draft,m,a,"unscheduledAttendance",{personId:member.personId,workDate,units:member.onLeave?0:units,note,expectedUpdatedAt:member.record?.updatedAt||"",expectedSourceStamp:member.sourceStamp});
+        const record=draft.attendanceRecords.find(r=>r.id===id);
+        Object.assign(record.unscheduledDecision,{batchId,groupTeam:team,groupUnits:units,excludedForLeave:member.onLeave});
+        record.history.at(-1).toDecision=clone(record.unscheduledDecision);
+        Object.assign(record.history.at(-1),{fromTeam:record.team,toTeam:team});
+        Object.assign(record,{team,personName:member.name});
+      }
+      audit(draft,a,"整组未排班考勤判断",team+"；"+workDate+"；统一"+units+"个考勤；请假排除"+plan.excluded+"人",{batchId,team,workDate,personCount:plan.members.length,excludedCount:plan.excluded});
+      Object.assign(d,draft);return {batchId,count:plan.members.length,excluded:plan.excluded};
+    }
     if(type==="unscheduledAttendance"){
       dispatchOnly(a);
       const personId=String(x.personId||""),workDate=String(x.workDate||""),units=Number(x.units),note=String(x.note||"").trim(),person=m.people.find(p=>p.id===personId);
@@ -417,7 +439,7 @@
  const w=release||window.MineTaskEngine.timeWindow(c.workDate,d.shiftTimes[c.shiftName]);
  window.MineLeave.assertSchedule(p,w.startAt,w.endAt);
  }
- async function act(type,args,actor){if(!navigator.locks?.request)fail("请使用支持事务锁的新版浏览器");await ready();const transaction=()=>navigator.locks.request(KEY,async()=>{const record=await readStorage();if(!record&&cachedToken!=="empty")fail("运输台账存储记录缺失，请保留浏览器数据");cacheRecord(record);const d=get(),m=L.main(),a=actorFrom(m,actor),result=execute(d,m,a,type,args||{}),next={raw:JSON.stringify(d),token:uid()};await writeStorage(next);cacheRecord(next);signalStorage();return result;});if(["productionGroup","auxiliaryPlan","assignment","activateAssignment","publishTasks","openShift","unscheduledAttendance"].includes(type)){if(!window.MineLeave)fail("请销假组件尚未加载，请刷新");return window.MineLeave.withSchedulingLock(transaction);}return transaction();}
+ async function act(type,args,actor){if(!navigator.locks?.request)fail("请使用支持事务锁的新版浏览器");await ready();const transaction=()=>navigator.locks.request(KEY,async()=>{const record=await readStorage();if(!record&&cachedToken!=="empty")fail("运输台账存储记录缺失，请保留浏览器数据");cacheRecord(record);const d=get(),m=L.main(),a=actorFrom(m,actor),result=execute(d,m,a,type,args||{}),next={raw:JSON.stringify(d),token:uid()};await writeStorage(next);cacheRecord(next);signalStorage();return result;});if(["productionGroup","auxiliaryPlan","assignment","activateAssignment","publishTasks","openShift","unscheduledAttendance","unscheduledAttendanceGroup"].includes(type)){if(!window.MineLeave)fail("请销假组件尚未加载，请刷新");return window.MineLeave.withSchedulingLock(transaction);}return transaction();}
   window.MineTransport={KEY,get,ready,sync,stamp,context,act,defaults,materialTypes,shiftTimeDefaults,currentShift,date,distance,inside,validZone,ownShift,shiftTrip,liveTrip,equipmentState,working,isExcavator,isHaulTruck,isAuxiliaryVehicle,auxiliaryRoles,draftSlots,visibleMessages,chatVehicleAt};
 })();
 
