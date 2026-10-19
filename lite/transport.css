@@ -340,3 +340,7 @@ button.attendance-status:hover{border-color:#78a98b}
 
 /* Automatic roster-derived attendance shift. */
 .att2-filters label.att2-auto-shift{flex:1 1 270px;min-width:220px;max-width:350px}.att2-auto-shift input[readonly]{background:#f3f7f4;color:#173d31;font-weight:600;cursor:default}
+
+/* Per-phase transport evidence in compact attendance cards. */
+.att3-person-card.att3-trip-present{background:#e7f4e8;border-color:#9ac8a2;color:#176b4a}
+.att3-person-card.att3-trip-anomaly{background:#fff1df;border-color:#e0ac68;color:#9b4a0b}
