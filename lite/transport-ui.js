@@ -430,6 +430,7 @@
       if(role!=="dispatch")return;const [day,team]=String(key||"").split("|");if(!haulSummaryValidDate(day))return;
       att2Filters.date=day;att2Filters.team=["生产A组","生产B组"].includes(team)?team:"";view="attendanceDaily";refresh();return;
     }
+    if(action==="att3LeaveDetails"){if(role!=="dispatch")return toast("仅调度可查看考勤请假信息");const [personId,date]=String(key||"").split("|");return show("请假信息",window.MineAttendanceBoard.leaveDetails(m,personId,date),null);}
     if(action==="att3UnscheduledPanel")return confirmUnscheduledGroup();
     if(action==="att3Confirm"){
       if(role!=="dispatch")return;const [id,day,shift]=String(key||"").split("|");if(!haulSummaryValidDate(day))return;

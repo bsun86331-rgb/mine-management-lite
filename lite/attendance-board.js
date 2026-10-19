@@ -154,7 +154,7 @@ function daily(d,m,filters,today){
  let leavePeople=[],leaveError="";
  if(team){try{leavePeople=selected.filter(p=>leaveOnDay(p.id,date));}catch(e){leaveError=e.message;}}
  const leaveIds=new Set(leavePeople.map(p=>p.id));
- const leavePanel=team?'<section class="panel att3-scene" id="att3LeavePanel"><h2>请假人员 · '+esc(team)+'</h2><div class="att3-card-list">'+(leaveError?'<p class="muted">'+esc(leaveError)+'</p>':leavePeople.map(p=>'<article class="att3-person-card confirmed-zero"><strong>'+esc(p.name)+'</strong><span>请假</span></article>').join("")||'<p class="muted">暂无请假人员。</p>')+'</div></section>':"";
+ const leavePanel=team?'<section class="panel att3-scene" id="att3LeavePanel"><h2>请假人员 · '+esc(team)+'</h2><div class="att3-card-list">'+(leaveError?'<p class="muted">'+esc(leaveError)+'</p>':leavePeople.map(p=>'<button type="button" class="att3-person-card confirmed-zero" data-action="att3LeaveDetails" data-id="'+esc(p.id+"|"+date)+'" aria-label="'+esc(p.name+" 请假，查看请假信息")+'"><strong>'+esc(p.name)+'</strong><span>请假</span></button>').join("")||'<p class="muted">暂无请假人员。</p>')+'</div></section>':"";
  if(team&&schedule.kind==="none"){
   const cards=selected.filter(p=>!leaveIds.has(p.id)).map(p=>{const state=unscheduledState(d,p.id,team,date),c=cellAt(model,p.id,date),decision=c?.manual?.unscheduledDecision,status=state.error?state.error:!state.ready?"次日开始确认":state.onLeave?"请假 · 自动排除":decision?(decision.units?"正常考勤":"不记考勤"):"待整组判断";return '<article class="att3-person-card '+(decision?(c?.units>0?"confirmed-present":"confirmed-zero"):"unconfirmed")+'"><strong>'+esc(p.name)+'</strong><span>'+esc(status)+'</span></article>';}).join("");
   return tabs("daily")+controls+'<section id="att3UnscheduledPanel" class="panel att3-scene"><h2>班组判断结果 · '+esc(team)+'</h2><p class="help">通过班次框后的“未排班判断”统一设置整个班组。请假人员自动排除、不记考勤；下方只显示各人的结果。</p><div class="att3-card-list">'+(cards||'<p>暂无非请假人员。</p>')+'</div></section>'+leavePanel+rule;
@@ -197,11 +197,26 @@ function monthly(d,m,filters,today){
  }).join("");
  return tabs("monthly")+'<div class="att2-filters"><label>统计月份<input type="month" name="att2Month" value="'+esc(month)+'"></label>'+teamSelect(team)+'</div><div class="attendance-strip"><span>人员 <b>'+people.length+'</b> 人</span><span>本月已计考勤 <b>'+fmt(total)+'</b> 班</span><span>由按日考勤自动汇总</span></div><section class="panel"><div class="table-wrap att2-month-wrap"><table class="att2-month-table" aria-label="按月考勤汇总表"><thead><tr><th class="att2-sticky-name">姓名 / 班组</th>'+days.map(day=>'<th>'+esc(day.slice(5).replace("-","/"))+'</th>').join("")+'<th class="att2-sticky-total">合计（班）</th></tr></thead><tbody>'+rows+'</tbody><tfoot><tr><th class="att2-sticky-name">每日合计</th>'+days.map(day=>'<td>'+fmt(people.reduce((n,p)=>n+(cellAt(model,p.id,day)?.units||0),0))+'</td>').join("")+'<th class="att2-sticky-total">'+fmt(total)+'</th></tr></tfoot></table></div></section>'+rule+'<p class="help">点击日期格跳转当日任务式考勤面板。每日及月合计均以“班”为单位，不将1.5班截成1天；进行中、待开始和时段冲突尚未计入。调度确认优先，原人工记录在无任务日补充，未来无记录显示“—”。</p>';
 }
+
+function leaveDetails(m,id,date){
+ const S=window.MineLeave,p=(m.people||[]).find(p=>p.id===id);
+ if(!p||!validDate(date)||!S?.get||!S?.leaveWindow)throw Error("请假信息暂不可用，请刷新后重试");
+ const start=Date.parse(date+"T00:00:00+08:00"),end=start+86400000;
+ const rows=S.get().requests.filter(r=>r.personId===id&&r.status==="approved"&&(()=>{const w=S.leaveWindow(r);return w.startAt<end&&w.endAt>start;})());
+ const part=v=>v==="pm"?"下午":"上午",status={pending:"待审批",approved:"已批准",rejected:"已驳回",withdrawn:"已撤回"};
+ return '<p><strong>'+esc(p.name)+'</strong> · '+esc(p.team||"未设置班组")+' · '+esc(date)+'</p>'+(!rows.length?'<p>该日期已无有效请假记录，请关闭后刷新考勤。</p>':rows.map(r=>{
+ const w=S.actualWindow(r),mins=Math.max(0,Math.floor((w.endAt-w.startAt)/60000)),duration=Math.floor(mins/1440)+"天"+Math.floor(mins%1440/60)+"小时"+mins%60+"分";
+ const fields=[["请假类型",r.type],["申请时段（预计）",r.startDate+" "+part(r.startPart)+" 至 "+r.endDate+" "+part(r.endPart)],["申请天数",r.days+"天"],["当前状态",S.leaveState(r)||"已批准"],["实际请假时长",duration+(S.leaveState(r)==="请假中"?"（持续累计）":"")],["请假原因",r.reason||"未填写"],["审批路线",r.route?.label||"未记录"],["审批人",r.decisionName||"未记录"],["审批时间",time(r.decisionAt)],["审批意见",r.decisionNote||"未填写"],["申请时间",time(r.createdAt)]];
+ if(r.returnRequest){const q=r.returnRequest;fields.push(["销假状态",status[q.status]||q.status],["申请返岗时间",time(q.requestedReturnAt)],["销假说明",q.reason||"未填写"]);if(q.effectiveReturnAt)fields.push(["销假生效时间",time(q.effectiveReturnAt)]);}
+ return '<section class="att2-detail"><div class="position">'+fields.map(([label,value])=>'<div><span>'+esc(label)+'</span>'+esc(value)+'</div>').join("")+'</div></section>';
+ }).join(""));
+}
+
 function details(d,m,id,date){
  const model=build(d,m,date,date),p=model.people.find(p=>p.id===id),c=cellAt(model,id,date);
  if(!p)throw Error("人员记录不存在，请刷新后重试");
  const rows=c?.entries||[],legacy=c?.manual;
  return '<h3>'+esc(p.name+" · "+p.team+" · "+date)+'</h3><p>当日已计 <strong>'+fmt(c?.units)+' 班</strong></p>'+rows.map(e=>'<section class="att2-detail"><h3>'+esc(e.shiftName+" · "+(e.vehicleCode||"人员任务"))+'</h3><p>任务开始：'+esc(time(e.startAt))+'</p><p>任务结束：'+esc(time(e.endAt))+'</p><p>时长 '+fmt(e.hours)+' 小时；默认考勤 '+fmt(e.units)+' 个；'+(e.requiresTrips?esc("本时段"+e.tripCount+"车；"+(e.tripAnomaly?"异常，无车数待核对":"✓ 有考勤")):"")+'；'+esc(e.conflict?"时段重叠，暂不计":e.phase==="ended"?"已结束":e.phase==="running"?"进行中":"待开始")+'</p><small>来源：任务版本 '+esc(e.version)+' · '+esc(e.releaseId)+'</small></section>').join("")+(!rows.length?'<p>当天没有已发布人员任务。</p>':"")+(legacy?.attendanceDecision?'<section class="att2-detail"><h3>调度确认</h3><p>白班 '+esc(legacy.attendanceDecision.dayUnits==null?"跟随任务 / 原规则":fmt(legacy.attendanceDecision.dayUnits)+"班")+'；夜班 '+esc(legacy.attendanceDecision.nightUnits==null?"跟随任务 / 原规则":fmt(legacy.attendanceDecision.nightUnits)+"班")+'</p><p>'+esc(legacy.attendanceDecision.note||"无备注")+'</p><small>'+esc(time(legacy.attendanceDecision.at)+" · "+(legacy.attendanceDecision.name||"调度"))+'</small></section>':"")+(legacy&&(legacy.status||legacy.note)?'<section class="att2-detail"><h3>原人工记录（保留）</h3><p>'+esc(legacy.status||"未登记")+' · '+esc(legacy.note||"无备注")+'</p><small>'+esc(c.confirmed?"已由调度确认，原记录不重复累加。":rows.length?"同日已有任务，本条不重复累加。":"无任务，人工出勤按1班补充。")+'</small></section>':"")+'<button type="button" class="soft" data-action="att3Confirm" data-id="'+esc(id+"|"+date+"|白班")+'">确认 / 调整考勤</button> <button type="button" class="soft" data-action="attendanceDay" data-id="'+esc(id+"|"+date)+'">查看 / 登记原人工考勤</button>'+rule;
 }
-window.MineAttendanceBoard=Object.freeze({STANDARD_HOURS,unitsFor,monthRange,addDays,build,cellAt,resolveUnits,shiftState,scheduleFor,tripEvidence,unscheduledState,unscheduledGroup,assertUnscheduled,leaveOnDay,assertDecision,sourceStamp,daily,monthly,details});
+window.MineAttendanceBoard=Object.freeze({STANDARD_HOURS,unitsFor,monthRange,addDays,build,cellAt,resolveUnits,shiftState,scheduleFor,tripEvidence,unscheduledState,unscheduledGroup,assertUnscheduled,leaveOnDay,assertDecision,sourceStamp,daily,monthly,details,leaveDetails});
 })();
