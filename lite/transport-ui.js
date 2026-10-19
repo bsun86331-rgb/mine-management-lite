@@ -97,6 +97,16 @@
     const parse=value=>value===""?null:Number(value),summary=MineAttendanceBoard.resolveUnits(att3ConfirmationContext.cell,{dayUnits:parse(day.value),nightUnits:parse(night.value)});
     output.textContent="白班 "+summary.dayUnits+" 班 ＋ 夜班 "+summary.nightUnits+" 班 ＝ 当日 "+summary.units+" 班";
   }
+  function confirmUnscheduledAttendance(personId,workDate){
+    if(role!=="dispatch")return;
+    const p=m.people.find(p=>p.id===personId);if(!p)return toast("人员不存在，请刷新");
+    const state=MineAttendanceBoard.unscheduledState(d,personId,p.team,workDate);
+    if(!state.ready)return toast(state.error||"请在次日确认未排班考勤");
+    const model=MineAttendanceBoard.build(d,m,workDate,workDate),record=MineAttendanceBoard.cellAt(model,personId,workDate)?.manual,decision=record?.unscheduledDecision,expectedUpdatedAt=record?.updatedAt||"",expectedSourceStamp=MineAttendanceBoard.sourceStamp(d,personId,workDate);
+    const changes=(record?.history||[]).filter(h=>h.action==="未排班考勤判断").slice().reverse().map(h=>'<p>'+esc(when(h.at)+" · "+h.name+" · "+h.toDecision.units+"个考勤 · "+h.toDecision.note)+'</p>').join("");
+    const body='<p><strong>'+esc(p.name)+'</strong> · '+esc(p.team+" · "+workDate)+'</p><p class="help">'+(state.onLeave?'当日有已批准请假，不记考勤；未销假一直按请假处理。':'未排班不自动认定缺勤。下雨、检查等非司机原因，可正常记考勤；记1个必须填写原因。')+'</p>'+select("attNoScheduleUnits","调度判断",state.onLeave?[["0","请假，不记考勤（0）"]]:[["","请选择判断结果"],["1","非司机原因，正常记考勤（1）"],["0","不记考勤（0）"]],state.onLeave?"0":decision?String(decision.units):"")+'<label>原因 / 说明<textarea name="attNoScheduleNote" rows="3" maxlength="500" placeholder="例如：下雨停工、现场检查">'+esc(decision?.note||"")+'</textarea></label><p class="help">保存后自动进入月汇总。若排班或请假发生变化，需要重新打开核对。</p>'+(changes?'<details><summary>判断历史</summary>'+changes+'</details>':"");
+    show("未排班考勤 · "+p.name,body,form=>{if(form.get("attNoScheduleUnits")==="")throw Error("请选择判断结果");return operate("unscheduledAttendance",{personId,workDate,units:form.get("attNoScheduleUnits"),note:form.get("attNoScheduleNote"),expectedUpdatedAt,expectedSourceStamp},"考勤判断已保存，月汇总已更新");},"保存考勤");
+  }
   function confirmDailyAttendance(personId,workDate,shiftName){
     if(role!=="dispatch")return;
     const model=MineAttendanceBoard.build(d,m,workDate,workDate),p=model.people.find(p=>p.id===personId),cell=MineAttendanceBoard.cellAt(model,personId,workDate);
@@ -419,6 +429,7 @@
       if(role!=="dispatch")return;const [day,team]=String(key||"").split("|");if(!haulSummaryValidDate(day))return;
       att2Filters.date=day;att2Filters.team=["生产A组","生产B组"].includes(team)?team:"";view="attendanceDaily";refresh();return;
     }
+    if(action==="att3Unscheduled"){const [personId,date]=String(key||"").split("|");return confirmUnscheduledAttendance(personId,date);}
     if(action==="att3Confirm"){
       if(role!=="dispatch")return;const [id,day,shift]=String(key||"").split("|");if(!haulSummaryValidDate(day))return;
       return confirmDailyAttendance(id,day,shift);
@@ -638,4 +649,3 @@
   document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")stopGPS(true);else externalChange();});
   window.addEventListener("pagehide",()=>{stopGPS(true);releasePhotos();});window.addEventListener("storage",externalChange);window.addEventListener("focus",externalChange);setInterval(externalChange,1000);Promise.all([T.ready(),window.MineLeave.ready()]).then(()=>refresh()).catch(block);
 })();
-
