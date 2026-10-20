@@ -340,9 +340,12 @@
       return '<div class="auxiliary-item"><div class="production-equipment-card auxiliary-equipment-card">'+button("auxEquipment",card.id,v?(v.code||v.name||"已选设备"):(card.vehicleId?"设备失效，请重选":"选择设备"),"equipment-choice equipment-label")+button("auxDriver",card.id,p?(p.name+(valid?"":"（需重选）")):(card.personId?"人员失效，请重选":"选择司机"),"equipment-choice driver-label")+button("auxRemove",card.id,"移除","equipment-remove")+'</div>'+button("auxContent",card.id,"作业内容"+(card.content?" · 已设置":""),"auxiliary-content-button")+'</div>';
     }).join("")+'<button type="button" class="auxiliary-add" data-action="auxAdd" aria-label="增加辅助车辆">＋</button></div></section>';
   }
+  function unusedPersonScheduleState(p){
+    try{const c=productionContext(),w=window.MineTaskEngine.timeWindow(c.workDate,d.shiftTimes[c.shiftName]);if(window.MineLeave.schedulingConflict(p,w.startAt,w.endAt)||p.status==="休假")return {blocked:true,label:"请假 · 本班不可排班"};return {blocked:false,label:""};}catch{return {blocked:true,label:"请假状态待核对"};}
+  }
   function renderUnusedResources(){
-    const team=productionContext().team,vehicles=m.vehicles.filter(v=>draftAvailable("vehicleId",v.id,null)),people=m.people.filter(p=>L.active(p)&&p.team===team&&frontLineRoles.includes(p.applicationRole)&&eligibleForSchedule(p)&&draftAvailable("personId",p.id,null));
-    return '<section class="dispatch-lower-section"><h3>未进入分配的车辆 / 设备</h3><p class="help">绿色为可调配；红色为维修、保养、停用、暂停或作业占用。点击编号查看信息。</p><div class="unused-resource-list">'+(vehicles.map(v=>{const a=availability(v);return button("unusedVehicleInfo",v.id,(v.code||v.name||v.id)+" · "+a.label,"resource-chip"+(a.ok?"":" unavailable"));}).join("")||'<span class="muted">暂无未分配设备</span>')+'</div></section><section class="dispatch-lower-section"><h3>未进入分配的人员</h3><p class="help">仅显示所选班组未分配的一线人员，已批准请假且时段冲突的人员不参与排班。</p><div class="unused-resource-list">'+(people.map(p=>{const busy=d.shifts.some(s=>s.personId===p.id&&s.status!=="closed");return button("unusedPersonInfo",p.id,p.name+" · "+jobName(p)+" · "+p.team+" · "+(busy?"班次占用":"空闲"),"resource-chip"+(busy?" unavailable":""));}).join("")||'<span class="muted">暂无未分配人员</span>')+'</div></section>';
+    const team=productionContext().team,vehicles=m.vehicles.filter(v=>draftAvailable("vehicleId",v.id,null)),people=m.people.filter(p=>(L.active(p)||p.status==="休假")&&p.team===team&&frontLineRoles.includes(p.applicationRole)&&draftAvailable("personId",p.id,null));
+    return '<section class="dispatch-lower-section"><h3>未进入分配的车辆 / 设备</h3><p class="help">绿色为可调配；红色为维修、保养、停用、暂停或作业占用。点击编号查看信息。</p><div class="unused-resource-list">'+(vehicles.map(v=>{const a=availability(v);return button("unusedVehicleInfo",v.id,(v.code||v.name||v.id)+" · "+a.label,"resource-chip"+(a.ok?"":" unavailable"));}).join("")||'<span class="muted">暂无未分配设备</span>')+'</div></section><section class="dispatch-lower-section"><h3>未进入分配的人员</h3><p class="help">显示所选班组未分配的一线人员，包含请假人员；请假人员标红提示，本班请假冲突时仍不能排班。</p><div class="unused-resource-list">'+(people.map(p=>{const busy=d.shifts.some(s=>s.personId===p.id&&s.status!=="closed"),leave=unusedPersonScheduleState(p);return button("unusedPersonInfo",p.id,p.name+" · "+jobName(p)+" · "+p.team+" · "+(leave.blocked?leave.label:busy?"班次占用":"空闲"),"resource-chip"+(busy||leave.blocked?" unavailable":""));}).join("")||'<span class="muted">暂无未分配人员</span>')+'</div></section>';
   }
   const metres=value=>Number.isFinite(value)?value.toFixed(3):"未设置";
   function utmSummary(z){const c=window.MineUTM.zoneCoordinates(z);return "WGS84 / UTM "+(c.zone==null?"分区未设置":c.zone+(c.hemisphere||""))+" · X "+metres(c.easting)+" / Y "+metres(c.northing)+" 米";}
@@ -567,7 +570,7 @@
     }
     if(action==="unusedPersonInfo"){
       if(role!=="dispatch")return;const p=m.people.find(p=>p.id===key);if(!p)return toast("人员档案已变化");const actual=d.shifts.find(s=>s.personId===p.id&&s.status!=="closed");
-      return show("人员信息 · "+p.name,'<div class="position"><div><span>姓名</span>'+esc(p.name)+'</div><div><span>岗位</span>'+esc(jobName(p))+'</div><div><span>班组</span>'+esc(p.team||"—")+'</div><div><span>在岗状态</span>'+esc(p.status)+'</div><div><span>当前实际班次</span>'+esc(actual?actual.vehicleCode+" · "+actual.shiftName:"无设备班次占用")+'</div></div>',null);
+      return show("人员信息 · "+p.name,'<div class="position"><div><span>姓名</span>'+esc(p.name)+'</div><div><span>岗位</span>'+esc(jobName(p))+'</div><div><span>班组</span>'+esc(p.team||"—")+'</div><div><span>在岗状态</span>'+esc(p.status)+'</div><div><span>本班请假状态</span>'+esc(unusedPersonScheduleState(p).label||'无请假冲突')+'</div><div><span>当前实际班次</span>'+esc(actual?actual.vehicleCode+" · "+actual.shiftName:"无设备班次占用")+'</div></div>',null);
     }
     if(action==="assignment")return assignmentForm(key);
     if(action==="zone")return zoneForm(key);
