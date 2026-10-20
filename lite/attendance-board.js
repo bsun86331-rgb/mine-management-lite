@@ -85,9 +85,22 @@ function tripEvidence(d,entry){
  }
  return {required:true,count:unique.size};
 }
+// Daily punch pair follows the clock-in workDate, including overnight clock-out.
+function clockEvidence(m,id,team,date,punchIndex=null){
+ const p=(m.people||[]).find(p=>p.id===id),role=p?.applicationRole;
+ if(!TEAMS.includes(team)||["driver","excavator"].includes(role)||["汽车司机","挖机司机"].includes(p?.role))return {required:false,anomaly:false,reason:"",stamp:""};
+ if(leaveOnDay(id,date))return {required:false,anomaly:false,reason:"",stamp:"leave"};
+ const G=window.MineGPSClock;if(!G?.get)throw Error("GPS打卡记录尚未加载，请刷新后重试");
+ const records=punchIndex?(punchIndex.get(JSON.stringify([id,date]))||[]):G.get().punches.filter(r=>r.personId===id&&r.workDate===date);
+ const valid=v=>!!v&&Number.isFinite(Date.parse(v.at)),pair=records.some(r=>valid(r.in)&&valid(r.out)&&Date.parse(r.out.at)>=Date.parse(r.in.at));
+ const hasIn=records.some(r=>valid(r.in)),hasOut=records.some(r=>valid(r.out));
+ const reason=pair?"":!hasIn&&!hasOut?"缺少上班打卡和下班打卡":!hasIn?"缺少上班打卡":!hasOut?"缺少下班打卡":"上下班打卡未有效配对";
+ return {required:true,anomaly:!pair,reason,stamp:JSON.stringify(records.map(r=>[r.id,r.workDate,r.in?.at||"",r.out?.at||""]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))))};
+}
 function build(d,m,startDate,endDate,at=Date.now(),team=""){
  if(!validDate(startDate)||!validDate(endDate)||startDate>endDate)throw Error("请选择有效的考勤日期");
- const people=new Map(),cells=new Map(),latest=new Map();
+ const people=new Map(),cells=new Map(),latest=new Map(),punchIndex=new Map();
+ for(const r of window.MineGPSClock?.get?.().punches||[]){const k=JSON.stringify([r.personId,r.workDate]);if(!punchIndex.has(k))punchIndex.set(k,[]);punchIndex.get(k).push(r);}
  const active=p=>window.MineLogistics?window.MineLogistics.active(p):["在岗","已通过"].includes(p.status);
  const addPerson=(p,prefer=false)=>{if(p?.id&&(prefer||!people.has(p.id)))people.set(p.id,{id:p.id,name:p.name||p.id,team:p.team||""});};
  for(const p of m.people||[])if(TEAMS.includes(p.team)&&(!team||p.team===team)&&active(p))addPerson(p);
@@ -107,6 +120,7 @@ function build(d,m,startDate,endDate,at=Date.now(),team=""){
    addPerson(p,true);const cell=getCell(p,r.workDate),start=Date.parse(r.startAt),end=Date.parse(r.endAt),hours=(end-start)/3600000;
    if(seen.has(p.id)){seen.get(p.id).conflict=true;continue;}
    const entry={id:task.id||r.id+":"+p.id,releaseId:r.id,personId:p.id,personName:p.name,team:r.team,workDate:r.workDate,shiftName:r.shiftName,kind:task.kind||task.role||"auxiliary",vehicleCode:task.vehicleCode||"",vehicleId:task.vehicleId||"",content:task.content||"",groupNumber:task.groupNumber,startAt:r.startAt,endAt:r.endAt,hours,expectedUnits:scheduleFor(d,r.team,r.workDate,at).units[r.shiftName]??unitsFor(hours),phase:!Number.isFinite(start)||!Number.isFinite(end)||end<=start?"invalid":at<start?"scheduled":at<end?"running":"ended",version:r.version||1,conflict:false};
+   const gps=clockEvidence(m,p.id,r.team,r.workDate,punchIndex);entry.clockAnomaly=gps.anomaly;entry.clockReason=gps.reason;entry.clockStamp=gps.stamp;
    const evidence=tripEvidence(d,entry);entry.requiresTrips=evidence.required;entry.tripCount=evidence.count;entry.tripAnomaly=evidence.required&&evidence.count===0;
    seen.set(p.id,entry);cell.entries.push(entry);cell.source="tasks";
   }
@@ -122,13 +136,20 @@ function build(d,m,startDate,endDate,at=Date.now(),team=""){
   addPerson(person);const cell=getCell(person,record.workDate);cell.manual=record;if(legacy)cell.dayReady=true;
   if(unscheduled){const state=unscheduledState(d,record.personId,recordTeam,record.workDate,at);cell.unscheduled=true;cell.leaveBlocked=!state.ready||state.onLeave;cell.unscheduledReady=state.ready;}
  }
+ // Include non-driver personnel even without a task, so missing punches cannot disappear.
+ for(const p of people.values())for(let date=startDate;date<=endDate;date=addDays(date,1)){
+  const schedule=scheduleFor(d,p.team,date,at),ready=schedule.kind==="none"?date<localDay(at):["白班","夜班"].some(n=>shiftState(d,p.team,date,n,at).ready);
+  if(!ready)continue;const gps=clockEvidence(m,p.id,p.team,date,punchIndex);if(!gps.required)continue;
+  const cell=getCell(p,date);cell.clockEvidence=gps;
+  if(schedule.kind==="none"){cell.unscheduled=true;cell.leaveBlocked=false;cell.unscheduledReady=true;}
+ }
  for(const cell of cells.values()){
   for(let i=0;i<cell.entries.length;i++)for(let j=i+1;j<cell.entries.length;j++){
    const a=cell.entries[i],b=cell.entries[j];if(Date.parse(a.startAt)<Date.parse(b.endAt)&&Date.parse(b.startAt)<Date.parse(a.endAt)){a.conflict=true;b.conflict=true;}
   }
   for(const entry of cell.entries){
    if(entry.phase==="invalid"||entry.conflict){cell.issues++;entry.units=0;continue;}
-   entry.units=entry.phase==="ended"&&!entry.tripAnomaly?entry.expectedUnits:0;cell.units+=entry.units;
+   entry.units=entry.phase==="ended"&&!entry.tripAnomaly&&!entry.clockAnomaly?entry.expectedUnits:0;cell.units+=entry.units;
    if(entry.phase==="running")cell.running++;if(entry.phase==="scheduled")cell.scheduled++;
    if(entry.phase!=="ended")cell.plannedUnits+=entry.expectedUnits;
   }
@@ -137,17 +158,17 @@ function build(d,m,startDate,endDate,at=Date.now(),team=""){
  return {people:[...people.values()].sort((a,b)=>a.team.localeCompare(b.team,"zh-CN")||a.name.localeCompare(b.name,"zh-CN")||a.id.localeCompare(b.id)),cells,releases,startDate,endDate,at};
 }
 function resolveUnits(cell,decision=cell?.manual?.attendanceDecision){
- if(cell?.unscheduled){const decision=cell.manual?.unscheduledDecision,units=cell.leaveBlocked?0:decision?(decision.units===1&&String(decision.note||"").trim()?1:0):cell.manual?.status==="出勤"?1:0;return {dayUnits:units,nightUnits:0,units,autoDay:0,autoNight:0,confirmed:!!decision,dayConfirmed:!!decision,nightConfirmed:false,source:"unscheduled",issues:0,running:0,scheduled:0};}
+ if(cell?.unscheduled){const decision=cell.manual?.unscheduledDecision,units=cell.leaveBlocked?0:decision?(decision.units===1&&String(decision.note||"").trim()?1:0):!cell.clockEvidence?.anomaly&&cell.manual?.status==="出勤"?1:0;return {dayUnits:units,nightUnits:0,units,autoDay:0,autoNight:0,confirmed:!!decision,dayConfirmed:!!decision,nightConfirmed:false,source:"unscheduled",issues:!decision&&cell.clockEvidence?.anomaly?1:0,running:0,scheduled:0};}
  const entries=cell?.entries||[],hasDay=cell?.dayReady!==false&&[0,0.5,1].includes(decision?.dayUnits),hasNight=cell?.nightReady!==false&&[0,0.5,1].includes(decision?.nightUnits),confirmed=hasDay||hasNight;
  let autoDay=entries.filter(e=>e.shiftName==="白班").reduce((n,e)=>n+(e.units||0),0),autoNight=entries.filter(e=>e.shiftName==="夜班").reduce((n,e)=>n+(e.units||0),0);
- if(!entries.length&&!confirmed&&cell?.dayReady!==false&&cell?.manual?.status==="出勤")autoDay=Math.min(1,cell?.maxDay??1);
+ if(!entries.length&&!confirmed&&!cell?.clockEvidence?.anomaly&&cell?.dayReady!==false&&cell?.manual?.status==="出勤")autoDay=Math.min(1,cell?.maxDay??1);
  const dayUnits=hasDay?Math.min(decision.dayUnits,cell?.maxDay??1):autoDay,nightUnits=hasNight?Math.min(decision.nightUnits,cell?.maxNight??1):autoNight;
  const unresolved=e=>!(e.shiftName==="白班"?hasDay:e.shiftName==="夜班"?hasNight:false);
- return {dayUnits,nightUnits,units:dayUnits+nightUnits,autoDay,autoNight,confirmed,dayConfirmed:hasDay,nightConfirmed:hasNight,source:confirmed?"confirmed":entries.length?"tasks":cell?.manual?"manual":"none",issues:entries.filter(e=>(e.conflict||e.phase==="invalid"||e.tripAnomaly)&&unresolved(e)).length,running:entries.filter(e=>e.phase==="running"&&unresolved(e)).length,scheduled:entries.filter(e=>e.phase==="scheduled"&&unresolved(e)).length};
+ return {dayUnits,nightUnits,units:dayUnits+nightUnits,autoDay,autoNight,confirmed,dayConfirmed:hasDay,nightConfirmed:hasNight,source:confirmed?"confirmed":entries.length?"tasks":cell?.manual?"manual":"none",issues:entries.filter(e=>(e.conflict||e.phase==="invalid"||e.tripAnomaly||e.clockAnomaly)&&unresolved(e)).length+(cell?.clockEvidence?.anomaly?["白班","夜班"].filter(n=>(n==="白班"?cell.dayReady&&!hasDay:cell.nightReady&&!hasNight)&&!entries.some(e=>e.shiftName===n)).length:0),running:entries.filter(e=>e.phase==="running"&&unresolved(e)).length,scheduled:entries.filter(e=>e.phase==="scheduled"&&unresolved(e)).length};
 }
-function sourceStamp(d,id,date){const team=window.MineLogistics?.main().people.find(p=>p.id===id)?.team||(d.attendanceRecords||[]).find(r=>r.personId===id&&r.workDate===date)?.team;return JSON.stringify([window.MineLeave?.stamp?.()||"leave-unavailable",(d.trips||[]).filter(t=>t.workDate===date).map(t=>[t.id,t.status,t.mode,t.personId,t.excavatorId,t.shiftName,t.loadedAt,t.completedAt,t.releaseId]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))),(d.shifts||[]).filter(s=>s.kind==="excavator"&&s.workDate===date).map(s=>[s.id,s.personId,s.vehicleId,s.shiftName,s.startedWorkAt,s.closedAt]),(d.taskReleases||[]).filter(r=>r.status==="published"&&r.workDate===date&&(!team||r.team===team)).map(r=>[r.id,r.team,r.shiftName,r.version,r.startAt,r.endAt,shiftState(d,r.team,date,r.shiftName).phase,(r.tasks||[]).map(t=>[t.id,t.personId,t.groupNumber,t.vehicleCode,t.vehicleId,t.kind]),(r.groups||[]).map(g=>[g.excavatorId,g.excavatorDriverId])]).sort((a,b)=>String(a[0]).localeCompare(String(b[0])))]);}
+function sourceStamp(d,id,date){const team=window.MineLogistics?.main().people.find(p=>p.id===id)?.team||(d.attendanceRecords||[]).find(r=>r.personId===id&&r.workDate===date)?.team;return JSON.stringify([clockEvidence(window.MineLogistics.main(),id,team,date).stamp,window.MineLeave?.stamp?.()||"leave-unavailable",(d.trips||[]).filter(t=>t.workDate===date).map(t=>[t.id,t.status,t.mode,t.personId,t.excavatorId,t.shiftName,t.loadedAt,t.completedAt,t.releaseId]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))),(d.shifts||[]).filter(s=>s.kind==="excavator"&&s.workDate===date).map(s=>[s.id,s.personId,s.vehicleId,s.shiftName,s.startedWorkAt,s.closedAt]),(d.taskReleases||[]).filter(r=>r.status==="published"&&r.workDate===date&&(!team||r.team===team)).map(r=>[r.id,r.team,r.shiftName,r.version,r.startAt,r.endAt,shiftState(d,r.team,date,r.shiftName).phase,(r.tasks||[]).map(t=>[t.id,t.personId,t.groupNumber,t.vehicleCode,t.vehicleId,t.kind]),(r.groups||[]).map(g=>[g.excavatorId,g.excavatorDriverId])]).sort((a,b)=>String(a[0]).localeCompare(String(b[0])))]);}
 const cellAt=(model,id,date)=>model.cells.get(JSON.stringify([id,date]));
-const rule='<p class="att2-rule">选择日期、班组后按当天已发布排班记录自动带出班次，不比较前后两天的班别。第二天确认前一天：上午半班加傍晚至次晨夜班为白班转夜班，上满合计1.5个考勤（白0.5＋夜1）；只有下午半班为夜班转白班，上满0.5个考勤。普通白/夜班沿用排班时长计算；未排班在次日由调度统一判断整个班组，下雨、检查等非司机原因可记1个考勤并填写原因，请假不记。白班转夜班可在前半班结束后选择先核对，整组考勤确认仍须等夜班结束且进入次日；跨午夜夜班归开始日；汽车/挖机司机在本班时间段内有已完成真实车数才默认计考勤并显示✓，无车数标异常待核对，默认不计；调度可根据下雨、检查等情况人工确认，辅助及未分任务人员仍由调度判断，日月汇总同源，历史记录保留。</p>';
+const rule='<p class="att2-rule">选择日期、班组后按当天已发布排班记录自动带出班次，不比较前后两天的班别。第二天确认前一天：上午半班加傍晚至次晨夜班为白班转夜班，上满合计1.5个考勤（白0.5＋夜1）；只有下午半班为夜班转白班，上满0.5个考勤。普通白/夜班沿用排班时长计算；未排班在次日由调度统一判断整个班组，下雨、检查等非司机原因可记1个考勤并填写原因，请假不记。白班转夜班可在前半班结束后选择先核对，整组考勤确认仍须等夜班结束且进入次日；跨午夜夜班归开始日；汽车/挖机司机在本班时间段内有已完成真实车数才默认计考勤并显示✓，无车数标异常待核对，默认不计；调度可根据下雨、检查等情况人工确认，生产A/B组其他人员缺上班卡或下班卡标异常，由调度判断（每日按上班归属日查配对）；汽车/挖机司机继续按车数判断，未排班仍按整组判断，请假排除，日月汇总同源，历史记录保留。</p>';
 function tabs(mode){return '<div class="actions att2-tabs"><button type="button" class="'+(mode==="daily"?"":"soft")+'" data-view="attendanceDaily">按日考勤</button><button type="button" class="'+(mode==="monthly"?"":"soft")+'" data-view="attendance">汇总考勤表</button></div>';}
 function teamSelect(team,all=true){return '<label>班组<select name="att2Team"><option value="">'+(all?'全部生产班组':'请选择班组')+'</option>'+TEAMS.map(t=>'<option'+(team===t?' selected':"")+'>'+esc(t)+'</option>').join("")+'</select></label>';}
 function daily(d,m,filters,today){
@@ -158,7 +179,7 @@ function daily(d,m,filters,today){
  const leaveIds=new Set(leavePeople.map(p=>p.id));
  const leavePanel=team?'<section class="panel att3-scene" id="att3LeavePanel"><h2>请假人员 · '+esc(team)+'</h2><div class="att3-card-list">'+(leaveError?'<p class="muted">'+esc(leaveError)+'</p>':leavePeople.map(p=>'<button type="button" class="att3-person-card confirmed-zero" data-action="att3LeaveDetails" data-id="'+esc(p.id+"|"+date)+'" aria-label="'+esc(p.name+" 请假，查看请假信息")+'"><strong>'+esc(p.name)+'</strong><span>请假</span></button>').join("")||'<p class="muted">暂无请假人员。</p>')+'</div></section>':"";
  if(team&&schedule.kind==="none"){
-  const cards=selected.filter(p=>!leaveIds.has(p.id)).map(p=>{const state=unscheduledState(d,p.id,team,date),c=cellAt(model,p.id,date),decision=c?.manual?.unscheduledDecision,status=state.error?state.error:!state.ready?"次日开始确认":state.onLeave?"请假 · 自动排除":decision?(decision.units?"正常考勤":"不记考勤"):"待整组判断";return '<article class="att3-person-card '+(decision?(c?.units>0?"confirmed-present":"confirmed-zero"):"unconfirmed")+'"><strong>'+esc(p.name)+'</strong><span>'+esc(status)+'</span></article>';}).join("");
+  const cards=selected.filter(p=>!leaveIds.has(p.id)).map(p=>{const state=unscheduledState(d,p.id,team,date),c=cellAt(model,p.id,date),decision=c?.manual?.unscheduledDecision,status=state.error?state.error:!state.ready?"次日开始确认":state.onLeave?"请假 · 自动排除":decision?(decision.units?"正常考勤":"不记考勤"):c?.clockEvidence?.anomaly?"异常 · "+c.clockEvidence.reason:"待整组判断";return '<article class="att3-person-card '+(decision?(c?.units>0?"confirmed-present":"confirmed-zero"):"unconfirmed")+'"><strong>'+esc(p.name)+'</strong><span>'+esc(status)+'</span></article>';}).join("");
   return tabs("daily")+controls+'<section id="att3UnscheduledPanel" class="panel att3-scene"><h2>班组判断结果 · '+esc(team)+'</h2><p class="help">通过班次框后的“未排班判断”统一设置整个班组。请假人员自动排除、不记考勤；下方只显示各人的结果。</p><div class="att3-card-list">'+(cards||'<p>暂无非请假人员。</p>')+'</div></section>'+leavePanel+rule;
 
  }
@@ -170,9 +191,10 @@ function daily(d,m,filters,today){
  const roleName=p=>({"driver":"汽车司机","excavator":"挖机司机"}[profile(p.id)?.applicationRole]||profile(p.id)?.role||"人员");
  function card(p,entry,shiftName){
   const c=cellAt(model,p.id,date),isDay=shiftName==="白班",units=c?.[isDay?"dayUnits":"nightUnits"]||0,confirmed=!!c?.[isDay?"dayConfirmed":"nightConfirmed"];
+  const clock=entry?.clockAnomaly||(!entry&&c?.clockEvidence?.anomaly),anomaly=entry?.tripAnomaly||clock;
   const confirmedLabel=units===0?"不记考勤":units===0.5&&schedule.limits[shiftName]!==0.5?"记半天":"正常考勤";
-  const status=confirmed?(entry?"":confirmedLabel):entry?.tripAnomaly?"":entry?.requiresTrips?"✓ 本时段"+entry.tripCount+"车":entry?(entry.conflict||entry.phase==="invalid"?"任务待核对":entry.phase==="ended"?"按任务计算":entry.phase==="running"?"任务进行中":"任务待开始"):c?.source==="manual"?"原人工记录":"待调度判断";
-  return '<button type="button" class="att3-person-card '+(confirmed?(units>0?"confirmed-present":"confirmed-zero"):entry?.tripAnomaly?"att3-trip-anomaly":entry?.requiresTrips&&units>0?"att3-trip-present":"unconfirmed")+'" data-action="att3Confirm" data-id="'+esc(p.id+"|"+date+"|"+shiftName)+'">'+(entry?'<strong>'+esc(entry.vehicleCode||(["driver","excavator"].includes(entry.kind)?"未绑定设备":"辅助作业"))+' · '+esc(p.name)+'</strong>':'<strong>'+esc(p.name)+'</strong><span>'+esc(roleName(p))+'</span>')+(entry?'<b>'+esc(confirmed?confirmedLabel:entry.tripAnomaly?'异常':(entry.requiresTrips&&units>0?'✓ ':'')+shiftName+' · '+fmt(units)+'个')+'</b>':"")+(status?'<small>'+esc(status)+'</small>':"")+'<small>点击确认 / 调整</small></button>';
+  const status=confirmed?(entry?"":confirmedLabel):anomaly?(entry?"":"异常"):entry?.requiresTrips?"✓ 本时段"+entry.tripCount+"车":entry?(entry.conflict||entry.phase==="invalid"?"任务待核对":entry.phase==="ended"?"按任务计算":entry.phase==="running"?"任务进行中":"任务待开始"):c?.source==="manual"?"原人工记录":"待调度判断";
+  return '<button type="button" class="att3-person-card '+(confirmed?(units>0?"confirmed-present":"confirmed-zero"):anomaly?"att3-trip-anomaly":entry?.requiresTrips&&units>0?"att3-trip-present":"unconfirmed")+'" data-action="att3Confirm" data-id="'+esc(p.id+"|"+date+"|"+shiftName)+'">'+(entry?'<strong>'+esc(entry.vehicleCode||(["driver","excavator"].includes(entry.kind)?"未绑定设备":"辅助作业"))+' · '+esc(p.name)+'</strong>':'<strong>'+esc(p.name)+'</strong><span>'+esc(roleName(p))+'</span>')+(entry?'<b>'+esc(confirmed?confirmedLabel:anomaly?'异常':(entry.requiresTrips&&units>0?'✓ ':'')+shiftName+' · '+fmt(units)+'个')+'</b>':"")+(status?'<small>'+esc(status)+'</small>':"")+'<small>点击确认 / 调整</small></button>';
  }
  const teams=[team];
  const scenes=teams.flatMap(t=>shifts.map(shiftName=>{
@@ -196,7 +218,7 @@ function monthly(d,m,filters,today){
  const month=filters.month||today.slice(0,7),team=filters.team||"",range=monthRange(month),model=build(d,m,range.startDate,range.endDate,Date.now(),team),people=model.people.filter(p=>!team||p.team===team),count=Number(range.endDate.slice(8)),days=Array.from({length:count},(_,i)=>addDays(range.startDate,i)),total=people.reduce((sum,p)=>sum+days.reduce((n,day)=>n+(cellAt(model,p.id,day)?.units||0),0),0);
  const rows=people.map(p=>{
   const own=days.map(day=>cellAt(model,p.id,day)),sum=own.reduce((n,c)=>n+(c?.units||0),0);
-  return '<tr><th class="att2-sticky-name">'+esc(p.name)+'<small>'+esc(p.team)+'</small></th>'+days.map((day,i)=>{const c=own[i],state=c?.unscheduled&&c.leaveBlocked?"请假 / 不计":c?.issues?"异常 / "+fmt(c.units):!c?"—":c.issues?"待核对":c.running?fmt(c.units)+" / 进行中":c.scheduled?fmt(c.units)+" / 待开始":c.source==="manual"&&c.manual.status!=="出勤"?(c.manual.status||"—"):fmt(c.units);return '<td><button title="'+esc(c?.issues?"无车数或任务异常，待调度核对":c?.unscheduled?(c.leaveBlocked?"当日请假，不记考勤":c.manual?.unscheduledDecision?.note||"未排班待判断"):c?.confirmed?"调度确认":c?.source==="manual"?"原人工记录":"按任务计算")+'" type="button" class="att2-month-cell'+(c?.units?" has-units":"")+'" data-action="att2MonthDay" data-id="'+esc(day+"|"+p.team)+'" aria-label="'+esc(p.name+" "+day+" "+state+"，查看按日考勤")+'">'+esc(state)+'</button></td>';}).join("")+'<td class="att2-sticky-total"><strong>'+fmt(sum)+'</strong></td></tr>';
+  return '<tr><th class="att2-sticky-name">'+esc(p.name)+'<small>'+esc(p.team)+'</small></th>'+days.map((day,i)=>{const c=own[i],state=c?.unscheduled&&c.leaveBlocked?"请假 / 不计":c?.issues?"异常 / "+fmt(c.units):!c?"—":c.issues?"待核对":c.running?fmt(c.units)+" / 进行中":c.scheduled?fmt(c.units)+" / 待开始":c.source==="manual"&&c.manual.status!=="出勤"?(c.manual.status||"—"):fmt(c.units);return '<td><button title="'+esc(c?.issues?"打卡、车数或任务异常，待调度核对":c?.unscheduled?(c.leaveBlocked?"当日请假，不记考勤":c.manual?.unscheduledDecision?.note||"未排班待判断"):c?.confirmed?"调度确认":c?.source==="manual"?"原人工记录":"按任务计算")+'" type="button" class="att2-month-cell'+(c?.units?" has-units":"")+'" data-action="att2MonthDay" data-id="'+esc(day+"|"+p.team)+'" aria-label="'+esc(p.name+" "+day+" "+state+"，查看按日考勤")+'">'+esc(state)+'</button></td>';}).join("")+'<td class="att2-sticky-total"><strong>'+fmt(sum)+'</strong></td></tr>';
  }).join("");
  return tabs("monthly")+'<div class="att2-filters"><label>统计月份<input type="month" name="att2Month" value="'+esc(month)+'"></label>'+teamSelect(team)+'</div><div class="attendance-strip"><span>人员 <b>'+people.length+'</b> 人</span><span>本月已计考勤 <b>'+fmt(total)+'</b> 班</span><span>由按日考勤自动汇总</span></div><section class="panel"><div class="table-wrap att2-month-wrap"><table class="att2-month-table" aria-label="按月考勤汇总表"><thead><tr><th class="att2-sticky-name">姓名 / 班组</th>'+days.map(day=>'<th>'+esc(day.slice(5).replace("-","/"))+'</th>').join("")+'<th class="att2-sticky-total">合计（班）</th></tr></thead><tbody>'+rows+'</tbody><tfoot><tr><th class="att2-sticky-name">每日合计</th>'+days.map(day=>'<td>'+fmt(people.reduce((n,p)=>n+(cellAt(model,p.id,day)?.units||0),0))+'</td>').join("")+'<th class="att2-sticky-total">'+fmt(total)+'</th></tr></tfoot></table></div></section>'+rule+'<p class="help">点击日期格跳转当日任务式考勤面板。每日及月合计均以“班”为单位，不将1.5班截成1天；进行中、待开始和时段冲突尚未计入。调度确认优先，原人工记录在无任务日补充，未来无记录显示“—”。</p>';
 }
@@ -221,5 +243,5 @@ function details(d,m,id,date){
  const rows=c?.entries||[],legacy=c?.manual;
  return '<h3>'+esc(p.name+" · "+p.team+" · "+date)+'</h3><p>当日已计 <strong>'+fmt(c?.units)+' 班</strong></p>'+rows.map(e=>'<section class="att2-detail"><h3>'+esc(e.shiftName+" · "+(e.vehicleCode||"人员任务"))+'</h3><p>任务开始：'+esc(time(e.startAt))+'</p><p>任务结束：'+esc(time(e.endAt))+'</p><p>时长 '+fmt(e.hours)+' 小时；默认考勤 '+fmt(e.units)+' 个；'+(e.requiresTrips?esc("本时段"+e.tripCount+"车；"+(e.tripAnomaly?"异常，无车数待核对":"✓ 有考勤")):"")+'；'+esc(e.conflict?"时段重叠，暂不计":e.phase==="ended"?"已结束":e.phase==="running"?"进行中":"待开始")+'</p><small>来源：任务版本 '+esc(e.version)+' · '+esc(e.releaseId)+'</small></section>').join("")+(!rows.length?'<p>当天没有已发布人员任务。</p>':"")+(legacy?.attendanceDecision?'<section class="att2-detail"><h3>调度确认</h3><p>白班 '+esc(legacy.attendanceDecision.dayUnits==null?"跟随任务 / 原规则":fmt(legacy.attendanceDecision.dayUnits)+"班")+'；夜班 '+esc(legacy.attendanceDecision.nightUnits==null?"跟随任务 / 原规则":fmt(legacy.attendanceDecision.nightUnits)+"班")+'</p><p>'+esc(legacy.attendanceDecision.note||"无备注")+'</p><small>'+esc(time(legacy.attendanceDecision.at)+" · "+(legacy.attendanceDecision.name||"调度"))+'</small></section>':"")+(legacy&&(legacy.status||legacy.note)?'<section class="att2-detail"><h3>原人工记录（保留）</h3><p>'+esc(legacy.status||"未登记")+' · '+esc(legacy.note||"无备注")+'</p><small>'+esc(c.confirmed?"已由调度确认，原记录不重复累加。":rows.length?"同日已有任务，本条不重复累加。":"无任务，人工出勤按1班补充。")+'</small></section>':"")+'<button type="button" class="soft" data-action="att3Confirm" data-id="'+esc(id+"|"+date+"|白班")+'">确认 / 调整考勤</button> <button type="button" class="soft" data-action="attendanceDay" data-id="'+esc(id+"|"+date)+'">查看 / 登记原人工考勤</button>'+rule;
 }
-window.MineAttendanceBoard=Object.freeze({STANDARD_HOURS,unitsFor,monthRange,addDays,build,cellAt,resolveUnits,shiftState,scheduleFor,tripEvidence,unscheduledState,unscheduledGroup,assertUnscheduled,leaveOnDay,assertDecision,sourceStamp,daily,monthly,details,leaveDetails});
+window.MineAttendanceBoard=Object.freeze({STANDARD_HOURS,unitsFor,monthRange,addDays,build,cellAt,resolveUnits,shiftState,scheduleFor,tripEvidence,clockEvidence,unscheduledState,unscheduledGroup,assertUnscheduled,leaveOnDay,assertDecision,sourceStamp,daily,monthly,details,leaveDetails});
 })();

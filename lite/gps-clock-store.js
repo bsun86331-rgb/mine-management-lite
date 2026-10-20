@@ -43,5 +43,8 @@ function execute(d,a,type,x,at=Date.now()){
  fail('未知打卡操作');
 }
 async function act(type,x,role,expectedPersonId){if(!navigator.locks?.request)fail('请使用支持事务锁的新版浏览器');return navigator.locks.request(LOCK,async()=>{const a=identity(role);if(a.id!==expectedPersonId)fail('本人身份已变化，请重新进入');const d=await read(),result=execute(d,a,type,x||{});await write(d);cache=d;return result;});}
-window.MineGPSClock={teams:TEAMS,sync,identity,act,day,distance,eligible};
+function get(){if(!cache)fail("GPS打卡记录尚未加载，请刷新后重试");return clone(cache);}
+function stamp(){return JSON.stringify(cache?.punches||[]);}
+async function withAttendanceLock(fn){if(!navigator.locks?.request)fail("请使用支持事务锁的新版浏览器");return navigator.locks.request(LOCK,async()=>{await sync();return fn();});}
+window.MineGPSClock={get,stamp,withAttendanceLock,teams:TEAMS,sync,identity,act,day,distance,eligible};
 })();

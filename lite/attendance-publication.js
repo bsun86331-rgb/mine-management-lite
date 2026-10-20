@@ -10,9 +10,9 @@ function plan(d,m,team,date,at=Date.now()){
  const rows=model.people.filter(p=>p.team===team).map(p=>{
   const c=A().cellAt(model,p.id,date),leave=A().leaveOnDay(p.id,date),manual=c?.manual,entries=c?.entries||[];
   let pending=false;
-  if(!leave){if(schedule.kind==="none")pending=!manual?.unscheduledDecision;else for(const r of schedule.releases){const key=r.shiftName==="白班"?"dayUnits":"nightUnits",own=entries.filter(e=>e.shiftName===r.shiftName),fixed=[0,0.5,1].includes(manual?.attendanceDecision?.[key]);if(!fixed&&(!own.length||own.some(e=>e.tripAnomaly||e.conflict||e.phase!=="ended")))pending=true;}}
+  if(!leave){if(schedule.kind==="none")pending=!manual?.unscheduledDecision;else for(const r of schedule.releases){const key=r.shiftName==="白班"?"dayUnits":"nightUnits",own=entries.filter(e=>e.shiftName===r.shiftName),fixed=[0,0.5,1].includes(manual?.attendanceDecision?.[key]);if(!fixed&&(!own.length||own.some(e=>e.tripAnomaly||e.clockAnomaly||e.conflict||e.phase!=="ended")))pending=true;}}
   const day=leave?0:c?.dayUnits||0,night=leave?0:c?.nightUnits||0;
-  return {personId:p.id,name:p.name,team:p.team,dayUnits:day,nightUnits:night,units:day+night,status:leave?"请假":pending?"待核对":day+night===0?"不记考勤":day+night===0.5?"记半天":"正常考勤",pending,note:manual?.attendanceDecision?.note||manual?.unscheduledDecision?.note||manual?.note||"",recordVersion:manual?.updatedAt||"",evidence:entries.map(e=>[e.releaseId,e.shiftName,e.vehicleId,e.tripCount,e.tripAnomaly,e.conflict,e.phase,e.units])};
+  return {personId:p.id,name:p.name,team:p.team,dayUnits:day,nightUnits:night,units:day+night,status:leave?"请假":pending?"待核对":day+night===0?"不记考勤":day+night===0.5?"记半天":"正常考勤",pending,note:manual?.attendanceDecision?.note||manual?.unscheduledDecision?.note||manual?.note||"",recordVersion:manual?.updatedAt||"",evidence:entries.map(e=>[e.releaseId,e.shiftName,e.vehicleId,e.tripCount,e.tripAnomaly,e.conflict,e.phase,e.units]),...(c?.clockEvidence?.required?{clockEvidence:[c.clockEvidence.anomaly,c.clockEvidence.stamp]}:{})};
  }).sort((a,b)=>a.personId.localeCompare(b.personId));
  const fingerprint=JSON.stringify([team,date,schedule.kind,schedule.releases.map(r=>[r.id,r.version,r.startAt,r.endAt]),rows]);
  const latest=(d.attendancePublications||[]).filter(r=>r.team===team&&r.workDate===date).at(-1),current=!!latest&&latest.fingerprint===fingerprint;
