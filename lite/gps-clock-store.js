@@ -1,5 +1,6 @@
 /* GPS punches are separate from attendance decisions; browser-local prototype. */
 (() => {"use strict";
+const TEAMS=Object.freeze(['生产A组','生产B组','行政办公组','修理组']);
 const L=window.MineLogistics,DB='mine-management-lite-gps-clock-v1',LOCK=DB;let connection,cache;
 const fail=s=>{throw Error(s);},id=()=>crypto.randomUUID(),clone=x=>structuredClone(x),day=t=>new Date(t).toLocaleDateString('sv-SE',{timeZone:'Asia/Ulaanbaatar'});
 function database(){if(connection)return Promise.resolve(connection);return new Promise((resolve,reject)=>{const r=indexedDB.open(DB,1);r.onupgradeneeded=()=>r.result.createObjectStore('ledger');r.onsuccess=()=>{connection=r.result;connection.onversionchange=()=>{connection.close();connection=null;};resolve(connection);};r.onerror=()=>reject(r.error);r.onblocked=()=>reject(Error('请关闭其他打卡窗口后重试'));});}
@@ -10,7 +11,7 @@ function adminAllowed(){try{return window.MineLogisticsAdmin===true||(parent!==w
 function identity(role){if(role==='admin'){if(!adminAllowed())fail('请从已登录的管理员后台进入');return {id:'admin',name:'管理员',admin:true};}const p=L.context(role);if(!L.active(p))fail('仅在岗人员可以打卡或提供位置');return p;}
 function text(v,label,max=100){const s=String(v??'').trim();if(!s||s.length>max)fail('请填写'+label+'（最多'+max+'字）');return s;}
 function coord(v,min,max,label){if(v==null||String(v).trim()==='')fail('请填写'+label);const n=Number(v);if(!Number.isFinite(n)||n<min||n>max)fail(label+'无效');return n;}
-function pointInput(x){const radius=coord(x.radius,10,5000,'范围（10—5000米）'),team=String(x.team||'');if(team&&!L.main().people.some(p=>p.team===team))fail('请选择现有班组或全部人员');return {name:text(x.name,'位置名称',60),lat:coord(x.lat,-90,90,'纬度'),lng:coord(x.lng,-180,180,'经度'),radius,team,note:String(x.note||'').trim().slice(0,500)};}
+function pointInput(x){const radius=coord(x.radius,10,5000,'范围（10—5000米）'),team=String(x.team||'');if(team&&!TEAMS.includes(team))fail('请选择生产A组、生产B组、行政办公组、修理组或全部人员');return {name:text(x.name,'位置名称',60),lat:coord(x.lat,-90,90,'纬度'),lng:coord(x.lng,-180,180,'经度'),radius,team,note:String(x.note||'').trim().slice(0,500)};}
 function distance(a,b){const r=x=>x*Math.PI/180,dl=r(b.lat-a.lat),dg=r(b.lng-a.lng),h=Math.sin(dl/2)**2+Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dg/2)**2;return 6371000*2*Math.atan2(Math.sqrt(Math.min(1,h)),Math.sqrt(Math.max(0,1-h)));}
 function eligible(q,p){return q.status==='active'&&(!q.team||q.team===p.team);}
 function position(x,q,at){const c=x.position||{},lat=coord(c.lat,-90,90,'定位纬度'),lng=coord(c.lng,-180,180,'定位经度'),accuracy=coord(c.accuracy,0,100000,'定位精度'),timestamp=Number(c.timestamp);if(!Number.isFinite(timestamp)||timestamp>at+5000||at-timestamp>60000)fail('定位已过期，请重新获取位置');const maxAccuracy=Math.min(q.radius,100);if(accuracy>maxAccuracy)fail('定位精度不足，请到开阔处重试（需≤'+maxAccuracy+'米）');const metres=distance({lat,lng},q);if(metres>q.radius)fail('距离打卡点约'+Math.round(metres)+'米，超出'+q.radius+'米范围');return {lat,lng,accuracy,timestamp,distance:Math.round(metres)};}
@@ -42,5 +43,5 @@ function execute(d,a,type,x,at=Date.now()){
  fail('未知打卡操作');
 }
 async function act(type,x,role,expectedPersonId){if(!navigator.locks?.request)fail('请使用支持事务锁的新版浏览器');return navigator.locks.request(LOCK,async()=>{const a=identity(role);if(a.id!==expectedPersonId)fail('本人身份已变化，请重新进入');const d=await read(),result=execute(d,a,type,x||{});await write(d);cache=d;return result;});}
-window.MineGPSClock={sync,identity,act,day,distance,eligible};
+window.MineGPSClock={teams:TEAMS,sync,identity,act,day,distance,eligible};
 })();
