@@ -23,13 +23,16 @@ function execute(d,a,type,x,at=Date.now()){
   const data=pointInput(x);uniqueName(d,data.name);if(!a.admin&&data.team&&data.team!==a.team)fail('调度只能提供本班组或全员位置');
   const q={id:id(),...data,status:a.admin?'active':'pending',version:1,createdAt:stamp,createdBy:a.id,createdByName:a.name,history:[]};d.points.push(q);log(a.admin?'新增启用位置':'调度提供位置',q.id);return q.id;
  }
- if(['approvePoint','rejectPoint','updatePoint','disablePoint','enablePoint'].includes(type)){
+ if(['approvePoint','rejectPoint','updatePoint','disablePoint','enablePoint','deletePoint','restorePoint'].includes(type)){
   if(!a.admin)fail('仅管理员可管理打卡位置');const q=d.points.find(q=>q.id===x.id);if(!q||q.version!==x.expectedVersion)fail('位置已变化，请刷新重试');
   if(['approvePoint','rejectPoint'].includes(type)&&q.status!=='pending')fail('该位置已处理');if(type==='enablePoint'&&q.status!=='disabled')fail('只能启用已停用位置');if(type==='disablePoint'&&q.status!=='active')fail('只能停用已启用位置');
   if(["updatePoint","approvePoint","enablePoint"].includes(type))uniqueName(d,type==="updatePoint"?x.name:q.name,q.id);
+  if(type==='deletePoint'&&q.status==='deleted')fail('该位置已删除');if(type==='restorePoint'&&q.status!=='deleted')fail('该位置未删除');
   const before={...q,history:undefined};const changes=type==='updatePoint'?pointInput(x):{};
   if(type==='updatePoint'&&q.status!=='active'&&q.status!=='disabled')fail('请先处理位置申请');Object.assign(q,changes);
   if(type==='approvePoint'||type==='enablePoint')q.status='active';if(type==='rejectPoint')q.status='rejected';if(type==='disablePoint')q.status='disabled';
+  if(type==='deletePoint'){q.deletedPreviousStatus=q.status;q.status='deleted';q.deletedAt=stamp;q.deletedBy=a.id;}
+  if(type==='restorePoint'){uniqueName(d,q.name,q.id);q.status=['pending','rejected'].includes(q.deletedPreviousStatus)?q.deletedPreviousStatus:'disabled';q.restoredAt=stamp;q.restoredBy=a.id;}
   q.version++;q.updatedAt=stamp;q.history.push({at:stamp,by:a.id,action:type,before});log(type,q.id);return q.id;
  }
  if(type==='punch'){
