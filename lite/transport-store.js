@@ -75,11 +75,29 @@
     if(!storageReady)storageReady=(navigator.locks?.request?navigator.locks.request(KEY,initializeStorage):initializeStorage()).catch(error=>{storageReady=null;throw error;});
     return storageReady;
   }
+  // Published task windows, rather than editable shift defaults, own excavator session expiry.
+  function closeExpiredExcavatorShifts(d,at=Date.now()){
+    let changed=false;
+    for(const s of d.shifts){
+      if(s.kind!=="excavator"||s.status==="closed")continue;
+      const assignment=d.assignments.find(r=>r.id===s.assignmentId);
+      const release=d.taskReleases.find(r=>r.id===(assignment?.releaseId||s.releaseId));
+      if(!release)continue;
+      const start=Date.parse(release.startAt),end=Date.parse(release.endAt);
+      if(!Number.isFinite(start)||!Number.isFinite(end)||end<=start||at<end)continue;
+      s.status="closed";s.closedAt=new Date(end).toISOString();s.autoClosedAt=new Date(at).toISOString();
+      s.closeReason="task-end";s.closeNote="按已发布任务结束时间自动结束";
+      if(assignment)assignment.status="completed";
+      d.audit.unshift({id:uid(),at:s.autoClosedAt,personId:null,actor:"系统",role:"system",type:"任务到时结束挖机班次",detail:s.vehicleCode,shiftId:s.id,releaseId:release.id,scheduledEndAt:s.closedAt});
+      changed=true;
+    }
+    return changed;
+  }
   async function sync(){
     await ready();
     if(!syncing){
-      const reload=async()=>{const record=await readStorage(cachedToken);if(!record?.unchanged){if(!record&&cachedToken!=="empty")fail("运输台账存储记录缺失，请保留浏览器数据");cacheRecord(record);}};
-      syncing=(navigator.locks?.request?navigator.locks.request(KEY,{mode:"shared"},reload):reload()).finally(()=>{syncing=null;});
+      const reload=async()=>{const record=await readStorage(cachedToken);if(!record?.unchanged){if(!record&&cachedToken!=="empty")fail("运输台账存储记录缺失，请保留浏览器数据");cacheRecord(record);}if(navigator.locks?.request){const d=get();if(closeExpiredExcavatorShifts(d)){const next={raw:JSON.stringify(d),token:uid()};await writeStorage(next);cacheRecord(next);signalStorage();}}};
+      syncing=(navigator.locks?.request?navigator.locks.request(KEY,reload):reload()).finally(()=>{syncing=null;});
     }
     return syncing;
   }
@@ -318,7 +336,7 @@
       if(a.applicationRole!=="driver")fail("仅司机可提交区外卸料");const s=requireWorking(d,a),t=find("trips",x.tripId);if(t.shiftId!==s.id||!liveTrip(t))fail("本趟已结束或不是你的装载车次，不能重复计车");t.outsideNote=named(x.note,"区外卸料说明");completeTrip(d,s,t,"outside",s.lastPoint||null,null,materialValue(x.material),a);return;
     }
     if(type==="closeShift"){
-      operatorOnly(a);const s=requireShift(d,a);if(shiftTrip(d,s))fail("仍有未完成车次，请先完成卸料或记录作废后再结束班次");s.status="closed";s.closedAt=now();s.closeNote=named(x.note,"收班说明");const r=d.assignments.find(r=>r.id===s.assignmentId);if(r)r.status="completed";audit(d,a,"结束班次",s.vehicleCode,{shiftId:s.id});return;
+      operatorOnly(a);if(a.applicationRole==="excavator")fail("挖机班次按任务结束时间自动结束，不能手动结束本班");const s=requireShift(d,a);if(shiftTrip(d,s))fail("仍有未完成车次，请先完成卸料或记录作废后再结束班次");s.status="closed";s.closedAt=now();s.closeNote=named(x.note,"收班说明");const r=d.assignments.find(r=>r.id===s.assignmentId);if(r)r.status="completed";audit(d,a,"结束班次",s.vehicleCode,{shiftId:s.id});return;
     }
     if(type==="forceCloseShift"){
       dispatchOnly(a);const s=find("shifts",x.id);if(s.status==="closed")fail("该班次已结束");if(shiftTrip(d,s))fail("仍有在途车次，请先处理或作废车次");
@@ -456,7 +474,7 @@
  const w=release||window.MineTaskEngine.timeWindow(c.workDate,d.shiftTimes[c.shiftName]);
  window.MineLeave.assertSchedule(p,w.startAt,w.endAt);
  }
- async function act(type,args,actor){if(!navigator.locks?.request)fail("请使用支持事务锁的新版浏览器");await ready();const transaction=()=>navigator.locks.request(KEY,async()=>{const record=await readStorage();if(!record&&cachedToken!=="empty")fail("运输台账存储记录缺失，请保留浏览器数据");cacheRecord(record);const d=get(),m=L.main(),a=actorFrom(m,actor),result=execute(d,m,a,type,args||{}),next={raw:JSON.stringify(d),token:uid()};await writeStorage(next);cacheRecord(next);signalStorage();return result;});if(["productionGroup","auxiliaryPlan","assignment","activateAssignment","publishTasks","openShift","unscheduledAttendance","unscheduledAttendanceGroup","attendanceDecision","publishAttendance","attendanceReminderChoice"].includes(type)){if(!window.MineLeave)fail("请销假组件尚未加载，请刷新");return window.MineLeave.withSchedulingLock(()=>["unscheduledAttendance","unscheduledAttendanceGroup","attendanceDecision","publishAttendance"].includes(type)?window.MineGPSClock.withAttendanceLock(transaction):transaction());}return transaction();}
+ async function act(type,args,actor){if(!navigator.locks?.request)fail("请使用支持事务锁的新版浏览器");await sync();const transaction=()=>navigator.locks.request(KEY,async()=>{const record=await readStorage();if(!record&&cachedToken!=="empty")fail("运输台账存储记录缺失，请保留浏览器数据");cacheRecord(record);const d=get(),m=L.main(),a=actorFrom(m,actor),result=execute(d,m,a,type,args||{}),next={raw:JSON.stringify(d),token:uid()};await writeStorage(next);cacheRecord(next);signalStorage();return result;});if(["productionGroup","auxiliaryPlan","assignment","activateAssignment","publishTasks","openShift","unscheduledAttendance","unscheduledAttendanceGroup","attendanceDecision","publishAttendance","attendanceReminderChoice"].includes(type)){if(!window.MineLeave)fail("请销假组件尚未加载，请刷新");return window.MineLeave.withSchedulingLock(()=>["unscheduledAttendance","unscheduledAttendanceGroup","attendanceDecision","publishAttendance"].includes(type)?window.MineGPSClock.withAttendanceLock(transaction):transaction());}return transaction();}
   window.MineTransport={KEY,get,ready,sync,stamp,context,act,defaults,materialTypes,shiftTimeDefaults,currentShift,date,distance,inside,validZone,ownShift,shiftTrip,liveTrip,equipmentState,working,isExcavator,isHaulTruck,isAuxiliaryVehicle,auxiliaryRoles,draftSlots,visibleMessages,chatVehicleAt};
 })();
 
