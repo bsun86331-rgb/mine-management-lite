@@ -352,3 +352,14 @@ button.attendance-status:hover{border-color:#78a98b}
 /* Compact attendance section headings, including leave and unscheduled groups. */
 .att3-scene>h2,.dispatch-compact .att3-scene>h2{font-size:14px;margin:0 0 3px;line-height:1.4}
 .att3-scene>.att3-card-list>.muted{margin:3px 0;font-size:12px}
+
+/* Consistent work-home shortcuts, including entries injected after page load. */
+.app .sidebar .sidebar-bottom{gap:7px}
+.app .sidebar .sidebar-bottom > :is(a,button){
+ display:flex;align-items:center;justify-content:flex-start;gap:6px;
+ box-sizing:border-box;width:100%;min-height:36px;margin:0;padding:7px 10px;
+ border:1px solid #ffffff30;border-radius:8px;background:#ffffff12;
+ color:var(--lime);font-family:inherit;font-size:13px;font-weight:500;line-height:1.5;
+ text-align:left;text-decoration:none;cursor:pointer;
+}
+.app .sidebar .sidebar-bottom > :is(a,button):hover{background:#ffffff20;border-color:#ffffff50}
