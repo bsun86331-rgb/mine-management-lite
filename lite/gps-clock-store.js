@@ -12,6 +12,7 @@ function identity(role){if(role==='admin'){if(!adminAllowed())fail('请从已登
 function text(v,label,max=100){const s=String(v??'').trim();if(!s||s.length>max)fail('请填写'+label+'（最多'+max+'字）');return s;}
 function coord(v,min,max,label){if(v==null||String(v).trim()==='')fail('请填写'+label);const n=Number(v);if(!Number.isFinite(n)||n<min||n>max)fail(label+'无效');return n;}
 function pointInput(x){const radius=coord(x.radius,10,5000,'范围（10—5000米）'),team=String(x.team||'');if(team&&!TEAMS.includes(team))fail('请选择生产A组、生产B组、行政办公组、修理组或全部人员');return {name:text(x.name,'位置名称',60),lat:coord(x.lat,-90,90,'纬度'),lng:coord(x.lng,-180,180,'经度'),radius,team,note:String(x.note||'').trim().slice(0,500)};}
+function uniqueName(d,name,exceptId=""){const key=v=>String(v??"").trim().normalize("NFKC").replace(/\s+/g," ").toLowerCase();if(d.points.some(q=>q.id!==exceptId&&key(q.name)===key(name)))fail("打卡位置名称已存在，请使用其他名称");}
 function distance(a,b){const r=x=>x*Math.PI/180,dl=r(b.lat-a.lat),dg=r(b.lng-a.lng),h=Math.sin(dl/2)**2+Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dg/2)**2;return 6371000*2*Math.atan2(Math.sqrt(Math.min(1,h)),Math.sqrt(Math.max(0,1-h)));}
 function eligible(q,p){return q.status==='active'&&(!q.team||q.team===p.team);}
 function position(x,q,at){const c=x.position||{},lat=coord(c.lat,-90,90,'定位纬度'),lng=coord(c.lng,-180,180,'定位经度'),accuracy=coord(c.accuracy,0,100000,'定位精度'),timestamp=Number(c.timestamp);if(!Number.isFinite(timestamp)||timestamp>at+5000||at-timestamp>60000)fail('定位已过期，请重新获取位置');const maxAccuracy=Math.min(q.radius,100);if(accuracy>maxAccuracy)fail('定位精度不足，请到开阔处重试（需≤'+maxAccuracy+'米）');const metres=distance({lat,lng},q);if(metres>q.radius)fail('距离打卡点约'+Math.round(metres)+'米，超出'+q.radius+'米范围');return {lat,lng,accuracy,timestamp,distance:Math.round(metres)};}
@@ -19,12 +20,13 @@ function execute(d,a,type,x,at=Date.now()){
  const stamp=new Date(at).toISOString(),log=(action,recordId)=>d.audit.push({id:id(),at:stamp,actorId:a.id,actorName:a.name,action,recordId});
  if(type==='propose'||type==='createPoint'){
   if(type==='createPoint'&&!a.admin)fail('仅管理员可启用打卡位置');if(type==='propose'&&(a.admin||a.applicationRole!=='dispatch'))fail('仅调度可提供打卡位置');
-  const data=pointInput(x);if(!a.admin&&data.team&&data.team!==a.team)fail('调度只能提供本班组或全员位置');
+  const data=pointInput(x);uniqueName(d,data.name);if(!a.admin&&data.team&&data.team!==a.team)fail('调度只能提供本班组或全员位置');
   const q={id:id(),...data,status:a.admin?'active':'pending',version:1,createdAt:stamp,createdBy:a.id,createdByName:a.name,history:[]};d.points.push(q);log(a.admin?'新增启用位置':'调度提供位置',q.id);return q.id;
  }
  if(['approvePoint','rejectPoint','updatePoint','disablePoint','enablePoint'].includes(type)){
   if(!a.admin)fail('仅管理员可管理打卡位置');const q=d.points.find(q=>q.id===x.id);if(!q||q.version!==x.expectedVersion)fail('位置已变化，请刷新重试');
   if(['approvePoint','rejectPoint'].includes(type)&&q.status!=='pending')fail('该位置已处理');if(type==='enablePoint'&&q.status!=='disabled')fail('只能启用已停用位置');if(type==='disablePoint'&&q.status!=='active')fail('只能停用已启用位置');
+  if(["updatePoint","approvePoint","enablePoint"].includes(type))uniqueName(d,type==="updatePoint"?x.name:q.name,q.id);
   const before={...q,history:undefined};const changes=type==='updatePoint'?pointInput(x):{};
   if(type==='updatePoint'&&q.status!=='active'&&q.status!=='disabled')fail('请先处理位置申请');Object.assign(q,changes);
   if(type==='approvePoint'||type==='enablePoint')q.status='active';if(type==='rejectPoint')q.status='rejected';if(type==='disablePoint')q.status='disabled';
