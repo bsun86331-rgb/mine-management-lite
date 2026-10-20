@@ -103,15 +103,15 @@
   }
   function releaseSection(d,m,r,person,dispatch){
     const haul=shiftTripSummary(d,m,r);
-    const ownTasks=dispatch?r.tasks:r.tasks.filter(t=>t.personId===person.id&&t.role===person.applicationRole),taskIds=new Set(ownTasks.map(t=>t.id));
-    const groups=(r.groups||[]).filter(g=>ownTasks.some(t=>t.group?.sourceGroupId===g.sourceGroupId));
+    const ownTasks=dispatch?r.tasks:r.tasks.filter(t=>t.personId===person.id&&t.role===person.applicationRole);
+    const groups=r.groups||[];
     const rows=groups.map(g=>{
       const excavator=r.tasks.find(t=>t.kind==="excavator"&&t.group?.sourceGroupId===g.sourceGroupId);
-      const trucks=r.tasks.filter(t=>t.kind==="driver"&&t.group?.sourceGroupId===g.sourceGroupId&&(dispatch||taskIds.has(t.id)||ownTasks.some(t=>t.id===excavator?.id)));
+      const trucks=r.tasks.filter(t=>t.kind==="driver"&&t.group?.sourceGroupId===g.sourceGroupId);
       const regions=g.regions||{load:null,unloads:[]};
       return '<section class="task-production-group"><h4>'+esc(groupTitle(g.number))+'</h4><div class="task-equipment-row">'+equipment(d,r,excavator,"excavator",g.excavatorCode,g.excavatorDriverName,person.id)+trucks.map(t=>equipment(d,r,t,"truck",t.vehicleCode,t.personName,person.id)).join("")+'<article class="task-region"><strong>装卸区域</strong><span>装载区：'+esc(regions.load?.name||"未设置")+'</span><span>卸载区：'+esc((regions.unloads||[]).map(z=>z.name+(z.material?" · "+z.material:"")).join("、")||"未设置")+'</span></article></div>'+ownTasks.filter(t=>t.group?.sourceGroupId===g.sourceGroupId).map(t=>workAction(d,r,t,person,dispatch)).join("")+'</section>';
     }).join("");
-    const auxiliary=ownTasks.filter(t=>t.kind==="auxiliary");
+    const auxiliary=r.tasks.filter(t=>t.kind==="auxiliary");
     const aux=auxiliary.length?'<section class="task-auxiliary"><h4>辅助车辆 / 人员</h4><div class="task-equipment-row">'+auxiliary.map(t=>'<div class="task-auxiliary-item">'+equipment(d,r,t,"auxiliary",t.vehicleCode,t.personName,person.id)+(t.content?'<div class="task-aux-content"><b>作业内容</b><span>'+esc(t.content)+'</span></div>':"")+'</div>').join("")+'</div></section>':"";
     return '<section class="task-release"><header><div><div class="task-release-title"><h3>'+esc(r.workDate+" · "+r.shiftName+" · "+r.team)+'</h3><span class="task-shift-total" title="该班组本班已完成的真实定位车次；包含非卸载区完成，不含未完成、作废及模拟记录">当班总拉运车数：<b>'+haul.total+'</b> 车</span>'+["渣","煤","只记车数"].map(name=>'<span class="task-shift-material">'+esc(name)+'：<b>'+haul.materials[name]+'</b> 车</span>').join("")+'</div><p>'+esc(time(r.startAt)+" — "+time(r.endAt))+' <span>第'+esc(r.version)+'版</span></p></div><span class="task-phase task-'+esc(E().phase(r))+'">'+esc(names[E().phase(r)]||"")+'</span></header>'+releaseStats(d,m,r)+rows+aux+'</section>';
   }
@@ -128,7 +128,7 @@
     const schedule=slots(d),slot=schedule[mode];
     const published=(d.taskReleases||[]).filter(r=>r.status==="published");
     // Never use editable productionGroups or auxiliaryPlans to preview the next shift.
-    const rows=slot?published.filter(r=>r.workDate===slot.workDate&&r.shiftName===slot.shiftName&&(mode==="current"?E().phase(r)==="running":E().phase(r)==="scheduled")&&(dispatch||r.tasks.some(t=>t.personId===person.id&&t.role===person.applicationRole))):[];
+    const rows=slot?published.filter(r=>r.workDate===slot.workDate&&r.shiftName===slot.shiftName&&(mode==="current"?E().phase(r)==="running":E().phase(r)==="scheduled")&&(dispatch||r.team===person.team||r.tasks.some(t=>t.personId===person.id&&t.role===person.applicationRole))):[];
     const hasPublished=slot&&published.some(r=>r.workDate===slot.workDate&&r.shiftName===slot.shiftName&&(dispatch||r.team===person.team));
     const empty=!slot?(mode==="current"?"当前不在班次时间内":"任务未发布"):!hasPublished?"任务未发布":"本班暂无分配给你的任务";
     return '<section class="task-board" data-task-board-key="'+esc(key)+'">'+(options.hideTitle?"":'<h2>'+esc(dispatch?"任务看板":"我的任务看板")+'</h2>')+'<div class="task-board-toolbar"><div><strong>'+esc(mode==="next"?"下一班次排班":"当前班次任务")+'</strong>'+(slot?'<span>'+esc(slot.workDate+" · "+slot.shiftName+" · "+time(slot.startAt)+" — "+time(slot.endAt))+'</span>':"")+'</div><button type="button" class="task-view-button" data-task-board-view="'+(mode==="next"?"current":"next")+'">'+(mode==="next"?"返回当前班次":"下一班次排班")+'</button></div>'+(rows.length?rows.map(r=>releaseSection(d,m,r,person,dispatch)).join(""):'<p class="task-empty">'+esc(empty)+'</p>')+'</section>';
