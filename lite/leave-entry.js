@@ -1,9 +1,9 @@
 (() => {
 "use strict";
 const role=location.pathname.endsWith("/boss.html")?"boss":new URLSearchParams(location.search).get("role");
-if(!role)return;
+if(!role)return;if(window.parent!==window||(location.pathname.endsWith("/logistics.html")&&role!=="middle_store"))return;
 let dialog=null,frame=null,button=null,polling=false,hasResults=false,attendanceDialog=null,attendanceFrame=null;
-const leaveUrl=()=>"leave.html?role="+encodeURIComponent(role)+"&rev=20261019-3&opened="+Date.now();
+const leaveUrl=()=>"leave.html?role="+encodeURIComponent(role)+"&rev=20261020-14&opened="+Date.now();
 function close(){if(dialog?.open)dialog.close();if(frame)frame.src="about:blank";}
 function open(event){
  event?.preventDefault();
@@ -22,7 +22,7 @@ function install(){
  const style=document.createElement("style");style.textContent='.leave-entry-button{display:inline-flex;align-items:center;gap:7px;padding:8px 11px;margin:5px 0;border:1px solid #c7dbcf;border-radius:8px;background:#edf5ef;color:#176b4a;text-decoration:none;font:600 13px/1.5 "Microsoft YaHei",sans-serif;cursor:pointer}.sidebar-bottom .leave-entry-button,.side .leave-entry-button{background:#ffffff12;border-color:#ffffff30;color:#d8f178}.leave-entry-button.leave-has-results{background:#fff0c7!important;color:#875313!important;border-color:#e9c66d!important}.leave-entry-badge{border-radius:12px;padding:1px 6px;background:#c94238;color:#fff;font-size:11px}.leave-entry-dialog{width:min(960px,96vw);height:92dvh;max-height:94dvh;border:0;border-radius:15px;padding:0;overflow:hidden}.leave-entry-dialog::backdrop{background:#10201999}.leave-entry-dialog>header{display:flex;align-items:center;justify-content:space-between;padding:9px 14px;height:50px;border-bottom:1px solid #dce5df;background:#fff;color:#173d31;font:14px "Microsoft YaHei",sans-serif}.leave-entry-dialog>header button{border:1px solid #dce5df;border-radius:7px;background:white;color:#176b4a;padding:5px 10px;cursor:pointer}.leave-entry-dialog iframe{width:100%;height:calc(100% - 50px);border:0;background:#f3f6f2}';document.head.appendChild(style);
  button=document.createElement("a");button.className="leave-entry-button";button.href=leaveUrl();button.textContent=role==="boss"?"请销假审批 ↗":"请销假申请 ↗";button.addEventListener("click",open);spot.appendChild(button);
  if(role!=="boss"){
- const attendanceButton=document.createElement("a");attendanceButton.className="leave-entry-button";attendanceButton.href="my-attendance.html?role="+encodeURIComponent(role)+"&rev=20261020-3";attendanceButton.textContent="我的考勤 ↗";
+ const attendanceButton=document.createElement("a");attendanceButton.className="leave-entry-button";attendanceButton.href="my-attendance.html?role="+encodeURIComponent(role)+"&rev=20261020-14";attendanceButton.textContent="我的考勤 ↗";
  attendanceButton.onclick=event=>{event.preventDefault();if(!attendanceDialog){attendanceDialog=document.createElement("dialog");attendanceDialog.className="leave-entry-dialog";attendanceDialog.innerHTML='<header><strong>我的考勤</strong><button type="button">关闭</button></header><iframe title="我的考勤"></iframe>';document.body.appendChild(attendanceDialog);attendanceFrame=attendanceDialog.querySelector("iframe");attendanceDialog.querySelector("button").onclick=()=>attendanceDialog.close();attendanceDialog.addEventListener("close",()=>{attendanceFrame.src="about:blank";});}attendanceFrame.src=attendanceButton.href;attendanceDialog.showModal();};spot.appendChild(attendanceButton);
  }
  keepHomeLast(spot);if(boss?.parentElement)keepHomeLast(boss.parentElement);
