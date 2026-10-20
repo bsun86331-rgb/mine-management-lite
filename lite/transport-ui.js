@@ -642,7 +642,7 @@
     if(record&&wasTracking&&actor&&session())T.act("interrupt",{note:document.visibilityState==="hidden"?"页面隐藏，持续定位已停止":"司机停止实时定位"},actor).then(()=>refresh()).catch(error=>toast(error.message));
     if(person&&d&&m&&!$("modal").open)try{render();}catch{}
   }
-  function openLogistics(){T.context(role);$("logisticsFrame").src="logistics.html?role="+encodeURIComponent(role);$("logisticsDialog").showModal();}
+  function openLogistics(){T.context(role);$("logisticsFrame").src="logistics.html?role="+encodeURIComponent(role)+"&rev=20261020-14";$("logisticsDialog").showModal();}
   document.addEventListener("click",event=>{const nav=event.target.closest("[data-view]");if(nav&&!busy){view=nav.dataset.view;if(view==="tasks")haulSummaryTaskHistory=null;refresh();return;}const b=event.target.closest("[data-action]");if(!b||busy)return;const action=b.dataset.action;if(action==="close"){closeModal();return;}if(action==="close-logistics"){$("logisticsDialog").close();return;}if(action==="logistics"){try{openLogistics();}catch(error){block(error);}return;}if(action==="refresh"){refresh();return;}if(action.startsWith("go-")){view=action.slice(3);refresh();return;}try{const result=openAction(action,b.dataset.id);if(result?.catch)result.catch(error=>toast(error.message));}catch(error){toast(error.message);}});
   $("editForm").addEventListener("submit",event=>{event.preventDefault();if(!modalSave||busy)return;try{const result=modalSave(new FormData(event.currentTarget));if(result?.catch)result.catch(error=>toast(error.message));}catch(error){toast(error.message);}});
   $("modal").addEventListener("cancel",event=>{if(busy)event.preventDefault();else{modalSave=null;releasePhotos();}});

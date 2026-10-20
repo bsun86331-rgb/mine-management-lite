@@ -73,7 +73,7 @@ async function checkWorkAccess(){
   document.getElementById("accessNote").textContent=key==="middle_store"?"后勤库存、申请发放、归还及清算功能已开放。":"后勤物资申请、本人领用确认及归还清算已开放，其他岗位业务逐步建设。";
   if(MineTransport.auxiliaryRoles.includes(key))document.getElementById("accessNote").textContent="查看各班组已发布任务、设备和作业内容；任务排班由调度统一修改。";
   if(key==="middle_repair_manager")document.getElementById("accessNote").textContent="修理组请假审批及本人请假申请已开放，请使用下方请假入口。";
-  const link=document.getElementById("logisticsLink");link.href="logistics.html?role="+encodeURIComponent(key);
+  const link=document.getElementById("logisticsLink");link.href="logistics.html?role="+encodeURIComponent(key)+"&rev=20261020-14";
   link.textContent=key==="middle_store"?"进入后勤库管工作台":key==="middle_finance"?"后勤申请 / 赔偿复核":"后勤物资申请";
   try{
     const data=MineLogistics.get(), target=key==="middle_store"?"keeper":key==="middle_finance"?"finance":"";
