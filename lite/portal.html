@@ -24,7 +24,7 @@ dialog#logisticsDialog{width:min(1180px,96vw);height:92vh;max-height:92vh;border
 </main>
 <dialog id="logisticsDialog"><div class="logistics-dialog-head"><strong>后勤物资申请与个人领用</strong><button id="closeLogistics" type="button">关闭</button></div><iframe id="logisticsFrame" title="后勤库存、申请与领用确认"></iframe></dialog>
 <script src="logistics-store.js?v=20261016-7"></script><script src="attachment-storage.js?v=20261016-1"></script>
-<script src="transport-store.js?v=20261018-6"></script><script src="task-engine.js?v=20261018-1"></script><script src="task-board.js?v=20261017-11"></script>
+<script src="transport-store.js?v=20261018-6"></script><script src="task-engine.js?v=20261018-1"></script><script src="task-board.js?v=20261020-10"></script>
 <script>
 const roles={
  driver:["司机端","🚚","司机查看当班任务并记录运输作业。"],
@@ -64,14 +64,14 @@ async function checkWorkAccess(){
   if(["driver","excavator","dispatch"].includes(key)){location.replace("transport.html?role="+encodeURIComponent(key));return;}
   document.querySelector(".card").hidden=false;
   const board=document.getElementById("portalTaskBoard");
-  if(MineTransport.auxiliaryRoles.includes(key)){
+  if(knownRole){
     board.hidden=false;
     try{await MineTransport.sync();const data=MineTransport.get(),signature=MineTransport.stamp()+MineTaskBoard.clockKey(data)+applicant.id;
-      if(signature!==portalBoardSignature){board.innerHTML=MineTaskBoard.render(data,db,applicant);portalBoardSignature=signature;}
+      if(signature!==portalBoardSignature){board.innerHTML=MineTaskBoard.render(data,MineLogistics.main(),applicant,{readOnly:true});portalBoardSignature=signature;}
     }catch(error){board.textContent=error.message;}
   }
   document.getElementById("accessNote").textContent=key==="middle_store"?"后勤库存、申请发放、归还及清算功能已开放。":"后勤物资申请、本人领用确认及归还清算已开放，其他岗位业务逐步建设。";
-  if(MineTransport.auxiliaryRoles.includes(key))document.getElementById("accessNote").textContent="查看本人当班任务、设备和作业内容；到班次开始时间任务自动执行。";
+  if(MineTransport.auxiliaryRoles.includes(key))document.getElementById("accessNote").textContent="查看各班组已发布任务、设备和作业内容；任务排班由调度统一修改。";
   if(key==="middle_repair_manager")document.getElementById("accessNote").textContent="修理组请假审批及本人请假申请已开放，请使用下方请假入口。";
   const link=document.getElementById("logisticsLink");link.href="logistics.html?role="+encodeURIComponent(key);
   link.textContent=key==="middle_store"?"进入后勤库管工作台":key==="middle_finance"?"后勤申请 / 赔偿复核":"后勤物资申请";

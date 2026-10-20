@@ -101,7 +101,7 @@
     const equipment=(label,v)=>'<div class="task-stat-group" title="共享设备池；出勤按本班次各班组已发布分配统计，维修含保养，停滞含未分配、暂停与停用"><strong>'+label+'</strong>'+count("总数",v.total)+count("出勤",v.attending)+count("维修",v.repair)+count("停滞",v.idle)+'</div>';
     return '<div class="task-shift-stats" aria-label="班次人员与设备统计"><div class="task-stat-group" title="本班组已审核的一线人员；出勤按已发布分配统计，不代表已完成使用前检查；请假读取档案休假状态"><strong>人员·本班组</strong>'+count("总数",people.length)+count("出勤",attending)+count("请假",leaveCount)+'</div>'+equipment("挖机·共享",excavators)+equipment("汽车·共享",trucks)+'</div>';
   }
-  function releaseSection(d,m,r,person,dispatch){
+  function releaseSection(d,m,r,person,dispatch,readOnly=false){
     const haul=shiftTripSummary(d,m,r);
     const ownTasks=dispatch?r.tasks:r.tasks.filter(t=>t.personId===person.id&&t.role===person.applicationRole);
     const groups=r.groups||[];
@@ -109,7 +109,7 @@
       const excavator=r.tasks.find(t=>t.kind==="excavator"&&t.group?.sourceGroupId===g.sourceGroupId);
       const trucks=r.tasks.filter(t=>t.kind==="driver"&&t.group?.sourceGroupId===g.sourceGroupId);
       const regions=g.regions||{load:null,unloads:[]};
-      return '<section class="task-production-group"><h4>'+esc(groupTitle(g.number))+'</h4><div class="task-equipment-row">'+equipment(d,r,excavator,"excavator",g.excavatorCode,g.excavatorDriverName,person.id)+trucks.map(t=>equipment(d,r,t,"truck",t.vehicleCode,t.personName,person.id)).join("")+'<article class="task-region"><strong>装卸区域</strong><span>装载区：'+esc(regions.load?.name||"未设置")+'</span><span>卸载区：'+esc((regions.unloads||[]).map(z=>z.name+(z.material?" · "+z.material:"")).join("、")||"未设置")+'</span></article></div>'+ownTasks.filter(t=>t.group?.sourceGroupId===g.sourceGroupId).map(t=>workAction(d,r,t,person,dispatch)).join("")+'</section>';
+      return '<section class="task-production-group"><h4>'+esc(groupTitle(g.number))+'</h4><div class="task-equipment-row">'+equipment(d,r,excavator,"excavator",g.excavatorCode,g.excavatorDriverName,person.id)+trucks.map(t=>equipment(d,r,t,"truck",t.vehicleCode,t.personName,person.id)).join("")+'<article class="task-region"><strong>装卸区域</strong><span>装载区：'+esc(regions.load?.name||"未设置")+'</span><span>卸载区：'+esc((regions.unloads||[]).map(z=>z.name+(z.material?" · "+z.material:"")).join("、")||"未设置")+'</span></article></div>'+ownTasks.filter(t=>t.group?.sourceGroupId===g.sourceGroupId).map(t=>readOnly?"":workAction(d,r,t,person,dispatch)).join("")+'</section>';
     }).join("");
     const auxiliary=r.tasks.filter(t=>t.kind==="auxiliary");
     const aux=auxiliary.length?'<section class="task-auxiliary"><h4>辅助车辆 / 人员</h4><div class="task-equipment-row">'+auxiliary.map(t=>'<div class="task-auxiliary-item">'+equipment(d,r,t,"auxiliary",t.vehicleCode,t.personName,person.id)+(t.content?'<div class="task-aux-content"><b>作业内容</b><span>'+esc(t.content)+'</span></div>':"")+'</div>').join("")+'</div></section>':"";
@@ -128,10 +128,10 @@
     const schedule=slots(d),slot=schedule[mode];
     const published=(d.taskReleases||[]).filter(r=>r.status==="published");
     // Never use editable productionGroups or auxiliaryPlans to preview the next shift.
-    const rows=slot?published.filter(r=>r.workDate===slot.workDate&&r.shiftName===slot.shiftName&&(mode==="current"?E().phase(r)==="running":E().phase(r)==="scheduled")&&(dispatch||r.team===person.team||r.tasks.some(t=>t.personId===person.id&&t.role===person.applicationRole))):[];
-    const hasPublished=slot&&published.some(r=>r.workDate===slot.workDate&&r.shiftName===slot.shiftName&&(dispatch||r.team===person.team));
+    const rows=slot?published.filter(r=>r.workDate===slot.workDate&&r.shiftName===slot.shiftName&&(mode==="current"?E().phase(r)==="running":E().phase(r)==="scheduled")):[];
+    const hasPublished=slot&&published.some(r=>r.workDate===slot.workDate&&r.shiftName===slot.shiftName);
     const empty=!slot?(mode==="current"?"当前不在班次时间内":"任务未发布"):!hasPublished?"任务未发布":"本班暂无分配给你的任务";
-    return '<section class="task-board" data-task-board-key="'+esc(key)+'">'+(options.hideTitle?"":'<h2>'+esc(dispatch?"任务看板":"我的任务看板")+'</h2>')+'<div class="task-board-toolbar"><div><strong>'+esc(mode==="next"?"下一班次排班":"当前班次任务")+'</strong>'+(slot?'<span>'+esc(slot.workDate+" · "+slot.shiftName+" · "+time(slot.startAt)+" — "+time(slot.endAt))+'</span>':"")+'</div><button type="button" class="task-view-button" data-task-board-view="'+(mode==="next"?"current":"next")+'">'+(mode==="next"?"返回当前班次":"下一班次排班")+'</button></div>'+(rows.length?rows.map(r=>releaseSection(d,m,r,person,dispatch)).join(""):'<p class="task-empty">'+esc(empty)+'</p>')+'</section>';
+    return '<section class="task-board" data-task-board-key="'+esc(key)+'">'+(options.hideTitle?"":'<h2>'+esc("共享任务看板")+'</h2>')+'<div class="task-board-toolbar"><div><strong>'+esc(mode==="next"?"下一班次排班":"当前班次任务")+'</strong>'+(slot?'<span>'+esc(slot.workDate+" · "+slot.shiftName+" · "+time(slot.startAt)+" — "+time(slot.endAt))+'</span>':"")+'</div><button type="button" class="task-view-button" data-task-board-view="'+(mode==="next"?"current":"next")+'">'+(mode==="next"?"返回当前班次":"下一班次排班")+'</button></div>'+(rows.length?rows.map(r=>releaseSection(d,m,r,person,dispatch,options.readOnly===true)).join(""):'<p class="task-empty">'+esc(empty)+'</p>')+'</section>';
   }
   let detailsDialog=null,detailsToken=0,detailUrls=[];
   const when=value=>value?new Date(value).toLocaleString("zh-CN",{timeZone:"Asia/Ulaanbaatar",hour12:false}):"—";
@@ -228,8 +228,8 @@
     const token=openDetails("使用前检查结果 · "+task.vehicleCode,heading+reports);return loadDetailPhotos(files,token);
   }
   async function showTaskDetail(context,releaseId,taskId,type){
-    const L=window.MineLogistics,T=window.MineTransport,current=L.context(context.person.applicationRole);
-    if(current.id!==context.person.id||!L.active(current))throw new Error("当前人员状态或本人登记已变化，请重新进入工作台");
+    const L=window.MineLogistics,T=window.MineTransport,current=context.options.shared?window.MineSharedTaskAccess():L.context(context.person.applicationRole);
+    if(current.id!==context.person.id||(!context.options.shared&&!L.active(current)))throw new Error("当前人员状态或本人登记已变化，请重新进入工作台");
     await T.sync();
     const d=T.get(),m=L.main(),r=d.taskReleases.find(r=>r.id===releaseId),task=r?.tasks.find(t=>t.id===taskId);
     if(!r||!task)throw new Error("任务记录已变化，请刷新看板后重试");
