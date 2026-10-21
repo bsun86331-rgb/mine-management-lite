@@ -363,3 +363,6 @@ button.attendance-status:hover{border-color:#78a98b}
  text-align:left;text-decoration:none;cursor:pointer;
 }
 .app .sidebar .sidebar-bottom > :is(a,button):hover{background:#ffffff20;border-color:#ffffff50}
+
+/* Equal-size pre-use inspection choices. */
+.inspection-actions>button{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:160px;max-width:100%;height:40px;min-height:40px;flex:0 0 160px;padding:8px 11px;font-size:12px;line-height:1.4;white-space:nowrap}
