@@ -118,12 +118,12 @@
   function render(d,m,person,options={}){
     const dispatch=options.dispatch===true,key=dispatch?"dispatch":person.id+":"+person.applicationRole,mode=modes.get(key)||"current";
     contexts.set(key,{d,m,person,options});
-    if(dispatch&&options.history){
+    if((dispatch||options.shared===true)&&options.history){
       const {workDate,team}=options.history;
       if(!/^\d{4}-\d{2}-\d{2}$/.test(workDate)||!["生产A组","生产B组"].includes(team))return '<p class="task-empty">请选择有效日期和班组。</p>';
       const dayTrips=teamTrips(d,m,workDate,team),linked=new Set(dayTrips.map(t=>t.releaseId)),releases=(d.taskReleases||[]).filter(r=>r.workDate===workDate&&r.team===team&&(r.status==="published"||linked.has(r.id))).slice().sort((a,b)=>Number(b.version)-Number(a.version)||Date.parse(b.publishedAt)-Date.parse(a.publishedAt));
       const rows=["白班","夜班"].map(shift=>releases.find(r=>r.shiftName===shift)).filter(Boolean);
-      return '<section class="task-board task-history-board" data-task-board-key="'+esc(key)+'"><div class="task-board-toolbar"><div><strong>'+esc(workDate+" · "+team+" · 当天任务看板")+'</strong><span>白班、夜班按班次开始日期归属</span></div><div class="task-history-actions"><button type="button" class="task-view-button" data-action="backHaulSummary">返回统计</button><button type="button" class="task-view-button" data-action="exitHaulHistory">返回任务看板</button></div></div><div class="task-history-total">当天总拉运车数：<b>'+dayTrips.length+'</b> 车 <button type="button" class="task-view-button" data-task-day-detail="trips">查看当天拉运明细</button></div>'+(rows.length?rows.map(r=>releaseSection(d,m,r,person,true)).join(""):'<p class="task-empty">当天没有已发布的任务看板记录。'+(dayTrips.length?'可通过上方按钮查看已保存的拉运明细。':"")+'</p>')+'</section>';
+      return '<section class="task-board task-history-board" data-task-board-key="'+esc(key)+'"><div class="task-board-toolbar"><div><strong>'+esc(workDate+" · "+team+" · 当天任务看板")+'</strong><span>白班、夜班按班次开始日期归属</span></div><div class="task-history-actions"><button type="button" class="task-view-button" data-action="backHaulSummary">返回统计</button><button type="button" class="task-view-button" data-action="exitHaulHistory">返回任务看板</button></div></div><div class="task-history-total">当天总拉运车数：<b>'+dayTrips.length+'</b> 车 <button type="button" class="task-view-button" data-task-day-detail="trips">查看当天拉运明细</button></div>'+(rows.length?rows.map(r=>releaseSection(d,m,r,person,true,options.readOnly===true)).join(""):'<p class="task-empty">当天没有已发布的任务看板记录。'+(dayTrips.length?'可通过上方按钮查看已保存的拉运明细。':"")+'</p>')+'</section>';
     }
     const schedule=slots(d),slot=schedule[mode];
     const published=(d.taskReleases||[]).filter(r=>r.status==="published");
@@ -244,8 +244,8 @@
     const board=button.closest("[data-task-board-key]"),key=board?.dataset.taskBoardKey,context=contexts.get(key);if(!context)return;
     if(button.dataset.taskDayDetail){
       try{
-        const T=window.MineTransport,L=window.MineLogistics,current=T.context("dispatch");
-        if(!context.options.dispatch||!context.options.history||current.id!==context.person.id)throw new Error("当前账号不能查看此统计明细");
+        const T=window.MineTransport,L=window.MineLogistics,current=context.options.shared?window.MineSharedTaskAccess():T.context("dispatch");
+        if((!context.options.dispatch&&!context.options.shared)||!context.options.history||current.id!==context.person.id)throw new Error("当前账号不能查看此统计明细");
         await T.sync();const d=T.get(),m=L.main(),{workDate,team}=context.options.history;
         tripsDetails(d,m,{workDate,shiftName:"白班 / 夜班"},{kind:"driver",personName:team},teamTrips(d,m,workDate,team));
       }catch(error){openDetails("无法读取详情",'<p class="task-detail-note">'+esc(error.message)+'</p>');}return;
