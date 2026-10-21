@@ -37,7 +37,7 @@
     if(dispatch||!task||!["driver","excavator"].includes(task.kind)||task.personId!==person.id||task.role!==person.applicationRole||E().phase(r)!=="running")return "";
     const assignment=(d.assignments||[]).find(a=>a.id===task.assignmentId);if(assignment?.status!=="active")return "";
     const own=(d.shifts||[]).find(s=>s.personId===person.id&&s.status!=="closed");
-    if(own&&person.applicationRole==="driver")return "";
+    if(own&&["driver","excavator"].includes(person.applicationRole))return "";
     return own?'<button type="button" data-action="go-work" class="task-work-button">进入本班作业 / 检查</button>':'<button type="button" data-action="taskInspection" data-id="'+esc(task.assignmentId)+'" class="task-work-button">进行使用前检查</button>';
   }
   function excavatorOperator(d,trip){
