@@ -44,6 +44,23 @@
     if(busy)return;busy=true;$("save").disabled=true;
     try{await T.act(type,args,actor);if(onSaved)onSaved();$("modal").close();modalSave=null;releasePhotos();refresh(true);toast(success);}catch(error){toast(error.message);}finally{busy=false;$("save").disabled=false;}
   }
+  function renderPersonalShiftStats(){
+    const host=$("personalShiftStats");if(!host)return;
+    host.hidden=view!=="tasks"||!["driver","excavator"].includes(role);if(host.hidden){host.innerHTML="";return;}
+    const slot=MineTaskBoard.slots(d).current,cohort=new Set(),counts=new Map();
+    if(slot){
+      for(const release of d.taskReleases.filter(r=>r.status==="published"&&r.workDate===slot.workDate&&r.shiftName===slot.shiftName))
+        for(const task of release.tasks||[])if(task.kind===role&&task.personId)cohort.add(task.personId);
+      const unique=new Map(d.trips.filter(t=>t.status==="completed"&&t.mode==="gps"&&t.workDate===slot.workDate&&t.shiftName===slot.shiftName).map(t=>[t.id,t]));
+      for(const trip of unique.values()){
+        const id=role==="driver"?trip.personId:MineTaskBoard.excavatorOperator(d,trip);
+        if(!id)continue;cohort.add(id);counts.set(id,(counts.get(id)||0)+1);
+      }
+    }
+    const count=counts.get(person.id)||0,rank=slot&&cohort.has(person.id)&&count>0?1+[...cohort].filter(id=>(counts.get(id)||0)>count).length:null;
+    host.innerHTML='<span class="personal-shift-stat">'+(role==="excavator"?"本班装车数":"本班运输趟数")+' <strong>'+count+'</strong> '+(role==="excavator"?"车":"趟")+'</span><span class="personal-shift-stat">本班排名 <strong>'+(rank?"第"+rank+"名":"—")+'</strong></span>';
+    host.title=!slot?"当前不在班次时间内":!cohort.has(person.id)?"本班暂无本人任务或有效车次":!count?"本班暂无有效车次，暂不排名":"同班次全部班组同岗位按已完成真实定位车次排名，数量相同并列；不含模拟、在途和作废车次";
+  }
   function render(){
     $("transportFooter").hidden=role==="dispatch";
     $("workspaceRefresh").hidden=role==="dispatch";
@@ -53,6 +70,7 @@
     $("roleLabel").textContent=labels[role];$("identity").textContent=person.name+" · "+person.status;$("nav").innerHTML=entries.filter(([id])=>role==="dispatch"||!["work","records","sessions"].includes(id)).map(([id,label])=>'<button type="button" data-view="'+id+'" class="'+(id===view||(id==="attendanceDaily"&&view==="attendance")?'selected':'')+(id==="messages"&&unread?' message-unread':'')+'">'+label+(id==="messages"&&unread?'<span class="message-unread-badge" aria-label="'+unread+'条未读">'+unread+'</span>':'')+'</button>').join("");
     $("title").textContent=view==="summary"?"车数统计表":(entries.find(v=>v[0]===view)?.[1]||"考勤汇总");$("subtitle").textContent=view==="summary"?"生产A组 / 生产B组":role==="dispatch"?"排班、区域、设备与车次共用同一台账":role==="driver"?"先检查设备，再按装载与卸载区域完成运输":"按实际装载挖机汇总跟随车辆的已完成车次";document.title=labels[role]+" · 矿山管理系统";
     if(role==="dispatch"&&view==="tasks"&&haulSummaryTaskHistory){$("title").textContent=haulSummaryTaskHistory.workDate+" · "+haulSummaryTaskHistory.team+"任务看板";$("subtitle").textContent="查看当天白夜班任务及逐趟拉运明细";}
+    renderPersonalShiftStats();
     $("eyebrow").hidden=false;$("subtitle").hidden=false;$("notice").hidden=false;
     $("notice").innerHTML=(unread?'<div class="banner">你有 '+unread+' 条未读消息。'+button("go-messages","","查看")+'</div>':'');
     if(role==="dispatch"){
