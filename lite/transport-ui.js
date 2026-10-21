@@ -63,7 +63,6 @@
   }
   function render(){
     $("transportFooter").hidden=role==="dispatch";
-    $("workspaceRefresh").hidden=role==="dispatch";
     haulSummaryExportData=null;$("exportHaulSummary").hidden=role!=="dispatch"||view!=="summary";$("exportHaulSummary").disabled=true;
     const entries=role==="dispatch"?[["tasks","任务看板"],["summary","车数统计表"],["attendanceDaily","考勤汇总"],["assignments","白夜班排班"],["zones","装载/卸载区设置"],["faults","检查与异常责任"],["messages","消息中心"],["settings","定位规则"],["audit","操作记录"]]:[["work",role==="driver"?"本班驾驶作业":"本班装载作业"],["tasks","任务看板"],["records","运输车次"],["faults","检查与责任关联"],["sessions","我的班次"],["messages","消息中心"]];
     if(!entries.some(e=>e[0]===(role==="dispatch"&&view==="attendance"?"attendanceDaily":view)))view=entries[0][0];const unread=T.visibleMessages(d,person).filter(v=>!v.readBy.includes(person.id)).length;
