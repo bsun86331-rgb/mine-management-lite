@@ -10,7 +10,7 @@
   const shiftContains=(times,minute)=>{const start=clockMinutes(times.start),end=clockMinutes(times.end);return start<end?minute>=start&&minute<end:minute>=start||minute<end;};
   function currentShift(times,at=new Date()){const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Ulaanbaatar",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(at),values=Object.fromEntries(parts.map(p=>[p.type,p.value])),minute=Number(values.hour)*60+Number(values.minute);const matches=["白班","夜班"].filter(name=>shiftContains(times[name],minute));return matches.length===1?matches[0]:null;}
   const defaults={dwellSeconds:20,maxAccuracy:50,gapSeconds:90,exitMargin:15,maxSpeedKmh:150};
-  function parseLedger(raw){let d;try{d=JSON.parse(raw||"null");}catch{fail("运输台账无法读取，请保留浏览器数据并联系管理员");}if(!d)d={version:1,revision:0,settings:{...defaults},assignments:[],zones:[],shifts:[],inspections:[],faults:[],trips:[],devices:[],messages:[],audit:[]};for(const key of ["assignments","zones","shifts","inspections","faults","trips","devices","messages","audit"])if(!Array.isArray(d[key]))fail("运输台账格式异常");if(d.productionGroups==null)d.productionGroups=[];if(!Array.isArray(d.productionGroups))fail("生产设备组草稿格式异常");for(const group of d.productionGroups){if(group.followingTrucks==null)group.followingTrucks=group.followingTruck?[{...group.followingTruck}]:(group.vehicleId&&group.personId?[{id:group.id+"-truck-1",status:"draft",vehicleId:"",personId:"",createdAt:group.updatedAt||group.createdAt}]:[]);if(!Array.isArray(group.followingTrucks))fail("跟随汽车草稿格式异常");}if(d.auxiliaryPlans==null)d.auxiliaryPlans=[];if(!Array.isArray(d.auxiliaryPlans)||d.auxiliaryPlans.some(p=>!Array.isArray(p.cards)))fail("辅助车辆草稿格式异常");for(const field of ["attendancePublications","attendanceReminderChoices"]){if(d[field]==null)d[field]=[];if(!Array.isArray(d[field]))fail("考勤确认台账格式异常");}if(d.attendanceRecords==null)d.attendanceRecords=[];if(!Array.isArray(d.attendanceRecords))fail("考勤记录格式异常");if(d.taskReleases==null)d.taskReleases=[];if(!Array.isArray(d.taskReleases))fail("任务发布记录格式异常");d.settings={...defaults,...d.settings};d.shiftTimes=Object.fromEntries(["白班","夜班"].map(name=>[name,{...shiftTimeDefaults[name],...d.shiftTimes?.[name]}]));return d;}
+  function parseLedger(raw){let d;try{d=JSON.parse(raw||"null");}catch{fail("运输台账无法读取，请保留浏览器数据并联系管理员");}if(!d)d={version:1,revision:0,settings:{...defaults},assignments:[],zones:[],shifts:[],inspections:[],faults:[],trips:[],devices:[],messages:[],audit:[]};for(const key of ["assignments","zones","shifts","inspections","faults","trips","devices","messages","audit"])if(!Array.isArray(d[key]))fail("运输台账格式异常");if(d.productionGroups==null)d.productionGroups=[];if(!Array.isArray(d.productionGroups))fail("生产设备组草稿格式异常");for(const group of d.productionGroups){if(group.followingTrucks==null)group.followingTrucks=group.followingTruck?[{...group.followingTruck}]:(group.vehicleId&&group.personId?[{id:group.id+"-truck-1",status:"draft",vehicleId:"",personId:"",createdAt:group.updatedAt||group.createdAt}]:[]);if(!Array.isArray(group.followingTrucks))fail("跟随汽车草稿格式异常");}if(d.auxiliaryPlans==null)d.auxiliaryPlans=[];if(!Array.isArray(d.auxiliaryPlans)||d.auxiliaryPlans.some(p=>!Array.isArray(p.cards)))fail("辅助车辆草稿格式异常");for(const field of ["maintenanceConfigs","maintenanceServices","meterReadings","attendancePublications","attendanceReminderChoices"]){if(d[field]==null)d[field]=[];if(!Array.isArray(d[field]))fail("考勤确认台账格式异常");}if(d.attendanceRecords==null)d.attendanceRecords=[];if(!Array.isArray(d.attendanceRecords))fail("考勤记录格式异常");if(d.taskReleases==null)d.taskReleases=[];if(!Array.isArray(d.taskReleases))fail("任务发布记录格式异常");d.settings={...defaults,...d.settings};d.shiftTimes=Object.fromEntries(["白班","夜班"].map(name=>[name,{...shiftTimeDefaults[name],...d.shiftTimes?.[name]}]));return d;}
   const DATABASE="mine-management-lite-transport-data-v1",STORE="ledger";
   let storageConnection=null,storageReady=null,cachedRaw=null,cachedToken="empty",loaded=false,syncing=null;
   function storageFailure(error){
@@ -141,7 +141,7 @@
   const outside=(p,z,margin)=>distance(p,z)-p.accuracy>=z.radius+margin;
   function equipmentState(d,m,id){const v=m.vehicles.find(v=>v.id===id);if(!v)return "missing";if(v.status==="停用")return "disabled";if(v.status==="维修中")return "repair";return d.devices.find(s=>s.vehicleId===id)?.mode||"working";}
   const working=(d,m,id)=>equipmentState(d,m,id)==="working";
-  function actorFrom(m,actor){if(!roles.includes(actor?.role))fail("无效端口");const p=m.people.find(p=>p.id===L.currentId(actor.role));if(!p||p.id!==actor.personId||p.applicationRole!==actor.role||!L.active(p))fail("人员状态或本人登记已变化，请重新进入工作台");return p;}
+  function actorFrom(m,actor){if(![...roles,...auxiliaryRoles,"middle_repair_manager"].includes(actor?.role))fail("无效端口");const p=m.people.find(p=>p.id===L.currentId(actor.role));if(!p||p.id!==actor.personId||p.applicationRole!==actor.role||!L.active(p))fail("人员状态或本人登记已变化，请重新进入工作台");return p;}
   const dispatchOnly=a=>{if(a.applicationRole!=="dispatch")fail("仅调度可操作");};
   const operatorOnly=a=>{if(!["driver","excavator"].includes(a.applicationRole))fail("仅驾驶/挖机操作人员可操作");};
   function requireShift(d,a){const s=ownShift(d,a.id);if(!s)fail("请先接班并完成检查");return s;}
@@ -200,7 +200,10 @@
     if(t.status==="loaded"&&outside(p,t.loadZone,settings.exitMargin)){t.status="hauling";t.departedAt=now();t.events.push({at:now(),type:"离开装载区",point:clone(p)});}
     if(t.status!=="hauling")return;const unloading=t.unloadZones.filter(z=>inside(p,z));if(unloading.length!==1){t.unloadCandidate=null;if(unloading.length>1)s.locationWarning="卸载区重叠，暂不自动计车";return;}const z=unloading[0];if(t.unloadCandidate?.zoneId!==z.id)t.unloadCandidate={zoneId:z.id,since:p.ts};if(p.ts-t.unloadCandidate.since>=settings.dwellSeconds*1000)completeTrip(d,s,t,"gps",p,z,z.material,a);
   }
-  function execute(d,m,a,type,x){const find=(array,id)=>d[array].find(v=>v.id===id)||fail("记录不存在，请刷新");
+  function execute(d,m,a,type,x){
+    if(!roles.includes(a.applicationRole)&&!(a.applicationRole==="middle_repair_manager"&&["maintenanceConfig","maintenanceService"].includes(type))&&!(auxiliaryRoles.includes(a.applicationRole)&&type==="taskMeterReading"))fail("当前端口无此操作权限");
+    const C=window.MineServiceCare;
+    const find=(array,id)=>d[array].find(v=>v.id===id)||fail("记录不存在，请刷新");
     if(type==="publishTasks"){dispatchOnly(a);return window.MineTaskEngine.publish(d,m,a,x);}
     if(type==="productionGroup"){
       dispatchOnly(a);
@@ -312,10 +315,49 @@
     if(type==="openShift"){
       operatorOnly(a);if(ownShift(d,a.id))fail("你仍有未结束的实际班次");const r=find("assignments",x.id);if(r.personId!==a.id||r.kind!==a.applicationRole||r.status!=="active")fail("这不是你的有效排班");requireScheduleAvailable(a,r,d);if(r.releaseId){const release=d.taskReleases.find(t=>t.id===r.releaseId);if(!release||window.MineTaskEngine.phase(release)!=="running")fail("任务尚未开始、已经过班或已被替代，不能接班");}if(d.shifts.some(s=>s.vehicleId===r.vehicleId&&s.status!=="closed"))fail("此设备上一实际班次尚未结束，不能重复接班");const v=m.vehicles.find(v=>v.id===r.vehicleId);if(!v)fail("设备档案已不存在");if(isExcavator(v)!==(r.kind==="excavator"))fail("设备类别已变化，请调度重新安排");const previous=d.shifts.find(s=>s.vehicleId===r.vehicleId&&s.status==="closed"&&s.startedWorkAt);const s={id:uid(),assignmentId:r.id,personId:a.id,personName:a.name,kind:r.kind,vehicleId:v.id,vehicleCode:v.code,workDate:r.workDate,shiftName:r.shiftName,status:"checking",openedAt:now(),releaseId:r.releaseId||null,taskId:r.taskId||null,previousShiftId:previous?.id||null,previousDriverId:previous?.personId||null,previousDriverName:previous?.personName||"未记录",track:[],candidate:null,tempExcavatorId:null};d.shifts.unshift(s);audit(d,a,"接班",v.code+"；"+r.workDate+r.shiftName,{shiftId:s.id});return;
     }
+    if(type==="maintenanceConfig"||type==="maintenanceService"){
+      if(a.applicationRole!=="middle_repair_manager")fail("仅维修管理可设置保养或登记保养");if(!C)fail("保养组件未加载，请刷新");
+      const v=m.vehicles.find(v=>v.id===x.vehicleId);if(!v)fail("设备不存在");const kind=C.metric(v);if(x.metric!==kind)fail("设备计量类别已变化，请重新打开设置");
+      const prior=C.config(d,v),beforeConfig=prior?clone(prior):null,actual=prior?.revision||0;if(Number(x.revision)!==actual)fail("保养设置已更新，请重新打开");
+      const at=now(),reading=C.number(x.currentMeter,"当前"+C.unit(v),true);
+      if(reading!=null){C.reading(d,v,reading,[],false);}
+      const latest=C.latest(d,v),current=reading??latest?.value??null;
+      if(type==="maintenanceConfig"){
+        const intervalMeter=C.number(x.intervalMeter,"保养间隔"+C.unit(v),true),warningPercent=C.number(x.warningPercent,"提前提醒百分比");
+        if(intervalMeter===0||warningPercent<=0||warningPercent>=100)fail("保养间隔须大于0，提前提醒应在0到100之间");
+        const lastServiceMeter=C.number(x.lastServiceMeter,"上次保养读数",true),lastServiceDate=String(x.lastServiceDate||"");
+        if(lastServiceDate&&(!C.validDate(lastServiceDate)||lastServiceDate>date()))fail("上次保养日期无效或晚于今天");
+        if(lastServiceMeter!=null&&current!=null&&lastServiceMeter>current)fail("上次保养读数不能大于当前读数");
+        const record={vehicleId:v.id,metric:kind,intervalMeter,warningPercent,lastServiceMeter,lastServiceDate,revision:actual+1,updatedAt:at,updatedBy:a.id};
+        if(prior)Object.assign(prior,record);else d.maintenanceConfigs.push(record);
+        audit(d,a,"设置设备保养",v.code,{vehicleId:v.id,oldConfig:beforeConfig,config:clone(record)});
+      }else{
+        if(!prior)fail("请先设置保养规则");const completedDate=String(x.serviceDate||"");if(!C.validDate(completedDate)||completedDate>date())fail("保养日期无效或晚于今天");
+        const meter=C.number(x.serviceMeter,"保养时"+C.unit(v));if(current!=null&&meter>current)fail("保养读数不能大于当前读数");if(prior.lastServiceDate&&completedDate<prior.lastServiceDate)fail("保养日期不能早于上次保养");if(prior.lastServiceMeter!=null&&meter<prior.lastServiceMeter)fail("保养读数不能小于上次保养");
+        d.maintenanceServices.unshift({id:uid(),vehicleId:v.id,metric:kind,value:meter,serviceDate:completedDate,at,by:a.id,note:named(x.note,"保养说明"),previousConfig:clone(prior)});
+        Object.assign(prior,{lastServiceMeter:meter,lastServiceDate:completedDate,revision:actual+1,updatedAt:at,updatedBy:a.id});
+        audit(d,a,"登记设备保养",v.code,{vehicleId:v.id,value:meter,serviceDate:completedDate});
+      }
+      if(reading!=null)d.meterReadings.unshift({id:uid(),vehicleId:v.id,metric:kind,value:reading,attachments:[],at,sequence:d.revision+1,personId:a.id,source:"maintenance-manual"});
+      return;
+    }
+    if(type==="taskMeterReading"){
+      if(!auxiliaryRoles.includes(a.applicationRole)||!C)fail("当前岗位不能提交辅助设备仪表登记");
+      const r=d.taskReleases.find(r=>r.id===x.releaseId&&r.status==="published"),task=r?.tasks.find(t=>t.id===x.taskId&&t.personId===a.id&&t.role===a.applicationRole&&t.kind==="auxiliary");
+      if(!r||!task||window.MineTaskEngine.phase(r)!=="running"||!task.vehicleId)fail("这不是本人正在执行的设备任务");
+      const assigned=d.assignments.find(v=>v.id===task.assignmentId&&v.status==="active"&&v.personId===a.id&&v.vehicleId===task.vehicleId);if(!assigned)fail("设备任务已变化");requireScheduleAvailable(a,assigned,d);
+      const v=m.vehicles.find(v=>v.id===task.vehicleId);if(!v||x.metric!==C.metric(v))fail("设备计量类别已变化");
+      const meter=C.reading(d,v,x.meterValue,x.meterAttachments,true);if(!meter)fail("请填写当前读数");
+      if(d.meterReadings.some(v=>v.taskId===task.id&&v.source==="before-use"))fail("本任务已完成仪表登记");
+      const record={id:uid(),vehicleId:v.id,metric:meter.metric,value:meter.value,attachments:meter.attachments,at:now(),sequence:d.revision+1,personId:a.id,personName:a.name,source:"before-use",taskId:task.id,releaseId:r.id,note:named(x.note,"仪表说明")};
+      d.meterReadings.unshift(record);audit(d,a,"使用前仪表登记",v.code,{readingId:record.id,vehicleId:v.id});return;
+    }
     if(type==="inspection"){
-      operatorOnly(a);const s=requireShift(d,a);if(!["checking","checked"].includes(s.status))fail("该班次已完成检查");const abnormal=x.outcome==="abnormal",attachments=Array.isArray(x.attachments)?x.attachments:[];if(attachments.length>10)fail("一次检查最多10张照片");for(const f of attachments)if(!f?.id||f.size>10*1024*1024||!String(f.type).startsWith("image/"))fail("请上传10MB以内的有效图片");const report={id:uid(),shiftId:s.id,personId:a.id,personName:a.name,vehicleId:s.vehicleId,vehicleCode:s.vehicleCode,outcome:abnormal?"abnormal":"normal",note:named(x.note,"检查说明"),attachments,at:now(),previousShiftId:s.previousShiftId,responsibleId:null,responsibleName:"未记录"};
+      operatorOnly(a);const s=requireShift(d,a);if(!["checking","checked"].includes(s.status))fail("该班次已完成检查");if(x.inspectionShiftId&&x.inspectionShiftId!==s.id||x.inspectionVehicleId&&x.inspectionVehicleId!==s.vehicleId)fail("本人班次设备已变化，请重新打开检查");const abnormal=x.outcome==="abnormal",attachments=Array.isArray(x.attachments)?x.attachments:[];if(attachments.length>10)fail("一次检查最多10张照片");for(const f of attachments)if(!f?.id||f.size>10*1024*1024||!String(f.type).startsWith("image/"))fail("请上传10MB以内的有效图片");const v=m.vehicles.find(v=>v.id===s.vehicleId);if(!C||!v)fail("设备或保养组件不可用");if(x.metric&&x.metric!==C.metric(v))fail("设备计量类别已变化，请刷新");
+      const meter=C.reading(d,v,x.meterValue,x.meterAttachments,true);const report={meter:meter?{metric:meter.metric,value:meter.value}:null,meterAttachments:meter?.attachments||[],id:uid(),shiftId:s.id,personId:a.id,personName:a.name,vehicleId:s.vehicleId,vehicleCode:s.vehicleCode,outcome:abnormal?"abnormal":"normal",note:named(x.note,"检查说明"),attachments,at:now(),previousShiftId:s.previousShiftId,responsibleId:null,responsibleName:"未记录"};
       if(abnormal){let fault=x.faultId?d.faults.find(f=>f.id===x.faultId&&f.vehicleId===s.vehicleId&&f.status==="open"):null;if(x.faultId&&!fault)fail("所选既有异常状态已变化");if(!fault){fault={id:uid(),vehicleId:s.vehicleId,vehicleCode:s.vehicleCode,reportedAt:now(),reporterId:a.id,reporterName:a.name,responsibleId:s.previousDriverId,responsibleName:s.previousDriverName,previousShiftId:s.previousShiftId,status:"open",note:report.note,reports:[]};d.faults.unshift(fault);if(fault.responsibleId)notify(d,fault.responsibleId,"设备 "+s.vehicleCode+"新异常已直接关联你的上一实际班次",fault.id);}fault.reports.push(report.id);Object.assign(report,{faultId:fault.id,responsibleId:fault.responsibleId,responsibleName:fault.responsibleName});s.status="checked";setDevice(d,s.vehicleId,"paused","使用前检查异常",a);notify(d,"dispatch",s.personName+"上报设备异常，上一实际班次责任关联："+fault.responsibleName,fault.id);}
       else{const assignment=d.assignments.find(r=>r.id===s.assignmentId);if(assignment?.releaseId){const release=d.taskReleases.find(r=>r.id===assignment.releaseId);if(!release||window.MineTaskEngine.phase(release)!=="running")fail("任务当前不在执行时段，不能开始新的作业");}if(!working(d,m,s.vehicleId)||d.faults.some(f=>f.vehicleId===s.vehicleId&&f.status==="open"))fail("设备仍有暂停/维修或未处理异常，请先处理后恢复作业");s.status="working";s.startedWorkAt=s.startedWorkAt||now();}
+      if(meter)d.meterReadings.unshift({id:uid(),vehicleId:s.vehicleId,metric:meter.metric,value:meter.value,attachments:meter.attachments,at:report.at,sequence:d.revision+1,personId:a.id,personName:a.name,source:"inspection",inspectionId:report.id,shiftId:s.id});
       d.inspections.unshift(report);audit(d,a,abnormal?"检查异常直接关联责任":"检查无异常并开工",s.vehicleCode+"；"+(report.responsibleName||""),{shiftId:s.id,inspectionId:report.id});return;
     }
     if(type==="device"){
@@ -474,7 +516,7 @@
  const w=release||window.MineTaskEngine.timeWindow(c.workDate,d.shiftTimes[c.shiftName]);
  window.MineLeave.assertSchedule(p,w.startAt,w.endAt);
  }
- async function act(type,args,actor){if(!navigator.locks?.request)fail("请使用支持事务锁的新版浏览器");await sync();const transaction=()=>navigator.locks.request(KEY,async()=>{const record=await readStorage();if(!record&&cachedToken!=="empty")fail("运输台账存储记录缺失，请保留浏览器数据");cacheRecord(record);const d=get(),m=L.main(),a=actorFrom(m,actor),result=execute(d,m,a,type,args||{}),next={raw:JSON.stringify(d),token:uid()};await writeStorage(next);cacheRecord(next);signalStorage();return result;});if(["productionGroup","auxiliaryPlan","assignment","activateAssignment","publishTasks","openShift","unscheduledAttendance","unscheduledAttendanceGroup","attendanceDecision","publishAttendance","attendanceReminderChoice"].includes(type)){if(!window.MineLeave)fail("请销假组件尚未加载，请刷新");return window.MineLeave.withSchedulingLock(()=>["unscheduledAttendance","unscheduledAttendanceGroup","attendanceDecision","publishAttendance"].includes(type)?window.MineGPSClock.withAttendanceLock(transaction):transaction());}return transaction();}
+ async function act(type,args,actor){if(!navigator.locks?.request)fail("请使用支持事务锁的新版浏览器");await sync();const transaction=()=>navigator.locks.request(KEY,async()=>{const record=await readStorage();if(!record&&cachedToken!=="empty")fail("运输台账存储记录缺失，请保留浏览器数据");cacheRecord(record);const d=get(),m=L.main(),a=actorFrom(m,actor),result=execute(d,m,a,type,args||{}),next={raw:JSON.stringify(d),token:uid()};await writeStorage(next);cacheRecord(next);signalStorage();return result;});if(["productionGroup","auxiliaryPlan","assignment","activateAssignment","publishTasks","openShift","taskMeterReading","unscheduledAttendance","unscheduledAttendanceGroup","attendanceDecision","publishAttendance","attendanceReminderChoice"].includes(type)){if(!window.MineLeave)fail("请销假组件尚未加载，请刷新");return window.MineLeave.withSchedulingLock(()=>["unscheduledAttendance","unscheduledAttendanceGroup","attendanceDecision","publishAttendance"].includes(type)?window.MineGPSClock.withAttendanceLock(transaction):transaction());}return transaction();}
   window.MineTransport={KEY,get,ready,sync,stamp,context,act,defaults,materialTypes,shiftTimeDefaults,currentShift,date,distance,inside,validZone,ownShift,shiftTrip,liveTrip,equipmentState,working,isExcavator,isHaulTruck,isAuxiliaryVehicle,auxiliaryRoles,draftSlots,visibleMessages,chatVehicleAt};
 })();
 
