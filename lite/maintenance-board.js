@@ -22,6 +22,8 @@ dialog.addEventListener("cancel",event=>{if(saving)event.preventDefault();});
 dialog.addEventListener("close",()=>{pending=null;});
 $("stationConfirmSave").onclick=async()=>{if(saving||!pending)return;saving=true;$("stationConfirmSave").disabled=true;$("stationConfirmCancel").disabled=true;const request={...pending};
  try{await S.change(role,request.type,request);dialog.close();notice(request.type==="add"?"工位已增加":"工位已删除");renderStations(true);}catch(e){$("stationConfirmError").textContent=e.message;renderStations(true);}finally{saving=false;$("stationConfirmSave").disabled=false;$("stationConfirmCancel").disabled=false;}};
+$("maintenanceServiceSettings").onclick=()=>{try{S.manager(role);$("maintenanceServiceDialog").showModal();}catch(e){notice(e.message);}};
+$("maintenanceServiceClose").onclick=()=>$("maintenanceServiceDialog").close();
 window.addEventListener("storage",event=>{if(event.key===S.KEY)renderStations(true);});
 window.addEventListener("focus",()=>renderStations(true));setInterval(()=>renderStations(),1000);renderStations(true);
 })();
