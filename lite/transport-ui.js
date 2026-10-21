@@ -495,6 +495,21 @@
     if(person&&d&&m&&!$("modal").open)try{render();}catch{}
   }
   function openLogistics(){T.context(role);$("logisticsFrame").src="logistics.html?role="+encodeURIComponent(role)+"&rev=20261020-14";$("logisticsDialog").showModal();}
+  async function openOwnTaskInspection(releaseId,taskId){
+    if(!["driver","excavator"].includes(role)||busy)return;
+    try{
+      await T.sync();refresh();const current=T.context(role),release=d.taskReleases.find(r=>r.id===releaseId&&r.status==="published"),task=release?.tasks.find(t=>t.id===taskId);
+      if(!task||task.personId!==current.id||task.role!==role||task.kind!==role||MineTaskEngine.phase(release)!=="running")throw Error("只能检查本人正在执行的设备任务");
+      const assignment=d.assignments.find(a=>a.id===task.assignmentId&&a.personId===current.id&&a.vehicleId===task.vehicleId&&a.kind===role&&a.status==="active"&&a.releaseId===release.id);
+      if(!assignment)throw Error("本人的设备分配已变化，请刷新任务看板");
+      const shifts=d.shifts.filter(s=>s.assignmentId===assignment.id&&s.personId===current.id&&s.vehicleId===task.vehicleId);
+      if(shifts.some(s=>s.startedWorkAt)||d.inspections.some(r=>shifts.some(s=>s.id===r.shiftId)))throw Error("检查结果已更新，请重新查看卡片");
+      const own=T.ownShift(d,current.id);
+      if(own){if(own.assignmentId!==assignment.id||own.vehicleId!==task.vehicleId||own.status!=="checking")throw Error("本人已有其他班次或检查状态已变化");view="work";refresh();return;}
+      return operate("openShift",{id:assignment.id},"请完成使用前检查",()=>{view="work";});
+    }catch(error){toast(error.message);}
+  }
+  window.addEventListener("mine-open-own-task-inspection",event=>openOwnTaskInspection(event.detail?.releaseId,event.detail?.taskId));
   document.addEventListener("click",event=>{const nav=event.target.closest("[data-view]");if(nav&&!busy){view=nav.dataset.view;if(view==="tasks")haulSummaryTaskHistory=null;refresh();return;}const b=event.target.closest("[data-action]");if(!b||busy)return;const action=b.dataset.action;if(action==="close"){closeModal();return;}if(action==="close-logistics"){$("logisticsDialog").close();return;}if(action==="logistics"){try{openLogistics();}catch(error){block(error);}return;}if(action==="refresh"){refresh();return;}if(action.startsWith("go-")){view=action.slice(3);refresh();return;}try{const result=openAction(action,b.dataset.id);if(result?.catch)result.catch(error=>toast(error.message));}catch(error){toast(error.message);}});
   $("editForm").addEventListener("submit",event=>{event.preventDefault();if(!modalSave||busy)return;try{const result=modalSave(new FormData(event.currentTarget));if(result?.catch)result.catch(error=>toast(error.message));}catch(error){toast(error.message);}});
   $("modal").addEventListener("cancel",event=>{if(busy)event.preventDefault();else{modalSave=null;releasePhotos();}});

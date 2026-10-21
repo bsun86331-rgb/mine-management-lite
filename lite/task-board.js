@@ -237,7 +237,14 @@
     if(type==="equipment")return deviceDetails(d,m,task);
     if(type==="person")return personDetails(d,m,task);
     if(type==="trips"&&["driver","excavator"].includes(task.kind))return tripsDetails(d,m,r,task);
-    if(type==="inspection"&&["driver","excavator"].includes(task.kind))return inspectionDetails(d,r,task);
+    if(type==="inspection"&&["driver","excavator"].includes(task.kind)){
+      const assignment=(d.assignments||[]).find(a=>a.id===task.assignmentId);
+      const own=!context.options.readOnly&&!context.options.shared&&!context.options.history&&!context.options.dispatch&&task.personId===current.id&&task.role===current.applicationRole;
+      if(own&&E().phase(r)==="running"&&assignment?.status==="active"&&!inspectionData(d,task).checked){
+        window.dispatchEvent(new CustomEvent("mine-open-own-task-inspection",{detail:{releaseId:r.id,taskId:task.id}}));return;
+      }
+      return inspectionDetails(d,r,task);
+    }
   }
   if(typeof document!=="undefined")document.addEventListener("click",async event=>{
     if(event.target.closest("[data-task-details-close]")){detailsDialog?.close();return;}
