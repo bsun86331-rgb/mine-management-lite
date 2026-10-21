@@ -61,7 +61,7 @@
     if(view==="messages"&&window.MineTransportChat){
       if(!$("content").querySelector("[data-chat-root]"))$("content").innerHTML=MineTransportChat.html();
       MineTransportChat.update({d,m,person,role,onChanged:()=>refresh(),toast});
-    }else{window.MineTransportChat?.dispose();$("content").innerHTML=(view==="work"?MineTaskBoard.render(d,m,person):"")+renderers[view]();}
+    }else{window.MineTransportChat?.dispose();$("content").innerHTML=(view==="work"&&role!=="driver"?MineTaskBoard.render(d,m,person):"")+renderers[view]();}
     taskClockSignature=MineTaskBoard.clockKey(d);attendanceReminderMinute=Math.floor(Date.now()/60000);
   }
   function attendanceScope(){
