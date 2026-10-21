@@ -368,3 +368,17 @@ button.attendance-status:hover{border-color:#78a98b}
 .inspection-actions>button{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:160px;max-width:100%;height:40px;min-height:40px;flex:0 0 160px;padding:8px 11px;font-size:12px;line-height:1.4;white-space:nowrap}
 
 .meter-inspection-fields{margin:16px 0;padding:14px;border:1px solid var(--line);border-radius:12px;background:#f8fbf8}.meter-inspection-fields h3{margin:0 0 12px;font-size:16px}.meter-inspection-fields .photos:empty{display:none}.meter-inspection-fields .photos{margin-top:10px}
+
+/* Hold-to-talk voice input, shared by transport roles. */
+.chat-voice-pad{text-align:center;padding:4px 0 10px}
+.chat-voice-pad[hidden],.chat-input-label[hidden],.chat-voice-overlay[hidden]{display:none}
+.chat-composer .chat-hold-talk{width:100%;min-height:56px;border:1px solid #c9d5ce;border-radius:9px;background:#f3f5f4;color:#173d31;font-size:16px;font-weight:700;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.chat-composer .chat-hold-talk.is-holding{background:#d8e4dc;border-color:#85ad94}
+.chat-composer .chat-hold-talk.is-canceling{background:#fbe3e3;border-color:#dc5f5f;color:#a12121}
+.chat-hold-talk:focus-visible{outline:3px solid #86bf9b;outline-offset:2px}
+.chat-voice-pad small{display:block;margin-top:6px;font-size:11px;color:var(--muted)}
+.chat-voice-overlay{position:fixed;z-index:1200;left:50%;top:45%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:14px;width:min(260px,80vw);padding:30px 20px;border-radius:18px;background:#173d31ed;color:#fff;box-shadow:0 8px 36px #0003;pointer-events:none;text-align:center}
+.chat-voice-overlay.is-canceling{background:#a52d35ed}
+.chat-voice-overlay strong{font-size:22px}.chat-voice-overlay span{font-size:13px}.chat-voice-wave{font-size:30px;letter-spacing:5px;animation:chat-voice-pulse 1s ease-in-out infinite alternate}
+@keyframes chat-voice-pulse{from{opacity:.45}to{opacity:1}}
+@media(prefers-reduced-motion:reduce){.chat-voice-wave{animation:none}}
