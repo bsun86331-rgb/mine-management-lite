@@ -9,11 +9,12 @@
 :root{--green:#176b4a;--deep:#173d31;--lime:#d8f178;--ink:#17251e;--muted:#738078;--line:#e5ebe6;--bg:#f3f6f2;--white:#fff;--red:#b93832;--amber:#a15d09;--shadow:0 8px 24px #173d310d}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 Inter,"PingFang SC","Microsoft YaHei",sans-serif}button,input,select{font:inherit}button{cursor:pointer}
 .layout{min-height:100vh;display:grid;grid-template-columns:238px minmax(0,1fr)}
-.sidebar{position:sticky;top:0;height:100vh;padding:24px 16px;background:var(--deep);color:#fff}
+.sidebar{position:sticky;top:0;height:100vh;padding:24px 16px;background:var(--deep);color:#fff;display:flex;flex-direction:column;overflow-y:auto}
 .brand{display:flex;align-items:center;gap:11px;padding:0 8px 25px;font-size:16px;font-weight:800}.brand-icon{display:grid;place-items:center;width:36px;height:36px;border-radius:11px;background:var(--lime);color:var(--deep);font-weight:900}
 .nav-label{padding:12px 10px 8px;color:#99b2a6;font-size:10px;font-weight:800;letter-spacing:.1em}
 .nav{display:grid;gap:5px}.nav button{width:100%;display:flex;align-items:center;gap:11px;padding:12px;border:0;border-radius:11px;background:transparent;color:#d8e3dc;text-align:left;font-weight:700}.nav button:hover,.nav button.active{background:#ffffff17;color:#fff}.nav .icon{width:22px;text-align:center;font-size:17px}
-.side-note{position:absolute;right:16px;bottom:20px;left:16px;padding:12px;border:1px solid #ffffff20;border-radius:12px;color:#c3d0c8;font-size:11px}
+.side-note{margin-top:auto;padding:12px;border:1px solid #ffffff20;border-radius:12px;color:#c3d0c8;font-size:11px}
+.sidebar .brand,.sidebar .nav-label,.sidebar .nav,.sidebar .side-note{flex-shrink:0}.admin-home-link{display:flex;align-items:center;min-height:36px;margin-top:8px;padding:7px 11px;border:1px solid #ffffff30;border-radius:8px;background:#ffffff12;color:var(--lime);font-size:13px;line-height:1.5;text-decoration:none;flex-shrink:0}.admin-home-link:hover{background:#ffffff20}.admin-home-link:focus-visible{outline:3px solid #8cbea5;outline-offset:2px}
 main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
 .topbar{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:27px}
 .topbar h1{margin:0;font-size:24px;letter-spacing:-.04em}.topbar p{margin:4px 0 0;color:var(--muted);font-size:12px}
@@ -84,6 +85,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
       <button data-view="vehiclesView"><span class="icon">▰</span>车辆档案</button>
     </nav>
     <div class="side-note">轻量管理台<br>当前数据保存在本浏览器</div>
+    <a class="admin-home-link" href="index.html">返回系统首页 ↗</a>
   </aside>
   <main>
     <header class="topbar">
