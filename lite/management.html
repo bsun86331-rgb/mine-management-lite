@@ -106,8 +106,8 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     </section>
 
     <section class="view" id="peopleView" hidden>
-      <div class="view-head"><div><div class="people-title-row"><h2>人员档案</h2><button class="btn btn-soft" id="exportPeople" type="button" title="导出所有人员的完整文字资料和任职状态记录，不含照片及附件">人员导出</button></div><p>登记人员资料、证件与紧急联系人</p></div><div class="toolbar"><input class="search" id="peopleSearch" placeholder="搜索姓名、岗位、国籍或班组"><button class="btn" id="addPerson">登记人员</button></div></div>
-      <div class="panel"><div class="table-wrap"><table><thead><tr><th>姓名</th><th>国籍</th><th>民族</th><th>岗位</th><th>班组</th><th>联系电话</th><th>状态</th><th>操作</th></tr></thead><tbody id="peopleRows"></tbody></table></div></div>
+      <div class="view-head"><div><div class="people-title-row"><h2>人员档案</h2><button class="btn btn-soft" id="exportPeople" type="button" title="导出所有人员的完整文字资料和任职状态记录，不含照片及附件">人员导出</button></div><p>登记人员资料、证件与紧急联系人</p></div><div class="toolbar"><input class="search" id="peopleSearch" placeholder="搜索员工编号、姓名、岗位、国籍或班组"><button class="btn" id="addPerson">登记人员</button></div></div>
+      <div class="panel"><div class="table-wrap"><table><thead><tr><th>姓名</th><th>员工编号</th><th>国籍</th><th>民族</th><th>岗位</th><th>班组</th><th>联系电话</th><th>状态</th><th>操作</th></tr></thead><tbody id="peopleRows"></tbody></table></div></div>
     </section>
 
     <section class="view" id="vehiclesView" hidden>
@@ -292,15 +292,15 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
   }
   function renderPeople() {
     const q = $("peopleSearch").value.trim().toLowerCase();
-    const rows = db.people.filter(p => [p.name,p.id,p.team,p.role,p.phone,p.nationality,p.ethnicity,p.status].some(v => String(v ?? "").toLowerCase().includes(q)));
+    const rows = db.people.filter(p => [p.name,p.employeeId,p.staffNo,p.id,p.team,p.role,p.phone,p.nationality,p.ethnicity,p.status].some(v => String(v ?? "").toLowerCase().includes(q)));
     $("peopleRows").innerHTML = rows.length ? rows.map(p => {
       const review = p.status === "待审核"
         ? '<button class="action-edit" data-action="review" data-id="' + esc(p.id) + '">审核资料</button>' +
           (p.reviewed === true ? '<span class="pill pill-green">已核对</span>' : '<span class="pill pill-amber">待核对</span>') +
           '<button class="btn-delete" data-action="reject" data-id="' + esc(p.id) + '">驳回</button>'
         : '';
-      return '<tr><td class="primary-cell">' + esc(p.name) + '</td><td>' + esc(p.nationality || "—") + '</td><td>' + esc(p.ethnicity || "—") + '</td><td>' + esc(p.role) + '</td><td>' + esc(p.team) + '</td><td>' + esc(p.phone) + '</td><td>' + pill(p.status) + '</td><td><div class="actions"><button class="action-edit" data-action="edit" data-kind="person" data-id="' + esc(p.id) + '">查看/编辑</button>' + review + '<button class="btn-delete" data-action="' + (p.status === "停用" ? "restore-person" : "disable-person") + '" data-id="' + esc(p.id) + '"' + (p.status === "离职" ? ' disabled' : '') + '>' + (p.status === "停用" ? "恢复启用" : "停用") + '</button><button class="btn btn-soft action-depart" data-action="' + (p.status === "离职" ? "rehire-person" : "depart-person") + '" data-id="' + esc(p.id) + '"' + (p.status !== "离职" && !canDepart(p) ? ' disabled' : '') + '>' + (p.status === "离职" ? "返聘审核" : "办理离职") + '</button></div></td></tr>';
-    }).join("") : showEmpty(8);
+      return '<tr><td class="primary-cell">' + esc(p.name) + '</td><td>' + esc(p.employeeId || p.staffNo || p.id || "—") + '</td><td>' + esc(p.nationality || "—") + '</td><td>' + esc(p.ethnicity || "—") + '</td><td>' + esc(p.role) + '</td><td>' + esc(p.team) + '</td><td>' + esc(p.phone) + '</td><td>' + pill(p.status) + '</td><td><div class="actions"><button class="action-edit" data-action="edit" data-kind="person" data-id="' + esc(p.id) + '">查看/编辑</button>' + review + '<button class="btn-delete" data-action="' + (p.status === "停用" ? "restore-person" : "disable-person") + '" data-id="' + esc(p.id) + '"' + (p.status === "离职" ? ' disabled' : '') + '>' + (p.status === "停用" ? "恢复启用" : "停用") + '</button><button class="btn btn-soft action-depart" data-action="' + (p.status === "离职" ? "rehire-person" : "depart-person") + '" data-id="' + esc(p.id) + '"' + (p.status !== "离职" && !canDepart(p) ? ' disabled' : '') + '>' + (p.status === "离职" ? "返聘审核" : "办理离职") + '</button></div></td></tr>';
+    }).join("") : showEmpty(9);
   }
   function renderVehicles() {
     const q = $("vehicleSearch").value.trim().toLowerCase();
