@@ -49,6 +49,7 @@ const key=new URLSearchParams(location.search).get("role");
 const knownRole=Object.prototype.hasOwnProperty.call(roles,key);
 const item=(knownRole ? roles[key] : null)||["业务端口","◇","该端口将在后续步骤中逐个完成。"];
 async function checkWorkAccess(){
+  if(key==="middle_repair_manager"){location.replace("repair-work.html?role=middle_repair_manager&rev=20261021-6");return;}
   if(!knownRole){document.querySelector(".card").hidden=true;location.replace("index.html");return;}
   let db={people:[]};
   try{const saved=JSON.parse(localStorage.getItem("mine-management-lite-records-v1")||"{}");db.people=Array.isArray(saved.people)?saved.people:[]}catch{}

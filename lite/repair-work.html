@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#173d31"><title>修理管理工作台 · 矿山管理系统</title>
+<link rel="stylesheet" href="transport.css?v=20261020-15"><link rel="stylesheet" href="task-board.css?v=20261018-1">
+<style>.repair-work .sidebar{overflow-y:auto}.repair-work .sidebar>*{flex-shrink:0}.repair-work .portal-task-host{min-width:0}.repair-work #logisticsMessages:empty{display:none}.repair-work #logisticsMessages{margin:0 0 14px;font-size:12px;color:var(--green)}#logisticsDialog{width:min(1180px,96vw);height:92dvh;max-height:94dvh;padding:0}.logistics-dialog-head{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid #dce5df;background:white}.logistics-dialog-head button{padding:7px 13px;background:#edf5ef;color:#173d31}#logisticsFrame{width:100%;height:calc(100% - 54px);border:0}</style>
+</head><body class="repair-work">
+<div class="app" id="app" hidden><aside class="sidebar"><a class="brand" href="index.html"><b>M</b><span>矿山管理系统<small>修理管理工作台</small></span></a><div class="identity" id="identity"></div>
+<nav aria-label="工作功能"><button type="button" class="selected" id="taskBoardNav">任务看板</button></nav>
+<div class="sidebar-bottom"><a class="sidebar-link" id="logisticsLink">后勤物资申请 ↗</a><a href="index.html">返回系统首页 ↗</a></div></aside>
+<main class="main"><header class="page-head"><div><small>MINE MANAGEMENT</small><h1 id="roleTitle">任务看板</h1><p id="roleDesc">查看各班组已发布任务和作业安排</p></div></header><div id="accessNote" hidden></div><p id="logisticsMessages"></p><div id="portalTaskBoard" class="portal-task-host" hidden></div></main></div>
+<dialog id="logisticsDialog"><div class="logistics-dialog-head"><strong>后勤物资申请与个人领用</strong><button id="closeLogistics" type="button">关闭</button></div><iframe id="logisticsFrame" title="后勤库存、申请与领用确认"></iframe></dialog>
+<script src="logistics-store.js?v=20261016-7"></script><script src="attachment-storage.js?v=20261016-1"></script><script src="transport-store.js?v=20261020-8"></script><script src="task-engine.js?v=20261018-1"></script><script src="task-board.js?v=20261021-3"></script>
+<script>
+const roles={middle_repair_manager:["修理管理","⚒","查看各班组任务，处理修理组请假审批和本人工作事项。"]};
+let portalBoardSignature="";
+const key=new URLSearchParams(location.search).get("role");
+const knownRole=Object.prototype.hasOwnProperty.call(roles,key);
+const item=(knownRole ? roles[key] : null)||["业务端口","◇","该端口将在后续步骤中逐个完成。"];
+async function checkWorkAccess(){
+  if(!knownRole){document.getElementById("app").hidden=true;location.replace("index.html");return;}
+  let db={people:[]};
+  try{const saved=JSON.parse(localStorage.getItem("mine-management-lite-records-v1")||"{}");db.people=Array.isArray(saved.people)?saved.people:[]}catch{}
+  const currentId=MineLogistics.currentId(key);
+  const applicant=db.people.find(person=>person.id===currentId);
+  if(!applicant||applicant.applicationRole!==key||!["在岗","已通过"].includes(applicant.status)){
+    document.getElementById("app").hidden=true;
+    location.replace("enroll.html?role="+encodeURIComponent(key));
+    return;
+  }
+  try{MineLogistics.selectSession(applicant,false);}catch{}
+  if(key==="middle_store"){location.replace("logistics.html?role=middle_store");return;}
+  if(["driver","excavator","dispatch"].includes(key)){location.replace("transport.html?role="+encodeURIComponent(key));return;}
+  document.getElementById("app").hidden=false;
+  document.getElementById("identity").textContent=applicant.name+" · "+applicant.status;
+  const board=document.getElementById("portalTaskBoard");
+  if(knownRole){
+    board.hidden=false;
+    try{await MineTransport.sync();const data=MineTransport.get(),signature=MineTransport.stamp()+MineTaskBoard.clockKey(data)+applicant.id;
+      if(signature!==portalBoardSignature){board.innerHTML=MineTaskBoard.render(data,MineLogistics.main(),applicant,{readOnly:true,hideTitle:true});portalBoardSignature=signature;}
+    }catch(error){board.textContent=error.message;}
+  }
+  document.getElementById("accessNote").textContent=key==="middle_store"?"后勤库存、申请发放、归还及清算功能已开放。":"后勤物资申请、本人领用确认及归还清算已开放，其他岗位业务逐步建设。";
+  if(MineTransport.auxiliaryRoles.includes(key))document.getElementById("accessNote").textContent="查看各班组已发布任务、设备和作业内容；任务排班由调度统一修改。";
+  if(key==="middle_repair_manager")document.getElementById("accessNote").textContent="修理组请假审批及本人请假申请已开放，请使用下方请假入口。";
+  const link=document.getElementById("logisticsLink");link.href="logistics.html?role="+encodeURIComponent(key)+"&rev=20261020-14";
+  link.textContent=key==="middle_store"?"进入后勤库管工作台":key==="middle_finance"?"后勤申请 / 赔偿复核":"后勤物资申请";
+  try{
+    const data=MineLogistics.get(), target=key==="middle_store"?"keeper":key==="middle_finance"?"finance":"";
+    const unread=data.messages.filter(msg=>(msg.target===applicant.id||msg.target===target)&&!msg.readBy.includes(applicant.id)).length;
+    document.getElementById("logisticsMessages").textContent=unread?"你有 "+unread+" 条未读后勤消息，请进入查看。":"";
+    if(MineLogistics.openExit(data,applicant.id))document.getElementById("logisticsMessages").textContent+=" 正在离职清算，请处理物资归还或赔偿确认。";
+  }catch(error){document.getElementById("logisticsMessages").textContent=error.message;}
+}
+checkWorkAccess();
+const logisticsDialog=document.getElementById("logisticsDialog"),logisticsFrame=document.getElementById("logisticsFrame");
+document.getElementById("logisticsLink").addEventListener("click",event=>{
+  if(["middle_store","middle_finance"].includes(key)||event.ctrlKey||event.metaKey)return;
+  event.preventDefault();logisticsFrame.src=event.currentTarget.href;logisticsDialog.showModal();
+});
+document.getElementById("closeLogistics").addEventListener("click",()=>logisticsDialog.close());
+logisticsDialog.addEventListener("close",()=>{logisticsFrame.src="about:blank";});
+window.addEventListener("message",event=>{if(event.origin===location.origin&&event.source===logisticsFrame.contentWindow&&event.data?.type==="mine-close-logistics")logisticsDialog.close();});
+window.addEventListener("storage",checkWorkAccess);
+window.addEventListener("focus",checkWorkAccess);
+window.addEventListener("pageshow",checkWorkAccess);
+setInterval(checkWorkAccess,1000);
+document.title="修理管理工作台 · 矿山管理系统";
+document.getElementById("roleTitle").textContent="任务看板";
+
+document.getElementById("roleDesc").textContent="查看各班组已发布任务和作业安排";
+</script>
+<script>document.getElementById("taskBoardNav").onclick=()=>{document.getElementById("portalTaskBoard").scrollIntoView({block:"start",behavior:"smooth"});};</script>
+<script src="leave-store.js?v=20261019-6" defer></script><script src="leave-entry.js?v=20261020-14" defer></script><script src="gps-clock-entry.js?v=20261021-1" defer></script><script src="haul-report-entry.js?v=20261021-3" defer></script></body></html>
