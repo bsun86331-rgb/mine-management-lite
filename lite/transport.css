@@ -376,6 +376,6 @@ button.attendance-status:hover{border-color:#78a98b}
 /* Personal current-shift production count beside the board title. */
 .workspace-title-row{display:flex;align-items:center;flex-wrap:wrap;gap:10px 18px}
 .personal-shift-stats{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
-.personal-shift-stat{display:inline-flex;align-items:baseline;gap:5px;padding:7px 11px;border:1px solid #c7dbcf;border-radius:8px;background:#eaf5ed;color:#176b4a;font-size:13px;line-height:1.5;white-space:nowrap}
-.personal-shift-stat strong{font-size:20px;color:#173d31;font-variant-numeric:tabular-nums}
-@media(max-width:600px){.workspace-title-row{gap:7px}.personal-shift-stat{padding:5px 8px;font-size:12px}.personal-shift-stat strong{font-size:18px}}
+.personal-shift-stat{display:inline-flex;align-items:baseline;gap:9px;padding:10px 16px;border:2px solid #91bca1;border-radius:10px;background:#eaf5ed;color:#176b4a;font-size:20px;font-weight:700;line-height:1.35;white-space:nowrap}
+.personal-shift-stat strong{font-size:42px;font-weight:900;color:#173d31;font-variant-numeric:tabular-nums;line-height:1.15}
+@media(max-width:600px){.workspace-title-row{gap:9px}.personal-shift-stats{gap:9px}.personal-shift-stat{gap:7px;padding:9px 12px;font-size:18px}.personal-shift-stat strong{font-size:34px}}
