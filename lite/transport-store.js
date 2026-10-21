@@ -75,11 +75,11 @@
     if(!storageReady)storageReady=(navigator.locks?.request?navigator.locks.request(KEY,initializeStorage):initializeStorage()).catch(error=>{storageReady=null;throw error;});
     return storageReady;
   }
-  // Published task windows, rather than editable shift defaults, own excavator session expiry.
-  function closeExpiredExcavatorShifts(d,at=Date.now()){
+  // Published dispatch task windows own driver and excavator session expiry.
+  function closeExpiredOperatorShifts(d,at=Date.now()){
     let changed=false;
     for(const s of d.shifts){
-      if(s.kind!=="excavator"||s.status==="closed")continue;
+      if(!["driver","excavator"].includes(s.kind)||s.status==="closed")continue;
       const assignment=d.assignments.find(r=>r.id===s.assignmentId);
       const release=d.taskReleases.find(r=>r.id===(assignment?.releaseId||s.releaseId));
       if(!release)continue;
@@ -88,7 +88,7 @@
       s.status="closed";s.closedAt=new Date(end).toISOString();s.autoClosedAt=new Date(at).toISOString();
       s.closeReason="task-end";s.closeNote="按已发布任务结束时间自动结束";
       if(assignment)assignment.status="completed";
-      d.audit.unshift({id:uid(),at:s.autoClosedAt,personId:null,actor:"系统",role:"system",type:"任务到时结束挖机班次",detail:s.vehicleCode,shiftId:s.id,releaseId:release.id,scheduledEndAt:s.closedAt});
+      d.audit.unshift({id:uid(),at:s.autoClosedAt,personId:null,actor:"系统",role:"system",type:s.kind==="driver"?"任务到时结束司机班次":"任务到时结束挖机班次",detail:s.vehicleCode,shiftId:s.id,releaseId:release.id,scheduledEndAt:s.closedAt});
       changed=true;
     }
     return changed;
@@ -96,7 +96,7 @@
   async function sync(){
     await ready();
     if(!syncing){
-      const reload=async()=>{const record=await readStorage(cachedToken);if(!record?.unchanged){if(!record&&cachedToken!=="empty")fail("运输台账存储记录缺失，请保留浏览器数据");cacheRecord(record);}if(navigator.locks?.request){const d=get();if(closeExpiredExcavatorShifts(d)){const next={raw:JSON.stringify(d),token:uid()};await writeStorage(next);cacheRecord(next);signalStorage();}}};
+      const reload=async()=>{const record=await readStorage(cachedToken);if(!record?.unchanged){if(!record&&cachedToken!=="empty")fail("运输台账存储记录缺失，请保留浏览器数据");cacheRecord(record);}if(navigator.locks?.request){const d=get();if(closeExpiredOperatorShifts(d)){const next={raw:JSON.stringify(d),token:uid()};await writeStorage(next);cacheRecord(next);signalStorage();}}};
       syncing=(navigator.locks?.request?navigator.locks.request(KEY,reload):reload()).finally(()=>{syncing=null;});
     }
     return syncing;
@@ -380,9 +380,7 @@
     if(type==="outsideUnload"){
       if(a.applicationRole!=="driver")fail("仅司机可提交区外卸料");const s=requireWorking(d,a),t=find("trips",x.tripId);if(t.shiftId!==s.id||!liveTrip(t))fail("本趟已结束或不是你的装载车次，不能重复计车");t.outsideNote=named(x.note,"区外卸料说明");completeTrip(d,s,t,"outside",s.lastPoint||null,null,materialValue(x.material),a);return;
     }
-    if(type==="closeShift"){
-      operatorOnly(a);if(a.applicationRole==="excavator")fail("挖机班次按任务结束时间自动结束，不能手动结束本班");const s=requireShift(d,a);if(shiftTrip(d,s))fail("仍有未完成车次，请先完成卸料或记录作废后再结束班次");s.status="closed";s.closedAt=now();s.closeNote=named(x.note,"收班说明");const r=d.assignments.find(r=>r.id===s.assignmentId);if(r)r.status="completed";audit(d,a,"结束班次",s.vehicleCode,{shiftId:s.id});return;
-    }
+    if(type==="closeShift"){operatorOnly(a);fail("本班按调度设置的任务结束时间自动结束，不能手动结束本班");}
     if(type==="forceCloseShift"){
       dispatchOnly(a);const s=find("shifts",x.id);if(s.status==="closed")fail("该班次已结束");if(shiftTrip(d,s))fail("仍有在途车次，请先处理或作废车次");
       s.status="closed";s.closedAt=now();s.closeNote=named(x.note,"结束占用说明");s.closedByDispatch=a.id;
