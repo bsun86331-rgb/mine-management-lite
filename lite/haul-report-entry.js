@@ -1,8 +1,8 @@
 (()=>{"use strict";
 const path=location.pathname,role=path.endsWith("/management.html")?"admin":path.endsWith("/boss.html")?"boss":new URLSearchParams(location.search).get("role");if(!role||role==="dispatch")return;if(window.parent!==window||(location.pathname.endsWith("/logistics.html")&&role!=="middle_store"))return;
 function install(){
- const spot=document.querySelector(".sidebar-bottom")||document.querySelector(".side")||document.querySelector("main.card .actions")||document.getElementById("bossWork")||document.querySelector(".nav");if(!spot)return;
- const button=document.createElement("button");button.type="button";button.className="haul-report-entry";button.textContent="车数统计表 ↗";button.style.cssText="display:block;margin:6px 0;padding:8px 11px;border:1px solid #c7dbcf;border-radius:8px;background:#edf5ef;color:#176b4a;cursor:pointer;font:600 13px/1.5 sans-serif";
+ const spot=document.querySelector("[data-workspace-shortcuts]")||document.querySelector(".sidebar-bottom")||document.querySelector(".side")||document.querySelector("main.card .actions")||document.getElementById("bossWork")||document.querySelector(".nav");if(!spot)return;
+ const button=document.createElement("button");button.type="button";button.className="haul-report-entry workspace-shortcut";button.textContent="车数统计表 ↗";
  let dialog,frame;button.onclick=()=>{
   if(role==="admin"&&window.MineLogisticsAdmin!==true||role==="boss"&&window.MineLeaveBoss!==true)return;
   if(!dialog){dialog=document.createElement("dialog");dialog.style.cssText="width:min(1200px,96vw);height:92dvh;max-height:94dvh;border:0;border-radius:12px;padding:0";dialog.innerHTML='<header style="display:flex;justify-content:space-between;padding:10px"><strong>车数统计表</strong><button type="button">关闭</button></header><iframe title="车数统计表" style="width:100%;height:calc(100% - 46px);border:0"></iframe>';document.body.append(dialog);frame=dialog.querySelector("iframe");dialog.querySelector("button").onclick=()=>dialog.close();dialog.addEventListener("close",()=>{frame.src="about:blank";});}

@@ -1,0 +1,19 @@
+/* Shared work-home shortcut group. Business navigation and dialog buttons are separate. */
+.workspace-shortcuts{display:grid;grid-template-columns:minmax(0,1fr);gap:7px;align-items:stretch;min-width:0}
+body .workspace-shortcuts .workspace-shortcut,body .workspace-home.workspace-shortcut{
+ display:flex;align-items:center;justify-content:flex-start;gap:6px;box-sizing:border-box;
+ width:100%;min-height:36px;margin:0;padding:7px 10px;
+ border:1px solid #c7dbcf;border-radius:8px;background:#edf5ef;color:#176b4a;
+ font-family:"PingFang SC","Microsoft YaHei",sans-serif;font-size:13px;font-weight:500;line-height:1.5;
+ text-align:left;text-decoration:none;white-space:normal;overflow-wrap:anywhere;cursor:pointer
+}
+body .workspace-shortcuts .workspace-shortcut:hover,body .workspace-home.workspace-shortcut:hover{background:#e0eee4;border-color:#96b7a3}
+.sidebar .workspace-shortcuts .workspace-shortcut,.side .workspace-shortcuts .workspace-shortcut{background:#ffffff12;border-color:#ffffff30;color:#d8f178}
+.sidebar .workspace-shortcuts .workspace-shortcut:hover,.side .workspace-shortcuts .workspace-shortcut:hover{background:#ffffff20;border-color:#ffffff50}
+body .workspace-shortcut:focus-visible{outline:3px solid #8cbea5;outline-offset:2px}
+body .workspace-shortcut:disabled{opacity:.45;cursor:not-allowed}
+body .workspace-shortcuts .workspace-shortcut.leave-has-results{background:#fff0c7!important;color:#875313!important;border-color:#e9c66d!important}
+.workspace-home.workspace-shortcut{margin-top:7px!important}
+#bossWork>.workspace-shortcuts{margin-top:12px}
+.side>.workspace-shortcuts{margin-top:auto;padding-top:14px}
+.sidebar>.workspace-shortcuts:not(.sidebar-bottom){margin-top:8px}
