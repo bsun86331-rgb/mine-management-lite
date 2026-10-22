@@ -8,7 +8,7 @@ async function read(){const db=await database();return new Promise((resolve,reje
 async function write(d){const db=await database();return new Promise((resolve,reject)=>{const t=db.transaction('ledger','readwrite');t.objectStore('ledger').put(d,'current');t.oncomplete=resolve;t.onerror=()=>reject(t.error);t.onabort=()=>reject(t.error||Error('打卡保存失败'));});}
 async function sync(){cache=await read();return clone(cache);}
 function adminAllowed(){try{return window.MineLogisticsAdmin===true||(parent!==window&&parent.location.origin===location.origin&&parent.MineLogisticsAdmin===true);}catch{return false;}}
-function identity(role){if(role==='admin'){if(!adminAllowed())fail('请从已登录的管理员后台进入');return {id:'admin',name:'管理员',admin:true};}const p=L.context(role);if(!L.active(p))fail('仅在岗人员可以打卡或提供位置');return p;}
+function identity(role){if(role==='admin'){if(!adminAllowed())fail('请从已登录的管理员后台进入');return {id:'admin',name:'管理员',admin:true};}if(role==='boss'){let allowed=false;try{allowed=parent!==window&&parent.location.origin===location.origin&&parent.location.pathname.endsWith('/boss.html')&&parent.MineLeaveBoss===true;}catch{}if(!allowed)fail('请从已登录的老板端进入本人打卡');return {id:'boss',name:'老板',applicationRole:'boss',team:'',boss:true};}const p=L.context(role);if(!L.active(p))fail('仅在岗人员可以打卡或提供位置');return p;}
 function text(v,label,max=100){const s=String(v??'').trim();if(!s||s.length>max)fail('请填写'+label+'（最多'+max+'字）');return s;}
 function coord(v,min,max,label){if(v==null||String(v).trim()==='')fail('请填写'+label);const n=Number(v);if(!Number.isFinite(n)||n<min||n>max)fail(label+'无效');return n;}
 function accuracyLimit(q){return q.maxAccuracy==null?Math.min(q.radius,100):coord(q.maxAccuracy,10,5000,'允许定位误差（10—5000米）');}
