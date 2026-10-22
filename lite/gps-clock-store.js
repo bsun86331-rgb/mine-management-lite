@@ -12,7 +12,10 @@ function identity(role){if(role==='admin'){if(!adminAllowed())fail('请从已登
 function text(v,label,max=100){const s=String(v??'').trim();if(!s||s.length>max)fail('请填写'+label+'（最多'+max+'字）');return s;}
 function coord(v,min,max,label){if(v==null||String(v).trim()==='')fail('请填写'+label);const n=Number(v);if(!Number.isFinite(n)||n<min||n>max)fail(label+'无效');return n;}
 function accuracyLimit(q){return q.maxAccuracy==null?Math.min(q.radius,100):coord(q.maxAccuracy,10,5000,'允许定位误差（10—5000米）');}
-function pointInput(x,previous){const radius=coord(x.radius,10,5000,'范围（10—5000米）'),team=String(x.team||'');if(team&&!TEAMS.includes(team))fail('请选择生产A组、生产B组、行政办公组、修理组或全部人员');const maxAccuracy=x.maxAccuracy==null||String(x.maxAccuracy).trim()===''?accuracyLimit(previous||{radius}):coord(x.maxAccuracy,10,5000,'允许定位误差（10—5000米）');return {name:text(x.name,'位置名称',60),lat:coord(x.lat,-90,90,'纬度'),lng:coord(x.lng,-180,180,'经度'),radius,maxAccuracy,team,note:String(x.note||'').trim().slice(0,500)};}
+function windowInput(x,previous={}){const values={};for(const kind of ['in','out']){const label=kind==='in'?'上班':'下班',start=String(x[kind+'Start']??previous[kind+'Start']??'').trim(),end=String(x[kind+'End']??previous[kind+'End']??'').trim();if(Boolean(start)!==Boolean(end))fail('请同时填写'+label+'打卡开始和结束时间，或同时留空');if(start&&(!/^([01]\d|2[0-3]):[0-5]\d$/.test(start)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(end)))fail(label+'打卡时间须为有效的时:分');if(start&&start===end)fail(label+'打卡开始和结束时间不能相同；全天不限请留空');values[kind+'Start']=start;values[kind+'End']=end;}return values;}
+function windowText(q,kind){const v=windowInput({},q),start=v[kind+'Start'],end=v[kind+'End'];return start?start+'—'+end+(end<start?'（跨午夜）':''):'不限时段';}
+function checkWindow(q,kind,at=Date.now()){if(!['in','out'].includes(kind))fail('打卡类型无效');const v=windowInput({},q),start=v[kind+'Start'],end=v[kind+'End'];if(!start)return;const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Ulaanbaatar',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date(at)),current=parts.find(p=>p.type==='hour').value+':'+parts.find(p=>p.type==='minute').value;const allowed=start<end?current>=start&&current<=end:current>=start||current<=end;if(!allowed)fail('当前不在'+(kind==='in'?'上班':'下班')+'打卡时间区间（'+windowText(q,kind)+'，乌兰巴托时间）');}
+function pointInput(x,previous){const radius=coord(x.radius,10,5000,'范围（10—5000米）'),team=String(x.team||'');if(team&&!TEAMS.includes(team))fail('请选择生产A组、生产B组、行政办公组、修理组或全部人员');const maxAccuracy=x.maxAccuracy==null||String(x.maxAccuracy).trim()===''?accuracyLimit(previous||{radius}):coord(x.maxAccuracy,10,5000,'允许定位误差（10—5000米）');return {name:text(x.name,'位置名称',60),lat:coord(x.lat,-90,90,'纬度'),lng:coord(x.lng,-180,180,'经度'),radius,maxAccuracy,...windowInput(x,previous),team,note:String(x.note||'').trim().slice(0,500)};}
 function uniqueName(d,name,exceptId=""){const key=v=>String(v??"").trim().normalize("NFKC").replace(/\s+/g," ").toLowerCase();if(d.points.some(q=>q.status!=='deleted'&&q.id!==exceptId&&key(q.name)===key(name)))fail("打卡位置名称已存在，请使用其他名称");}
 function distance(a,b){const r=x=>x*Math.PI/180,dl=r(b.lat-a.lat),dg=r(b.lng-a.lng),h=Math.sin(dl/2)**2+Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dg/2)**2;return 6371000*2*Math.atan2(Math.sqrt(Math.min(1,h)),Math.sqrt(Math.max(0,1-h)));}
 function eligible(q,p){return q.status==='active'&&(!q.team||q.team===p.team);}
@@ -21,7 +24,7 @@ function execute(d,a,type,x,at=Date.now()){
  const stamp=new Date(at).toISOString(),log=(action,recordId)=>d.audit.push({id:id(),at:stamp,actorId:a.id,actorName:a.name,action,recordId});
  if(type==='propose'||type==='createPoint'){
   if(type==='createPoint'&&!a.admin)fail('仅管理员可启用打卡位置');if(type==='propose'&&(a.admin||a.applicationRole!=='dispatch'))fail('仅调度可提供打卡位置');
-  const data=pointInput(type==='propose'?{...x,maxAccuracy:null}:x);uniqueName(d,data.name);if(!a.admin&&data.team&&data.team!==a.team)fail('调度只能提供本班组或全员位置');
+  const data=pointInput(type==='propose'?{...x,maxAccuracy:null,inStart:'',inEnd:'',outStart:'',outEnd:''}:x);uniqueName(d,data.name);if(!a.admin&&data.team&&data.team!==a.team)fail('调度只能提供本班组或全员位置');
   const q={id:id(),...data,status:a.admin?'active':'pending',version:1,createdAt:stamp,createdBy:a.id,createdByName:a.name,history:[]};d.points.push(q);log(a.admin?'新增启用位置':'调度提供位置',q.id);return q.id;
  }
  if(['approvePoint','rejectPoint','updatePoint','disablePoint','enablePoint','deletePoint','restorePoint'].includes(type)){
@@ -39,7 +42,8 @@ function execute(d,a,type,x,at=Date.now()){
  if(type==='punch'){
   if(a.admin)fail('请从本人工作端打卡');if(!['in','out'].includes(x.kind))fail('打卡类型无效');
   const q=d.points.find(q=>q.id===x.pointId);if(!q||!eligible(q,a))fail('打卡位置尚未启用或不适用于本人班组');if(q.version!==x.expectedVersion)fail('打卡位置已调整，请重新定位');
-  const pos=position(x,q,at),today=day(at),open=d.punches.find(r=>r.personId===a.id&&!r.out),snap={pointId:q.id,pointName:q.name,pointVersion:q.version,pointLat:q.lat,pointLng:q.lng,radius:q.radius,maxAccuracy:accuracyLimit(q),...pos,at:stamp};
+  checkWindow(q,x.kind,at);
+  const pos=position(x,q,at),today=day(at),open=d.punches.find(r=>r.personId===a.id&&!r.out),snap={pointId:q.id,pointName:q.name,pointVersion:q.version,pointLat:q.lat,pointLng:q.lng,radius:q.radius,maxAccuracy:accuracyLimit(q),punchWindow:{start:q[x.kind+'Start']||'',end:q[x.kind+'End']||'',timeZone:'Asia/Ulaanbaatar'},...pos,at:stamp};
   if(x.kind==='in'){
    if(open)fail('已有'+open.workDate+'的上班卡，请先打下班卡');if(d.punches.some(r=>r.personId===a.id&&r.workDate===today))fail('今天已完成上班打卡，每天只记录一次');
    const r={id:id(),personId:a.id,personName:a.name,team:a.team||'',role:a.applicationRole,workDate:today,in:snap,out:null};d.punches.push(r);log('上班打卡',r.id);return r.id;
@@ -52,5 +56,5 @@ async function act(type,x,role,expectedPersonId){if(!navigator.locks?.request)fa
 function get(){if(!cache)fail("GPS打卡记录尚未加载，请刷新后重试");return clone(cache);}
 function stamp(){return JSON.stringify(cache?.punches||[]);}
 async function withAttendanceLock(fn){if(!navigator.locks?.request)fail("请使用支持事务锁的新版浏览器");return navigator.locks.request(LOCK,async()=>{await sync();return fn();});}
-window.MineGPSClock={get,stamp,withAttendanceLock,teams:TEAMS,sync,identity,act,day,distance,eligible,accuracyLimit};
+window.MineGPSClock={get,stamp,withAttendanceLock,teams:TEAMS,sync,identity,act,day,distance,eligible,accuracyLimit,windowText,checkWindow};
 })();
