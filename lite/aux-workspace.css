@@ -1,0 +1,25 @@
+/* Expanded auxiliary workspaces use the driver's sidebar and full-width board layout. */
+[hidden]{display:none!important}
+body.aux-expanded{display:block;padding:0;margin:0;font:14px/1.6 "PingFang SC","Microsoft YaHei",sans-serif}
+.aux-workspace{display:grid;grid-template-columns:224px minmax(0,1fr);min-height:100vh}
+.aux-sidebar{position:sticky;top:0;height:100vh;padding:26px 16px;background:#173d31;color:#fff;display:flex;flex-direction:column;overflow-y:auto}
+.aux-sidebar>*{flex-shrink:0}
+.aux-sidebar .aux-brand{display:flex;gap:11px;align-items:center;color:white;text-decoration:none;font-weight:800}
+.aux-brand b{display:grid;place-items:center;width:39px;height:39px;border-radius:12px;background:#d8f178;color:#173d31;font-size:22px}
+.aux-brand small{display:block;color:#b6d3c5;font-size:11px;font-weight:500}
+.aux-identity{padding:21px 5px;color:#c5dacd;font-size:12px;overflow-wrap:anywhere}
+.aux-sidebar nav{display:grid;gap:6px}
+.aux-sidebar nav a{display:block;padding:9px 14px;border-radius:9px;background:#ffffff22;color:#fff;font-size:14px;text-decoration:none}
+.aux-sidebar .sidebar-bottom{margin-top:auto;padding-top:22px}
+body.aux-expanded .card{width:auto;min-width:0;margin:0;padding:30px clamp(16px,4vw,48px);border:0;border-radius:0;background:transparent;box-shadow:none}
+.aux-expanded .card>.brand,.aux-expanded .card>.icon,.aux-expanded .card>.tag,.aux-expanded .card>.note{display:none}
+.aux-work-head{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-bottom:22px}
+.aux-work-head small{font-size:10px;letter-spacing:.15em;color:#176b4a;font-weight:800}
+.aux-work-head h1{font-size:28px;margin:5px 0;letter-spacing:normal}
+.aux-work-head p{margin:0;color:#738078;font-size:12px}
+.aux-expanded .portal-task-host{min-width:0}
+.aux-expanded #logisticsMessages:empty{display:none}
+.aux-expanded #logisticsMessages{font-size:12px;color:#176b4a}
+.aux-work-footer{margin-top:30px;font-size:11px;color:#738078}
+@media(max-width:1100px){.aux-workspace{grid-template-columns:190px minmax(0,1fr)}}
+@media(max-width:700px){.aux-workspace{display:block}.aux-sidebar{position:static;height:auto;padding:16px}.aux-brand{font-size:13px}.aux-identity{padding:10px 0}.aux-sidebar nav{display:flex}.aux-sidebar nav a{font-size:12px}.aux-sidebar .sidebar-bottom{padding-top:10px}body.aux-expanded .card{padding:20px 14px}.aux-work-head h1{font-size:24px}}

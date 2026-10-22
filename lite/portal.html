@@ -10,7 +10,7 @@
 dialog#logisticsDialog{width:min(1180px,96vw);height:92vh;max-height:92vh;border:0;border-radius:18px;padding:0;box-shadow:0 20px 70px #0004}dialog#logisticsDialog::backdrop{background:#10201999}.logistics-dialog-head{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid #dce5df;background:white}.logistics-dialog-head button{border:0;border-radius:8px;padding:7px 13px;background:#edf5ef;color:#173d31;font:inherit;cursor:pointer}#logisticsFrame{width:100%;height:calc(100% - 54px);border:0}
 </style>
 <link rel="stylesheet" href="task-board.css?v=20261021-20">
-<link rel="stylesheet" href="service-care.css?v=20261021-12"><link rel="stylesheet" href="workspace-shortcuts.css?v=20261021-29"></head>
+<link rel="stylesheet" href="service-care.css?v=20261021-12"><link rel="stylesheet" href="workspace-shortcuts.css?v=20261021-29"><link rel="stylesheet" href="aux-workspace.css?v=20261022-1"></head>
 <body>
 <main class="card" hidden>
   <div class="brand">矿山简版 · 端口导航</div>
@@ -48,6 +48,23 @@ let portalBoardSignature="";
 const key=new URLSearchParams(location.search).get("role");
 const knownRole=Object.prototype.hasOwnProperty.call(roles,key);
 const item=(knownRole ? roles[key] : null)||["业务端口","◇","该端口将在后续步骤中逐个完成。"];
+const expandedRole=["assistant_loader","assistant_water","assistant_grader","assistant_dump"].includes(key);
+if(expandedRole){
+  document.body.classList.add("aux-expanded");
+  const card=document.querySelector(".card"),shell=document.createElement("div");
+  shell.id="auxWorkspace";shell.className="aux-workspace";shell.hidden=true;
+  const side=document.createElement("aside");side.className="sidebar aux-sidebar";
+  side.innerHTML='<a class="aux-brand" href="index.html"><b>M</b><span>矿山管理系统<small id="auxRoleLabel"></small></span></a><div class="aux-identity" id="auxIdentity"></div><nav aria-label="工作功能"><a href="#portalTaskBoard" aria-current="page">任务看板</a></nav>';
+  document.getElementById("roleTitle").before(Object.assign(document.createElement("header"),{className:"aux-work-head",id:"auxWorkHead"}));
+  const head=document.getElementById("auxWorkHead"),heading=document.createElement("div"),label=document.createElement("small");label.textContent="MINE TRANSPORT";
+  heading.append(label,document.getElementById("roleTitle"),document.getElementById("roleDesc"));head.append(heading);
+  const shortcuts=card.querySelector("[data-workspace-shortcuts]");shortcuts.classList.add("sidebar-bottom");side.append(shortcuts);
+  const home=shortcuts.querySelector('a[href="index.html"]');if(home)home.textContent="返回系统首页 ↗";
+  card.before(shell);shell.append(side,card);
+  document.getElementById("auxRoleLabel").textContent=item[0];
+  const footer=document.createElement("footer");footer.className="aux-work-footer";footer.textContent="信息保存在当前浏览器；不同手机或浏览器暂不共享。";card.append(footer);
+}
+
 async function checkWorkAccess(){
   if(key==="middle_repair_manager"){location.replace("repair-work.html?role=middle_repair_manager&rev=20261021-6");return;}
   if(!knownRole){document.querySelector(".card").hidden=true;location.replace("index.html");return;}
@@ -64,6 +81,7 @@ async function checkWorkAccess(){
   if(key==="middle_store"){location.replace("logistics.html?role=middle_store");return;}
   if(["driver","excavator","dispatch"].includes(key)){location.replace("transport.html?role="+encodeURIComponent(key));return;}
   document.querySelector(".card").hidden=false;
+  if(expandedRole){document.getElementById("auxWorkspace").hidden=false;document.getElementById("auxIdentity").textContent=applicant.name+" · "+(applicant.team||"未设置班组");}
   const board=document.getElementById("portalTaskBoard");
   if(knownRole){
     board.hidden=false;
@@ -97,7 +115,7 @@ window.addEventListener("focus",checkWorkAccess);
 window.addEventListener("pageshow",checkWorkAccess);
 setInterval(checkWorkAccess,1000);
 document.title=item[0]+" · 矿山简版";
-document.getElementById("roleTitle").textContent=item[0];
+document.getElementById("roleTitle").textContent=expandedRole?"任务看板":item[0];
 document.getElementById("roleIcon").textContent=item[1];
 document.getElementById("roleDesc").textContent=item[2];
 </script>
