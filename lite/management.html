@@ -67,7 +67,6 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     <p id="gateDesc">输入当前浏览器设置的管理员密码，进入人员审核和管理功能。</p>
     <form id="adminAuthForm">
       <div class="field"><label for="adminPassword">管理员密码</label><input id="adminPassword" type="password" required minlength="6" autocomplete="current-password"></div>
-      <div class="field" id="confirmPasswordWrap" hidden><label for="confirmPassword">确认密码</label><input id="confirmPassword" type="password" minlength="6" autocomplete="new-password"></div>
       <div class="gate-error" id="gateError" role="alert"></div>
       <button class="btn" id="gateSubmit" type="submit">验证并进入</button>
     </form>
@@ -141,7 +140,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     const setup=!authRecord();
     $("gateTitle").textContent=setup?"首次使用 · 设置管理员密码":"管理员登录";
     $("gateDesc").textContent=setup?"首位管理员先在这台审核设备设置管理员密码，之后由管理员输入密码进入后台。":"输入当前浏览器设置的管理员密码，进入人员审核和管理功能。";
-    $("confirmPasswordWrap").hidden=!setup;
+    $("adminPassword").autocomplete=setup?"new-password":"current-password";
     $("gateSubmit").textContent=setup?"设置密码并进入":"验证并进入";
   }
   function toBase64(bytes){let binary="";bytes.forEach(byte=>binary+=String.fromCharCode(byte));return btoa(binary)}
@@ -160,7 +159,6 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     $("gateSubmit").disabled=true;
     try{
       if(!record){
-        if(password!==$("confirmPassword").value){error.textContent="两次输入的密码不一致。";return}
         const salt=toBase64(crypto.getRandomValues(new Uint8Array(16)));
         localStorage.setItem(AUTH_KEY,JSON.stringify({salt,hash:await passwordHash(password,salt)}));
         unlock();

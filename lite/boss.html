@@ -18,7 +18,6 @@
     <div class="warning">Boss 密码独立于管理员后台密码。此密码只保存在当前浏览器，不是正式账号认证；请勿用于保护真实业务数据。</div>
     <form id="bossAuthForm">
       <div class="field"><label for="bossPassword">Boss 密码</label><input id="bossPassword" type="password" minlength="6" autocomplete="new-password" required></div>
-      <div class="field" id="confirmWrap"><label for="confirmPassword">再次输入密码</label><input id="confirmPassword" type="password" minlength="6" autocomplete="new-password"></div>
       <div class="error" id="gateError" role="alert" aria-live="polite"></div>
       <button class="btn" id="gateSubmit" type="submit">设置密码并进入</button>
     </form>
@@ -48,9 +47,7 @@
     const setup=!authRecord();
     $("gateTitle").textContent=setup?"首次使用 · 设置 Boss 密码":"Boss 端登录";
     $("gateDesc").textContent=setup?"请由 Boss 本人在当前浏览器设置密码。":"输入当前浏览器设置的 Boss 密码进入工作台。";
-    $("confirmWrap").hidden=!setup;
-    $("confirmPassword").required=setup;
-    $("confirmPassword").autocomplete=setup?"new-password":"off";
+    $("bossPassword").autocomplete=setup?"new-password":"current-password";
     $("gateSubmit").textContent=setup?"设置密码并进入":"验证并进入";
   }
   function unlock(){window.MineLeaveBoss=true;gate.hidden=true;work.hidden=false;}
@@ -63,7 +60,6 @@
     $("gateSubmit").disabled=true;
     try{
       if(!record){
-        if(password!==$("confirmPassword").value){error.textContent="两次输入的密码不一致。";return}
         const salt=toBase64(crypto.getRandomValues(new Uint8Array(16)));
         localStorage.setItem(KEY,JSON.stringify({salt,hash:await passwordHash(password,salt)}));
         unlock();
