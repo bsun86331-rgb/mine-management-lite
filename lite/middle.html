@@ -20,12 +20,12 @@
       <a class="job" href="enroll.html?role=middle_store"><span class="job-icon" aria-hidden="true">▣</span><h2>后勤库管</h2><p>后勤库房管理岗位工作入口</p><span class="job-action">选择并登记 <span aria-hidden="true">↗</span></span></a>
       <a class="job" href="enroll.html?role=middle_statistics"><span class="job-icon" aria-hidden="true">▥</span><h2>统计</h2><p>统计岗位工作入口</p><span class="job-action">选择并登记 <span aria-hidden="true">↗</span></span></a>
       <a class="job" href="enroll.html?role=middle_logistics"><span class="job-icon" aria-hidden="true">⚙</span><h2>其他后勤人员</h2><p>其他后勤岗位工作入口</p><span class="job-action">选择并登记 <span aria-hidden="true">↗</span></span></a>
-      <a class="job" href="enroll.html?role=middle_repair_manager"><span class="job-icon" aria-hidden="true">⚒</span><h2>修理管理</h2><p>修理组请假审批及本人工作入口</p><span class="job-action">选择并登记 <span aria-hidden="true">↗</span></span></a>
+      
   </section>
 </main>
 <script>
 (() => {
-  const allowed=["middle_repair_manager","middle","middle_finance","middle_survey","middle_store","middle_statistics","middle_logistics"];
+  const allowed=["middle","middle_finance","middle_survey","middle_store","middle_statistics","middle_logistics"];
   try {
     const current=localStorage.getItem("mine-management-lite-current-application");
     const db=JSON.parse(localStorage.getItem("mine-management-lite-records-v1")||"{}");

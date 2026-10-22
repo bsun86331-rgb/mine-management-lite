@@ -38,6 +38,7 @@ const roles={
  dispatch:["调度端","🗺","调度人员查看车辆、人员和作业安排。"],
  middle:["中层管理端","⚙","中层管理人员跟进现场班组和日常管理。"],
  middle_repair_manager:["修理管理","⚒","审批修理组请假，查看本人申请与后勤事项。"],
+ repair_worker:["修理工","🔧","查看维修看板及本人工作事项，办理上下班打卡和请销假。"],
  middle_finance:["财务","¥","复核后勤物资赔偿并导出待扣款清单。"],
  middle_survey:["测绘","⌖","测绘岗位工作入口，查看当班任务、设备和作业内容。"],
  middle_store:["后勤库管","▣","管理后勤库存、物资申请、发放、归还与离职清算。"],
@@ -48,7 +49,7 @@ let portalBoardSignature="";
 const key=new URLSearchParams(location.search).get("role");
 const knownRole=Object.prototype.hasOwnProperty.call(roles,key);
 const item=(knownRole ? roles[key] : null)||["业务端口","◇","该端口将在后续步骤中逐个完成。"];
-const expandedRole=["assistant_loader","assistant_water","assistant_grader","assistant_dump"].includes(key);
+const expandedRole=["assistant_loader","assistant_water","assistant_grader","assistant_dump","repair_worker"].includes(key);
 if(expandedRole){
   document.body.classList.add("aux-expanded");
   const card=document.querySelector(".card"),shell=document.createElement("div");
@@ -119,5 +120,5 @@ document.getElementById("roleTitle").textContent=expandedRole?"任务看板":ite
 document.getElementById("roleIcon").textContent=item[1];
 document.getElementById("roleDesc").textContent=item[2];
 </script>
-<script src="leave-store.js?v=20261019-6" defer></script><script src="leave-entry.js?v=20261021-29" defer></script><script src="gps-clock-entry.js?v=20261022-6" defer></script><script src="haul-report-entry.js?v=20261022-2" defer></script><script src="before-use-meter.js?v=20261021-12" defer></script><script src="dormitory-store.js?v=20261022-1" defer></script><script src="dormitory-entry.js?v=20261022-2" defer></script><script src="maintenance-view-entry.js?v=20261022-2" defer></script></body>
+<script src="leave-store.js?v=20261022-7" defer></script><script src="leave-entry.js?v=20261021-29" defer></script><script src="gps-clock-entry.js?v=20261022-6" defer></script><script src="haul-report-entry.js?v=20261022-2" defer></script><script src="before-use-meter.js?v=20261021-12" defer></script><script src="dormitory-store.js?v=20261022-1" defer></script><script src="dormitory-entry.js?v=20261022-2" defer></script><script src="maintenance-view-entry.js?v=20261022-2" defer></script></body>
 </html>

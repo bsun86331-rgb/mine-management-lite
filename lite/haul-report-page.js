@@ -1,6 +1,6 @@
 (()=>{"use strict";
 const T=window.MineTransport,L=window.MineLogistics,$=id=>document.getElementById(id),role=new URLSearchParams(location.search).get("role");
-const allowed=["driver","excavator","dispatch","assistant","assistant_loader","assistant_fuel","assistant_water","assistant_grader","assistant_dump","middle","middle_repair_manager","middle_finance","middle_survey","middle_store","middle_statistics","middle_logistics","admin","boss"];
+const allowed=["driver","excavator","dispatch","assistant","assistant_loader","assistant_fuel","assistant_water","assistant_grader","assistant_dump","middle","middle_repair_manager","repair_worker","middle_finance","middle_survey","middle_store","middle_statistics","middle_logistics","admin","boss"];
 let identity=null,history=null,busy=false,signature="";
 function access(){
  if(!allowed.includes(role))throw Error("请从本人工作主页打开车数统计表");
