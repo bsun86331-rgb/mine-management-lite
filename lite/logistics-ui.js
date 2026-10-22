@@ -27,7 +27,7 @@
     entries.push(["messages","消息中心"]);
     if(!entries.some(e=>e[0]===view))view="stock";
     const messages=visibleMessages(),unread=messages.filter(msg=>!msg.readBy.includes(person.id)).length;
-    $("identity").textContent=person.name+" · "+(role==="middle_store"?"后勤库管":person.role)+" · "+person.status;
+    $("identity").textContent=person.name+" · "+(role==="middle_store"?"后勤库管":role==="dispatch"?"车队长":person.role)+" · "+person.status;
     $("back").textContent=role==="middle_store"&&window.parent===window?"返回系统首页 ↗":"返回工作主页";
     $("back").href=role==="middle_store"?"index.html":["在岗","已通过"].includes(person.status)?(["driver","excavator","dispatch"].includes(role)?"transport.html?role=":"portal.html?role=")+encodeURIComponent(role):"enroll.html?role="+encodeURIComponent(role);
     $("nav").innerHTML=entries.map(([key,label])=>'<button data-view="'+key+'" class="'+(view===key?'selected':'')+'">'+label+(key==="messages"&&unread?' ('+unread+')':'')+'</button>').join("");

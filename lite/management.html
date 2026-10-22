@@ -97,7 +97,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
       <div class="stats">
         <article class="stat"><div class="stat-label">车辆总数</div><div class="stat-value" id="totalCount">0</div><div class="stat-sub">已登记车辆</div></article>
         <article class="stat"><div class="stat-label">作业中</div><div class="stat-value" id="workingCount">0</div><div class="stat-sub">当前投入生产</div></article>
-        <article class="stat"><div class="stat-label">待命</div><div class="stat-value" id="idleCount">0</div><div class="stat-sub">可调度车辆</div></article>
+        <article class="stat"><div class="stat-label">待命</div><div class="stat-value" id="idleCount">0</div><div class="stat-sub">可安排车辆</div></article>
         <article class="stat"><div class="stat-label">维修中</div><div class="stat-value" id="repairCount">0</div><div class="stat-sub">暂不可用车辆</div></article>
       </div>
       <div class="panel">
@@ -126,7 +126,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="attachment-storage.js"></script>
 <script src="attachment-preview.js?v=20261015-1"></script>
-<script src="personnel-export.js?v=20261022-7"></script>
+<script src="personnel-export.js?v=20261022-8"></script>
 <script src="logistics-store.js?v=20261016-1"></script>
 <script>
 (() => {
@@ -292,14 +292,14 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
   }
   function renderPeople() {
     const q = $("peopleSearch").value.trim().toLowerCase();
-    const rows = db.people.filter(p => [p.name,p.employeeId,p.staffNo,p.id,p.team,p.role,p.phone,p.nationality,p.ethnicity,p.status].some(v => String(v ?? "").toLowerCase().includes(q)));
+    const rows = db.people.filter(p => [p.name,p.employeeId,p.staffNo,p.id,p.team,p.role,p.applicationRole==="dispatch"?"车队长":"",p.phone,p.nationality,p.ethnicity,p.status].some(v => String(v ?? "").toLowerCase().includes(q)));
     $("peopleRows").innerHTML = rows.length ? rows.map(p => {
       const review = p.status === "待审核"
         ? '<button class="action-edit" data-action="review" data-id="' + esc(p.id) + '">审核资料</button>' +
           (p.reviewed === true ? '<span class="pill pill-green">已核对</span>' : '<span class="pill pill-amber">待核对</span>') +
           '<button class="btn-delete" data-action="reject" data-id="' + esc(p.id) + '">驳回</button>'
         : '';
-      return '<tr><td class="primary-cell">' + esc(p.name) + '</td><td>' + esc(p.employeeId || p.staffNo || p.id || "—") + '</td><td>' + esc(p.nationality || "—") + '</td><td>' + esc(p.ethnicity || "—") + '</td><td>' + esc(p.role) + '</td><td>' + esc(p.team) + '</td><td>' + esc(p.phone) + '</td><td>' + pill(p.status) + '</td><td><div class="actions"><button class="action-edit" data-action="edit" data-kind="person" data-id="' + esc(p.id) + '">查看/编辑</button>' + review + '<button class="btn-delete" data-action="' + (p.status === "停用" ? "restore-person" : "disable-person") + '" data-id="' + esc(p.id) + '"' + (p.status === "离职" ? ' disabled' : '') + '>' + (p.status === "停用" ? "恢复启用" : "停用") + '</button><button class="btn btn-soft action-depart" data-action="' + (p.status === "离职" ? "rehire-person" : "depart-person") + '" data-id="' + esc(p.id) + '"' + (p.status !== "离职" && !canDepart(p) ? ' disabled' : '') + '>' + (p.status === "离职" ? "返聘审核" : "办理离职") + '</button></div></td></tr>';
+      return '<tr><td class="primary-cell">' + esc(p.name) + '</td><td>' + esc(p.employeeId || p.staffNo || p.id || "—") + '</td><td>' + esc(p.nationality || "—") + '</td><td>' + esc(p.ethnicity || "—") + '</td><td>' + esc(p.applicationRole==="dispatch"?"车队长":p.role) + '</td><td>' + esc(p.team) + '</td><td>' + esc(p.phone) + '</td><td>' + pill(p.status) + '</td><td><div class="actions"><button class="action-edit" data-action="edit" data-kind="person" data-id="' + esc(p.id) + '">查看/编辑</button>' + review + '<button class="btn-delete" data-action="' + (p.status === "停用" ? "restore-person" : "disable-person") + '" data-id="' + esc(p.id) + '"' + (p.status === "离职" ? ' disabled' : '') + '>' + (p.status === "停用" ? "恢复启用" : "停用") + '</button><button class="btn btn-soft action-depart" data-action="' + (p.status === "离职" ? "rehire-person" : "depart-person") + '" data-id="' + esc(p.id) + '"' + (p.status !== "离职" && !canDepart(p) ? ' disabled' : '') + '>' + (p.status === "离职" ? "返聘审核" : "办理离职") + '</button></div></td></tr>';
     }).join("") : showEmpty(9);
   }
   function renderVehicles() {
@@ -387,7 +387,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
   const personnelRoles = {
     driver:"司机端",excavator:"挖机端",
     assistant_loader:"铲车司机",assistant_fuel:"加油车司机",assistant_water:"水车司机",assistant_grader:"平地机司机",assistant_dump:"排土管理员",
-    dispatch:"调度端",
+    dispatch:"车队长",
     middle_repair_manager:"修理管理",repair_worker:"修理工",middle_finance:"财务",middle_survey:"测绘",middle_store:"后勤库管",middle_statistics:"统计",middle_logistics:"其他后勤人员"
   };
   function personnelRoleField(row) {
@@ -579,7 +579,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     $("reviewSubtitle").textContent = "核对全部登记字段和提交附件；只有确认已核对后才能通过。";
     $("reviewFields").innerHTML = [
       reviewField("申请编号",person.id),reviewField("姓名",person.name),reviewField("手机号码",person.phone),
-      reviewField("申请端口 / 岗位",person.role),reviewField("所属班组",person.team),
+      reviewField("申请端口 / 岗位",person.applicationRole==="dispatch"?"车队长":person.role),reviewField("所属班组",person.team),
       reviewField("入职日期",person.joinDate),reviewField("国籍",person.nationality),
       reviewField("民族",person.ethnicity),reviewField("身份证号",person.idNumber),
       reviewField("护照号",person.passport),reviewField("银行卡号",person.bankNumber),
@@ -629,7 +629,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
   });
   const printFields = person => [
     ["姓名",person.name],["员工编号",person.employeeId || person.staffNo || person.id],
-    ["手机号",person.phone],["岗位",person.role],["人员类别",person.personType || person.category || "—"],
+    ["手机号",person.phone],["岗位",person.applicationRole==="dispatch"?"车队长":person.role],["人员类别",person.personType || person.category || "—"],
     ["部门 / 车队",person.team],["国籍",person.nationality],["民族",person.ethnicity],
     ["入职日期",person.joinDate],["身份证号",person.idNumber],["护照号",person.passport],
     ["银行卡号",person.bankNumber],["开户行",person.bankName],

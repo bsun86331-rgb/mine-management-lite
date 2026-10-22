@@ -23,9 +23,9 @@ function position(x,q,at){const c=x.position||{},lat=coord(c.lat,-90,90,'定位�
 function execute(d,a,type,x,at=Date.now()){
  const stamp=new Date(at).toISOString(),log=(action,recordId)=>d.audit.push({id:id(),at:stamp,actorId:a.id,actorName:a.name,action,recordId});
  if(type==='propose'||type==='createPoint'){
-  if(type==='createPoint'&&!a.admin)fail('仅管理员可启用打卡位置');if(type==='propose'&&(a.admin||a.applicationRole!=='dispatch'))fail('仅调度可提供打卡位置');
-  const data=pointInput(type==='propose'?{...x,maxAccuracy:null,inStart:'',inEnd:'',outStart:'',outEnd:''}:x);uniqueName(d,data.name);if(!a.admin&&data.team&&data.team!==a.team)fail('调度只能提供本班组或全员位置');
-  const q={id:id(),...data,status:a.admin?'active':'pending',version:1,createdAt:stamp,createdBy:a.id,createdByName:a.name,history:[]};d.points.push(q);log(a.admin?'新增启用位置':'调度提供位置',q.id);return q.id;
+  if(type==='createPoint'&&!a.admin)fail('仅管理员可启用打卡位置');if(type==='propose'&&(a.admin||a.applicationRole!=='dispatch'))fail('仅车队长可提供打卡位置');
+  const data=pointInput(type==='propose'?{...x,maxAccuracy:null,inStart:'',inEnd:'',outStart:'',outEnd:''}:x);uniqueName(d,data.name);if(!a.admin&&data.team&&data.team!==a.team)fail('车队长只能提供本班组或全员位置');
+  const q={id:id(),...data,status:a.admin?'active':'pending',version:1,createdAt:stamp,createdBy:a.id,createdByName:a.name,history:[]};d.points.push(q);log(a.admin?'新增启用位置':'车队长提供位置',q.id);return q.id;
  }
  if(['approvePoint','rejectPoint','updatePoint','disablePoint','enablePoint','deletePoint','restorePoint'].includes(type)){
   if(!a.admin)fail('仅管理员可管理打卡位置');const q=d.points.find(q=>q.id===x.id);if(!q||q.version!==x.expectedVersion)fail('位置已变化，请刷新重试');

@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const roles = {driver:"司机端",excavator:"挖机端",assistant:"辅助司机端",assistant_loader:"辅助司机端",assistant_fuel:"辅助司机端",assistant_water:"辅助司机端",assistant_grader:"辅助司机端",assistant_dump:"辅助司机端",dispatch:"调度端",manager:"管理端",middle:"中层管理端",middle_repair_manager:"修理端",repair_worker:"修理端",middle_finance:"中层管理端",middle_survey:"中层管理端",middle_store:"中层管理端",middle_statistics:"中层管理端",middle_logistics:"中层管理端",boss:"Boss端"};
+  const roles = {driver:"司机端",excavator:"挖机端",assistant:"辅助司机端",assistant_loader:"辅助司机端",assistant_fuel:"辅助司机端",assistant_water:"辅助司机端",assistant_grader:"辅助司机端",assistant_dump:"辅助司机端",dispatch:"中层管理端",manager:"管理端",middle:"中层管理端",middle_repair_manager:"修理端",repair_worker:"修理端",middle_finance:"中层管理端",middle_survey:"中层管理端",middle_store:"中层管理端",middle_statistics:"中层管理端",middle_logistics:"中层管理端",boss:"Boss端"};
   const actions = {deactivate:"停用",restore:"恢复启用",depart:"办理离职",rehire:"发起返聘审核"};
   const encode = text => new TextEncoder().encode(text);
   const xml = value => String(value ?? "").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g,"").replace(/[&<>"']/g,char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&apos;"}[char]));
@@ -25,7 +25,7 @@
   const fields = [
     ["档案编号",p=>p.id,16],["员工编号",p=>p.employeeId || p.staffNo || p.id,16],
     ["姓名",p=>p.name,14],["手机号",p=>p.phone,20],
-    ["岗位",p=>p.role,18],["申请端口",p=>roles[p.applicationRole] || p.applicationRole,18],
+    ["岗位",p=>p.applicationRole==="dispatch"?"车队长":p.role,18],["申请端口",p=>roles[p.applicationRole] || p.applicationRole,18],
     ["人员类别",p=>p.personType || p.category,16],["所属班组",p=>p.team,18],
     ["国籍",p=>p.nationality,14],["民族",p=>p.ethnicity,14],
     ["入职日期",p=>p.joinDate,16,"date"],["身份证号",p=>p.idNumber,25],

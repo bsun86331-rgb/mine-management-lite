@@ -73,7 +73,7 @@
     return {sourceDate,workDate,team,shiftName,times,...windowTime,tasks,groups,warnings,signature};
   }
   function publish(d,m,a,x){
-    if(a.applicationRole!=="dispatch")fail("仅调度可发布");
+    if(a.applicationRole!=="dispatch")fail("仅车队长可发布");
     const prepared=prepare(d,m,x);
     if(x.expectedSignature&&x.expectedSignature!==prepared.signature)fail("配置已变化，请重新打开发布窗口核对");
     if(Date.now()>=Date.parse(prepared.endAt))fail("该任务日期的班次已经结束，请重新选择任务日期");
@@ -113,9 +113,9 @@
         task.assignmentId=row.id;retained.add(row.id);
         for(const s of d.shifts.filter(s=>s.assignmentId===row.id&&s.status!=="closed"))s.candidate=null;
       }else task.assignmentId=null;
-      d.messages.unshift({id:uid(),target:task.personId,body:"调度已发布 "+release.workDate+" "+release.shiftName+" · "+release.team+" 任务（第"+version+"版），到点自动执行",ref:id,at,readBy:[]});
+      d.messages.unshift({id:uid(),target:task.personId,body:"车队长已发布 "+release.workDate+" "+release.shiftName+" · "+release.team+" 任务（第"+version+"版），到点自动执行",ref:id,at,readBy:[]});
     }
-    if(old){old.status="superseded";old.supersededAt=at;old.supersededBy=id;for(const row of d.assignments.filter(r=>r.releaseId===old.id&&!retained.has(r.id)&&r.status==="active")){row.status="cancelled";row.cancelledAt=at;row.cancelNote="任务重新发布";}for(const task of old.tasks)if(!release.tasks.some(t=>sameTarget(task,t)))d.messages.unshift({id:uid(),target:task.personId,body:"原任务已被调度新版本替代，请查看最新任务看板",ref:old.id,at,readBy:[]});}
+    if(old){old.status="superseded";old.supersededAt=at;old.supersededBy=id;for(const row of d.assignments.filter(r=>r.releaseId===old.id&&!retained.has(r.id)&&r.status==="active")){row.status="cancelled";row.cancelledAt=at;row.cancelNote="任务重新发布";}for(const task of old.tasks)if(!release.tasks.some(t=>sameTarget(task,t)))d.messages.unshift({id:uid(),target:task.personId,body:"原任务已被车队长新版本替代，请查看最新任务看板",ref:old.id,at,readBy:[]});}
     d.taskReleases.unshift(release);
     d.audit.unshift({id:uid(),at,personId:a.id,actor:a.name,role:a.applicationRole,type:"发布班次任务",detail:release.workDate+" "+release.shiftName+" "+release.team+" 第"+version+"版",releaseId:id,version});
     return id;

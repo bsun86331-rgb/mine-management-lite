@@ -24,7 +24,7 @@ dialog#logisticsDialog{width:min(1180px,96vw);height:92vh;max-height:92vh;border
 </main>
 <dialog id="logisticsDialog"><div class="logistics-dialog-head"><strong>后勤物资申请与个人领用</strong><button id="closeLogistics" type="button">关闭</button></div><iframe id="logisticsFrame" title="后勤库存、申请与领用确认"></iframe></dialog>
 <script src="logistics-store.js?v=20261016-7"></script><script src="attachment-storage.js?v=20261016-1"></script>
-<script src="service-care.js?v=20261021-12"></script><script src="transport-store.js?v=20261021-24"></script><script src="task-engine.js?v=20261018-1"></script><script src="task-board.js?v=20261021-27"></script>
+<script src="service-care.js?v=20261021-12"></script><script src="transport-store.js?v=20261022-8"></script><script src="task-engine.js?v=20261022-8"></script><script src="task-board.js?v=20261021-27"></script>
 <script>
 const roles={
  driver:["司机端","🚚","司机查看当班任务并记录运输作业。"],
@@ -35,7 +35,7 @@ const roles={
  assistant_water:["水车司机","≈","水车岗位工作入口，查看当班任务、设备和作业内容。"],
  assistant_grader:["平地机司机","▱","平地机岗位工作入口，查看当班任务、设备和作业内容。"],
  assistant_dump:["排土管理员","⚑","排土现场管理岗位工作入口，查看当班任务、设备和作业内容。"],
- dispatch:["调度端","🗺","调度人员查看车辆、人员和作业安排。"],
+ dispatch:["车队长","🗺","车队长人员查看车辆、人员和作业安排。"],
  middle:["中层管理端","⚙","中层管理人员跟进现场班组和日常管理。"],
  middle_repair_manager:["修理管理","⚒","审批修理组请假，查看本人申请与后勤事项。"],
  repair_worker:["修理工","🔧","查看维修看板及本人工作事项，办理上下班打卡和请销假。"],
@@ -91,7 +91,7 @@ async function checkWorkAccess(){
     }catch(error){board.textContent=error.message;}
   }
   document.getElementById("accessNote").textContent=key==="middle_store"?"后勤库存、申请发放、归还及清算功能已开放。":"后勤物资申请、本人领用确认及归还清算已开放，其他岗位业务逐步建设。";
-  if(MineTransport.auxiliaryRoles.includes(key))document.getElementById("accessNote").textContent="查看各班组已发布任务、设备和作业内容；任务排班由调度统一修改。";
+  if(MineTransport.auxiliaryRoles.includes(key))document.getElementById("accessNote").textContent="查看各班组已发布任务、设备和作业内容；任务排班由车队长统一修改。";
   if(key==="middle_repair_manager")document.getElementById("accessNote").textContent="修理组请假审批及本人请假申请已开放，请使用下方请假入口。";
   const link=document.getElementById("logisticsLink");link.href="logistics.html?role="+encodeURIComponent(key)+"&rev=20261020-14";
   link.textContent=key==="middle_store"?"进入后勤库管工作台":key==="middle_finance"?"后勤申请 / 赔偿复核":"后勤物资申请";
@@ -120,5 +120,5 @@ document.getElementById("roleTitle").textContent=expandedRole?"任务看板":ite
 document.getElementById("roleIcon").textContent=item[1];
 document.getElementById("roleDesc").textContent=item[2];
 </script>
-<script src="leave-store.js?v=20261022-7" defer></script><script src="leave-entry.js?v=20261021-29" defer></script><script src="gps-clock-entry.js?v=20261022-6" defer></script><script src="haul-report-entry.js?v=20261022-2" defer></script><script src="before-use-meter.js?v=20261021-12" defer></script><script src="dormitory-store.js?v=20261022-1" defer></script><script src="dormitory-entry.js?v=20261022-2" defer></script><script src="maintenance-view-entry.js?v=20261022-2" defer></script></body>
+<script src="leave-store.js?v=20261022-8" defer></script><script src="leave-entry.js?v=20261021-29" defer></script><script src="gps-clock-entry.js?v=20261022-6" defer></script><script src="haul-report-entry.js?v=20261022-2" defer></script><script src="before-use-meter.js?v=20261021-12" defer></script><script src="dormitory-store.js?v=20261022-1" defer></script><script src="dormitory-entry.js?v=20261022-2" defer></script><script src="maintenance-view-entry.js?v=20261022-2" defer></script></body>
 </html>

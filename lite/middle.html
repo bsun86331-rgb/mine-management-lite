@@ -15,6 +15,7 @@
   <section class="hero"><small>工作端口 / 中层管理端</small><h1>选择你的工作岗位</h1><p>选择后进入入职登记，提交管理员审核。</p></section>
   <section class="application" id="currentApplication" hidden aria-label="已有登记"><p id="currentApplicationText"></p><a id="currentApplicationLink">查看我的登记</a></section>
   <section class="jobs" aria-label="中层管理岗位">
+      <a class="job" href="enroll.html?role=dispatch"><span class="job-icon" aria-hidden="true">⌖</span><h2>车队长</h2><p>任务排班、车辆安排、考勤核对及本组请销假审批</p><span class="job-action">进入车队长端 <span aria-hidden="true">↗</span></span></a>
       <a class="job" href="enroll.html?role=middle_finance"><span class="job-icon" aria-hidden="true">¥</span><h2>财务</h2><p>财务岗位工作入口</p><span class="job-action">选择并登记 <span aria-hidden="true">↗</span></span></a>
       <a class="job" href="enroll.html?role=middle_survey"><span class="job-icon" aria-hidden="true">⌖</span><h2>测绘</h2><p>测绘岗位工作入口</p><span class="job-action">选择并登记 <span aria-hidden="true">↗</span></span></a>
       <a class="job" href="enroll.html?role=middle_store"><span class="job-icon" aria-hidden="true">▣</span><h2>后勤库管</h2><p>后勤库房管理岗位工作入口</p><span class="job-action">选择并登记 <span aria-hidden="true">↗</span></span></a>
@@ -25,13 +26,13 @@
 </main>
 <script>
 (() => {
-  const allowed=["middle","middle_finance","middle_survey","middle_store","middle_statistics","middle_logistics"];
+  const allowed=["dispatch","middle","middle_finance","middle_survey","middle_store","middle_statistics","middle_logistics"];
   try {
     const current=localStorage.getItem("mine-management-lite-current-application");
     const db=JSON.parse(localStorage.getItem("mine-management-lite-records-v1")||"{}");
     const person=Array.isArray(db.people)?db.people.find(p=>p.id===current):null;
     if(!person || !allowed.includes(person.applicationRole)) return;
-    document.getElementById("currentApplicationText").textContent="已有登记："+(person.applicationRole==="middle_store"?"后勤库管":(person.role || "中层管理"))+"（"+(person.status || "待审核")+"）";
+    document.getElementById("currentApplicationText").textContent="已有登记："+(person.applicationRole==="dispatch"?"车队长":person.applicationRole==="middle_store"?"后勤库管":(person.role || "中层管理"))+"（"+(person.status || "待审核")+"）";
     document.getElementById("currentApplicationLink").href="enroll.html?role="+encodeURIComponent(person.applicationRole);
     document.getElementById("currentApplication").hidden=false;
   } catch {}
