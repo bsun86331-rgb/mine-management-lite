@@ -1,0 +1,10 @@
+/* Common business navigation: separate from bottom work-home shortcuts. */
+.workspace-feature-nav{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;margin:6px 0 0;min-width:0}
+body .workspace-feature-nav .workspace-feature-link{display:flex;align-items:center;justify-content:flex-start;gap:6px;width:100%;min-height:40px;margin:0;padding:9px 14px;border:1px solid transparent;border-radius:9px;background:transparent;color:#176b4a;font:500 14px/1.5 "PingFang SC","Microsoft YaHei",sans-serif;text-align:left;text-decoration:none;white-space:normal;overflow-wrap:anywhere;cursor:pointer}
+body .workspace-feature-nav .workspace-feature-link:hover{background:#e7f1eb}
+body .workspace-feature-nav .workspace-feature-link.selected{background:#e0eee5;color:#145c40}
+.sidebar .workspace-feature-nav .workspace-feature-link,.side .workspace-feature-nav .workspace-feature-link{color:#d6e5db}
+.sidebar .workspace-feature-nav .workspace-feature-link:hover,.side .workspace-feature-nav .workspace-feature-link:hover,.sidebar .workspace-feature-nav .workspace-feature-link.selected,.side .workspace-feature-nav .workspace-feature-link.selected{background:#ffffff22;color:#fff}
+body .workspace-feature-nav .workspace-feature-link:focus-visible{outline:3px solid #8cbea5;outline-offset:2px}
+.sidebar,.side{overflow-y:auto}.sidebar>*,.side>*{flex-shrink:0}
+@media(max-width:700px){.workspace-feature-nav{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}body .workspace-feature-nav .workspace-feature-link{width:auto;min-height:36px;padding:7px 10px;font-size:12px}}
