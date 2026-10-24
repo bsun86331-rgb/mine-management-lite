@@ -21,7 +21,7 @@ async function save(role,x){
  const allowed=options(p),choice=allowed.vehicles.find(v=>v.vehicle.id===x.vehicleId);if(!choice||allowed.source!==x.source||(choice.assignment?.id||"")!==(x.assignmentId||""))fail("当前任务或车辆范围已变化，请刷新后重新选择");
  const text=String(x.litres??"").trim(),litres=Number(text);if(!/^\d+(\.\d{1,2})?$/.test(text)||!Number.isFinite(litres)||litres<=0||litres>100000)fail("请填写有效加油量（升，最多两位小数）");
  if(!["柴油","汽油"].includes(x.fuelType))fail("请选择油品");
- const meterText=String(x.meterValue??"").trim(),meterValue=meterText===""?null:Number(meterText);if(meterValue!==null&&(!/^\d+(\.\d{1,2})?$/.test(meterText)||!Number.isFinite(meterValue)||meterValue>1e10))fail("请填写有效仪表读数");
+ const meterValue=null;
  const note=String(x.note||"").trim();if(note.length>300)fail("备注最多300字");
  const v=choice.vehicle,a=choice.assignment,at=new Date().toISOString(),r={id:crypto.randomUUID(),requestId,personId:p.id,personName:p.name,personRole:p.applicationRole,team:p.team||"",vehicleId:v.id,vehicleCode:v.code||v.name||v.id,vehicleCategory:v.category||v.model||"",fuelType:x.fuelType,litres,meterValue,meterUnit:window.MineServiceCare?.unit(v)||"公里",note,at,source:allowed.source,assignmentId:a?.id||null,releaseId:a?.releaseId||null,workDate:a?.workDate||null,shiftName:a?.shiftName||null,taskTeam:a?.team||null};
  d.records.unshift(r);localStorage.setItem(KEY,JSON.stringify(d));window.dispatchEvent(new CustomEvent("mine-fuel-change"));return r.id;
