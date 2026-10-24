@@ -49,7 +49,8 @@ let portalBoardSignature="";
 const key=new URLSearchParams(location.search).get("role");
 const knownRole=Object.prototype.hasOwnProperty.call(roles,key);
 const item=(knownRole ? roles[key] : null)||["业务端口","◇","该端口将在后续步骤中逐个完成。"];
-const expandedRole=["assistant_loader","assistant_water","assistant_grader","assistant_dump","repair_worker","middle_statistics"].includes(key);
+// Every supported portal role uses the shared full-width workspace.
+const expandedRole=knownRole;
 if(expandedRole){
   document.body.classList.add("aux-expanded");
   const card=document.querySelector(".card"),shell=document.createElement("div");
