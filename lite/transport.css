@@ -384,3 +384,6 @@ button.attendance-status:hover{border-color:#78a98b}
 .transport-page-head{flex-wrap:wrap;align-items:center}
 .transport-page-head .workspace-heading{min-width:0;flex:1 1 180px}
 .transport-page-head>.personal-shift-stats{margin-left:auto;justify-content:flex-end;max-width:100%;flex:0 1 auto}
+
+/* Driver shift totals follow the real-time workspace title. */
+.workspace-title-row>.personal-shift-stats{margin-left:0;justify-content:flex-start;max-width:100%;flex:0 1 auto}

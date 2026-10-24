@@ -46,7 +46,9 @@
   }
   function renderPersonalShiftStats(){
     const host=$("personalShiftStats");if(!host)return;
-    host.hidden=view!=="tasks"||!["driver","excavator"].includes(role);if(host.hidden){host.innerHTML="";return;}
+    const driverWork=role==="driver",placement=driverWork?$("title").parentElement:document.querySelector(".transport-page-head");
+    if(placement&&host.parentElement!==placement)placement.append(host);
+    host.hidden=(driverWork?view!=="work":view!=="tasks")||!["driver","excavator"].includes(role);if(host.hidden){host.innerHTML="";return;}
     const slot=MineTaskBoard.slots(d).current,cohort=new Set(),counts=new Map();
     if(slot){
       for(const release of d.taskReleases.filter(r=>r.status==="published"&&r.workDate===slot.workDate&&r.shiftName===slot.shiftName))
