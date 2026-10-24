@@ -411,7 +411,7 @@ main{min-width:0;padding:27px clamp(16px,3vw,42px) 44px}
     }, 0);
     return "P" + String(max + 1).padStart(3,"0");
   }
-  const vehicleCategories = ["矿用自卸车","挖掘机","装载机","推土机","洒水车","加油车","平地机","压路机","维修服务车","其他"];
+  const vehicleCategories = ["矿用自卸车","挖掘机","装载机","推土机","洒水车","加油车","平地机","压路机","维修服务车","皮卡","指挥车","其他"];
   const vehicleFuels = ["未填写","柴油","汽油","电动","混合动力","其他"];
   const withCurrentOption = (options,value) => value && !options.includes(value) ? [value,...options] : options;
   const vehicleToday = () => {

@@ -109,6 +109,11 @@
   const isExcavator=v=>/挖/.test(String(v?.category||v?.model||""));
   const isHaulTruck=v=>/自卸|矿卡/.test(String(v?.category||v?.model||""));
   const auxiliaryRoles=["assistant_loader","assistant_fuel","assistant_water","assistant_grader","assistant_dump","assistant"];
+  const isCommandVehicle=v=>{
+    if(!v)return false;const category=String(v.category||"").trim(),text=[category,v.model,v.name,v.code].filter(Boolean).join(" ");
+    if(/挖|自卸|矿卡|装载|铲车|推土|洒水|水车|加油|油罐|平地|压路|维修服务|运输车|货车|大巴|客车/.test(text))return false;
+    return /^(皮卡|指挥车)$/.test(category)||(!category||category==="其他")&&/皮卡|指挥车/.test(text);
+  };
   const isAuxiliaryVehicle=v=>!!v&&!isExcavator(v)&&!isHaulTruck(v);
   const sameDraftShift=(r,c)=>r.workDate===c.workDate&&r.shiftName===c.shiftName;
   function draftSlots(d,c){
@@ -209,7 +214,7 @@
       const prior=d.inspections.find(r=>r.source==="self-vehicle"&&r.requestId===requestId);
       const result=r=>({id:r.id,attachmentIds:[...(r.meterAttachments||[]),...(r.attachments||[])].map(f=>f.id)});
       if(prior){if(prior.personId!==a.id||prior.vehicleId!==x.vehicleId||prior.outcome!==x.outcome)fail("检查提交编号冲突，请重新打开");return result(prior);}
-      const v=m.vehicles.find(v=>v.id===x.vehicleId);if(!v)fail("请选择现有车辆");if(!["normal","abnormal"].includes(x.outcome))fail("请选择正常检查或上报异常");
+      const v=m.vehicles.find(v=>v.id===x.vehicleId);if(!v)fail("请选择现有车辆");if(!isCommandVehicle(v))fail("用车检查仅限皮卡、指挥车，请重新选择");if(!["normal","abnormal"].includes(x.outcome))fail("请选择正常检查或上报异常");
       if(x.metric!==C.metric(v))fail("车辆计量类别已变化，请重新选择");
       const abnormal=x.outcome==="abnormal",attachments=Array.isArray(x.attachments)?x.attachments:[];if(attachments.length>10)fail("异常照片最多10张");for(const f of attachments)if(!f?.id||!String(f.type).startsWith("image/")||!Number.isFinite(f.size)||f.size<=0||f.size>10*1024*1024)fail("异常照片须为10MB以内的有效图片");
       if(!abnormal&&!working(d,m,v.id))fail("车辆处于暂停、维修或停用状态，不能登记为可开始用车；可上报检查异常");
@@ -538,7 +543,7 @@
  window.MineLeave.assertSchedule(p,w.startAt,w.endAt);
  }
  async function act(type,args,actor){if(!navigator.locks?.request)fail("请使用支持事务锁的新版浏览器");await sync();const transaction=()=>navigator.locks.request(KEY,async()=>{const record=await readStorage();if(!record&&cachedToken!=="empty")fail("运输台账存储记录缺失，请保留浏览器数据");cacheRecord(record);const d=get(),m=L.main(),a=actorFrom(m,actor,type),result=execute(d,m,a,type,args||{}),next={raw:JSON.stringify(d),token:uid()};await writeStorage(next);cacheRecord(next);signalStorage();return result;});if(["productionGroup","auxiliaryPlan","assignment","activateAssignment","publishTasks","openShift","taskMeterReading","unscheduledAttendance","unscheduledAttendanceGroup","attendanceDecision","publishAttendance","attendanceReminderChoice"].includes(type)){if(!window.MineLeave)fail("请销假组件尚未加载，请刷新");return window.MineLeave.withSchedulingLock(()=>["unscheduledAttendance","unscheduledAttendanceGroup","attendanceDecision","publishAttendance"].includes(type)?window.MineGPSClock.withAttendanceLock(transaction):transaction());}return transaction();}
-  window.MineTransport={KEY,get,ready,sync,stamp,context,selfVehicleActor,act,defaults,materialTypes,shiftTimeDefaults,currentShift,date,distance,inside,validZone,ownShift,shiftTrip,liveTrip,equipmentState,working,isExcavator,isHaulTruck,isAuxiliaryVehicle,auxiliaryRoles,draftSlots,visibleMessages,chatVehicleAt};
+  window.MineTransport={KEY,get,ready,sync,stamp,context,selfVehicleActor,act,defaults,materialTypes,shiftTimeDefaults,currentShift,date,distance,inside,validZone,ownShift,shiftTrip,liveTrip,equipmentState,working,isExcavator,isHaulTruck,isCommandVehicle,isAuxiliaryVehicle,auxiliaryRoles,draftSlots,visibleMessages,chatVehicleAt};
 })();
 
 
