@@ -44,3 +44,6 @@ window.addEventListener("pagehide",()=>{close();attendanceDialog?.close();});win
 window.MineLeaveEntry={close};
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>{install();poll();});else{install();poll();}setInterval(poll,5000);
 })();
+
+// Team-transfer entry shares the existing workspace shortcut area and dialog style.
+(()=>{if(window.parent!==window)return;const script=document.createElement("script");script.src="team-transfer-store.js?v=20261024-7";script.onload=()=>{const entry=document.createElement("script");entry.src="team-transfer-entry.js?v=20261024-7";document.head.append(entry);};document.head.append(script);})();
