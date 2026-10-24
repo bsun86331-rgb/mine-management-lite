@@ -387,3 +387,15 @@ button.attendance-status:hover{border-color:#78a98b}
 
 /* Driver shift totals follow the real-time workspace title. */
 .workspace-title-row>.personal-shift-stats{margin-left:0;justify-content:flex-start;max-width:100%;flex:0 1 auto}
+
+/* Driver live work guidance uses the same accepted positions and task snapshots. */
+.driver-work-guide{border:2px solid #94bda4}
+.driver-guide-current{padding:16px;border-radius:12px;background:#eaf5ed;color:#173d31;margin:12px 0}
+.driver-guide-current>strong{display:block;font-size:28px;line-height:1.4;overflow-wrap:anywhere}
+.driver-guide-current p{font-size:17px;line-height:1.6;margin:8px 0 0}
+.driver-guide-zones{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+.driver-guide-zone{display:flex;flex-direction:column;gap:6px;border:1px solid #d7e6dd;border-radius:10px;padding:12px;overflow-wrap:anywhere}
+.driver-guide-zone>span{font-size:13px;color:#627970}.driver-guide-zone>strong{font-size:18px}.driver-guide-zone>b{font-size:22px;color:#176b4a}
+.guide-waiting .driver-guide-current{background:#fff7e8;color:#865719}
+.guide-completed .driver-guide-current{background:#ddf4e3}
+@media(max-width:600px){.driver-guide-current>strong{font-size:23px}.driver-guide-current p{font-size:16px}.driver-guide-zones{grid-template-columns:1fr}.driver-guide-zone>b{font-size:20px}}
