@@ -75,12 +75,13 @@
   function detailLink(r,task,type,label,className="",title=""){
     return '<button type="button" class="task-detail-link '+className+'" data-task-detail="'+type+'" data-task-release="'+esc(r.id)+'" data-task-id="'+esc(task.id)+'"'+(title?' title="'+esc(title)+'"':"")+'>'+label+'</button>';
   }
-  function equipment(d,r,task,kind,code,name,ownId){
+  function equipment(d,r,task,kind,code,name,ownId,statusOnly=false){
     const requiresInspection=task&&["driver","excavator"].includes(task.kind);
     const device=task&&task.vehicleId?detailLink(r,task,"equipment",esc(code||"未绑定设备")):esc(code||"未绑定设备");
     const person=task?detailLink(r,task,"person",esc(name||"未分配人员")):esc(name||"未分配人员");
     const count=requiresInspection?' · '+detailLink(r,task,"trips",(task.kind==="excavator"?"装车 ":"车数 ")+completedCount(d,r,task)+"车","task-driver-count","点击查看本班已完成车次明细"):"";
-    const check=requiresInspection?detailLink(r,task,"inspection",esc(inspection(d,task)),"task-inspection-link "+(inspectionData(d,task).checked?"task-inspected":"task-uninspected"),"点击查看使用前检查结果"):"";
+    const checkClass="task-inspection-link "+(requiresInspection&&inspectionData(d,task).checked?"task-inspected":"task-uninspected");
+    const check=requiresInspection?(statusOnly?'<span class="'+checkClass+'">'+esc(inspection(d,task))+'</span>':detailLink(r,task,"inspection",esc(inspection(d,task)),checkClass,"点击查看使用前检查结果")):"";
     return '<article class="task-equipment task-equipment-'+kind+(task?.personId===ownId?' task-own-equipment':'')+'"><strong>'+device+'</strong><span>'+person+count+'</span>'+check+'</article>';
   }
   function groupTitle(n){const v=["","一","二","三","四","五","六","七","八","九","十"];return "第"+(v[n]||n)+"组生产设备";}
@@ -110,10 +111,10 @@
       const excavator=r.tasks.find(t=>t.kind==="excavator"&&t.group?.sourceGroupId===g.sourceGroupId);
       const trucks=r.tasks.filter(t=>t.kind==="driver"&&t.group?.sourceGroupId===g.sourceGroupId);
       const regions=g.regions||{load:null,unloads:[]};
-      return '<section class="task-production-group"><h4>'+esc(groupTitle(g.number))+'</h4><div class="task-equipment-row">'+equipment(d,r,excavator,"excavator",g.excavatorCode,g.excavatorDriverName,person.id)+trucks.map(t=>equipment(d,r,t,"truck",t.vehicleCode,t.personName,person.id)).join("")+'<article class="task-region"><strong>装卸区域</strong><span>装载区：'+esc(regions.load?.name||"未设置")+'</span><span>卸载区：'+esc((regions.unloads||[]).map(z=>z.name+(z.material?" · "+z.material:"")).join("、")||"未设置")+'</span></article></div>'+ownTasks.filter(t=>t.group?.sourceGroupId===g.sourceGroupId).map(t=>readOnly?"":workAction(d,r,t,person,dispatch)).join("")+'</section>';
+      return '<section class="task-production-group"><h4>'+esc(groupTitle(g.number))+'</h4><div class="task-equipment-row">'+equipment(d,r,excavator,"excavator",g.excavatorCode,g.excavatorDriverName,person.id,person.applicationRole==="driver")+trucks.map(t=>equipment(d,r,t,"truck",t.vehicleCode,t.personName,person.id,person.applicationRole==="driver")).join("")+'<article class="task-region"><strong>装卸区域</strong><span>装载区：'+esc(regions.load?.name||"未设置")+'</span><span>卸载区：'+esc((regions.unloads||[]).map(z=>z.name+(z.material?" · "+z.material:"")).join("、")||"未设置")+'</span></article></div>'+ownTasks.filter(t=>t.group?.sourceGroupId===g.sourceGroupId).map(t=>readOnly||person.applicationRole==="driver"?"":workAction(d,r,t,person,dispatch)).join("")+'</section>';
     }).join("");
     const auxiliary=r.tasks.filter(t=>t.kind==="auxiliary");
-    const aux=auxiliary.length?'<section class="task-auxiliary"><h4>辅助车辆 / 人员</h4><div class="task-equipment-row">'+auxiliary.map(t=>'<div class="task-auxiliary-item">'+equipment(d,r,t,"auxiliary",t.vehicleCode,t.personName,person.id)+(t.content?'<div class="task-aux-content"><b>作业内容</b><span>'+esc(t.content)+'</span></div>':"")+'</div>').join("")+'</div></section>':"";
+    const aux=auxiliary.length?'<section class="task-auxiliary"><h4>辅助车辆 / 人员</h4><div class="task-equipment-row">'+auxiliary.map(t=>'<div class="task-auxiliary-item">'+equipment(d,r,t,"auxiliary",t.vehicleCode,t.personName,person.id,person.applicationRole==="driver")+(t.content?'<div class="task-aux-content"><b>作业内容</b><span>'+esc(t.content)+'</span></div>':"")+'</div>').join("")+'</div></section>':"";
     return '<section class="task-release"><header><div><div class="task-release-title"><h3>'+esc(r.workDate+" · "+r.shiftName+" · "+r.team)+'</h3><span class="task-shift-total" title="该班组本班已完成的真实定位车次；包含非卸载区完成，不含未完成、作废及模拟记录">当班总拉运车数：<b>'+haul.total+'</b> 车</span>'+["渣","煤","只记车数"].map(name=>'<span class="task-shift-material">'+esc(name)+'：<b>'+haul.materials[name]+'</b> 车</span>').join("")+'</div><p>'+esc(time(r.startAt)+" — "+time(r.endAt))+' <span>第'+esc(r.version)+'版</span></p></div><span class="task-phase task-'+esc(E().phase(r))+'">'+esc(names[E().phase(r)]||"")+'</span></header>'+releaseStats(d,m,r)+rows+aux+'</section>';
   }
   function render(d,m,person,options={}){
@@ -238,6 +239,7 @@
     if(type==="person")return personDetails(d,m,task);
     if(type==="trips"&&["driver","excavator"].includes(task.kind))return tripsDetails(d,m,r,task);
     if(type==="inspection"&&["driver","excavator"].includes(task.kind)){
+      if(current.applicationRole==="driver")return;
       const assignment=(d.assignments||[]).find(a=>a.id===task.assignmentId);
       const own=!context.options.readOnly&&!context.options.shared&&!context.options.history&&!context.options.dispatch&&task.personId===current.id&&task.role===current.applicationRole;
       if(own&&E().phase(r)==="running"&&assignment?.status==="active"&&!inspectionData(d,task).checked){
